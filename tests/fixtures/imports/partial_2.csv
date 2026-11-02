@@ -1,0 +1,5 @@
+Auftragskonto;Buchungstag;Valutadatum;Empfänger/Auftraggeber;IBAN;Verwendungszweck;Betrag;Waehrung
+DE89370400440532013000;20.01.2026;20.01.2026;Bäckerei Krume;;Kartenzahlung Brötchen;-3,50;EUR
+DE89370400440532013000;21.01.2026;21.01.2026;Apotheke am Markt;DE52567890120000000501;Zuzahlung Medikament;-5,00;EUR
+DE89370400440532013000;23.01.2026;23.01.2026;Café Östlich;;Kartenzahlung Frühstück;-7,80;EUR
+DE89370400440532013000;24.01.2026;24.01.2026;Erika Beispiel;DE65789012340000000701;Anteil Geschenk;20,00;EUR

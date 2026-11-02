@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Lokale Werkzeuge & Daten
+.tools/
+.uv-cache/
+.pg/
+.env
+/imports/
+
+# Sicherungen (scripts/backup.sh)
+backups/
+.hypothesis/

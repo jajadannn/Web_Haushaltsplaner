@@ -1,0 +1,9 @@
+Datum;Valuta;Auftraggeber;Empfänger;IBAN Gegenkonto;Buchungstext;Soll;Haben
+05.01.2026;05.01.2026;;Stadtwerke Musterhausen;DE33123456780000000101;Abschlag Strom 01/2026 Zähler 2;89,00;
+09.01.2026;09.01.2026;;Hausverwaltung Müller & Söhne GmbH;DE26234567890000000201;Garagenmiete Januar 2026;1.150,00;
+12.01.2026;12.01.2026;Arbeitgeber Beispiel AG;;DE57345678900000000301;Prämie Dezember 2025;;3.456,78
+15.01.2026;15.01.2026;;Supermarkt Grünfeld;;Kartenzahlung Großeinkauf;57,43;
+19.01.2026;19.01.2026;Finanzamt Musterstadt;;DE30345678900000000302;Erstattung Kirchensteuer;;312,48
+23.01.2026;23.01.2026;;Versicherung Sicherheit AG;DE42456789010000000401;Beitrag Unfallversicherung;64,90;
+26.01.2026;26.01.2026;;Fahrradwerkstatt Köhler;DE25567890120000000502;Klingel und Licht;0,99;
+30.01.2026;30.01.2026;Erika Beispiel;;DE65789012340000000701;Rückzahlung Leihgabe;;25,00

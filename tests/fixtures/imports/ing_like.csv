@@ -1,0 +1,23 @@
+Umsatzanzeige;Datei erstellt am: 02.02.2026 09:15
+;Letztes Update: aktuell
+
+IBAN;DE89 3704 0044 0532 0130 00
+Kontoname;Girokonto
+Bank;Beispielbank eG
+Kunde;Max Muster
+Zeitraum;01.01.2026 - 31.01.2026
+Saldo;4.500,00;EUR
+
+Sortierung;Datum absteigend
+
+In der CSV-Datei finden Sie alle bereits gebuchten Umsätze. Die vorgemerkten Umsätze werden nicht aufgenommen.
+
+Buchung;Wertstellungsdatum;Auftraggeber/Empfänger;Buchungstext;Verwendungszweck;Saldo;Währung;Betrag;Währung
+30.01.2026;30.01.2026;Arbeitgeber Beispiel AG;Gutschrift;Lohn Januar 2026;4.500,00;EUR;2.675,50;EUR
+27.01.2026;27.01.2026;Versicherung Sicherheit AG;Lastschrift;Beitrag Rechtsschutz Januar;1.824,50;EUR;-18,95;EUR
+23.01.2026;23.01.2026;Supermarkt Grünfeld;Lastschrift;Girocard Zahlung Wocheneinkauf;1.843,45;EUR;-83,12;EUR
+19.01.2026;20.01.2026;Erika Beispiel;Überweisung;Anteil Konzertkarten;1.926,57;EUR;45,00;EUR
+14.01.2026;14.01.2026;FunkNetz Muster GmbH;Lastschrift;Rechnung Mobilfunk Dezember;1.881,57;EUR;-19,99;EUR
+09.01.2026;09.01.2026;Apotheke am Markt;Lastschrift;Zuzahlung Rezept;1.901,56;EUR;-6,50;EUR
+06.01.2026;06.01.2026;Hausverwaltung Müller & Söhne GmbH;Dauerauftrag;Miete Januar Stellplatz;1.908,06;EUR;-1.032,25;EUR
+02.01.2026;02.01.2026;Stadtwerke Musterhausen;Lastschrift;Abschlag Strom 01/2026;2.940,31;EUR;-74,00;EUR

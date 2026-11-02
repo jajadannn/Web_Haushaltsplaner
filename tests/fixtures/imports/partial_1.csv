@@ -1,0 +1,5 @@
+Auftragskonto;Buchungstag;Valutadatum;Empfänger/Auftraggeber;IBAN;Verwendungszweck;Betrag;Waehrung
+DE89370400440532013000;18.01.2026;18.01.2026;Supermarkt Grünfeld;;Kartenzahlung Sonntagseinkauf;-31,20;EUR
+DE89370400440532013000;19.01.2026;19.01.2026;Schreibwaren Jäger;DE91678901230000000602;Büromaterial Rechnung 2026-017;-17,25;EUR
+DE89370400440532013000;20.01.2026;20.01.2026;Bäckerei Krume;;Kartenzahlung Brötchen;-3,50;EUR
+DE89370400440532013000;20.01.2026;20.01.2026;Fahrradwerkstatt Köhler;DE25567890120000000502;Schlauch und Flickzeug;-8,90;EUR

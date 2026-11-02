@@ -1,0 +1,4 @@
+# Kodierung und Zeilenenden (CRLF, BOM, cp1252/latin-1) gehören zum Test und dürfen nicht umgeschrieben werden
+*.csv -text
+*.ofx -text
+*.sta -text
