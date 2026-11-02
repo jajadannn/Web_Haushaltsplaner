@@ -5,7 +5,7 @@ from sqlmodel import select
 
 from app.config import get_settings
 from app.deps import CurrentUser, SessionDep
-from app.errors import AppError, Conflict
+from app.errors import AppError, Conflict, PayloadTooLarge
 from app.models.imports import BatchSource, BatchStatus, ImportBatch, ImportRow, RowDecision
 from app.schemas.imports import (
     ImportBatchRead,
@@ -107,7 +107,7 @@ def upload(
     limit = get_settings().max_upload_mb * 1024 * 1024
     content = file.file.read(limit + 1)
     if len(content) > limit:
-        raise AppError(f"Datei größer als {get_settings().max_upload_mb} MB", code="file_too_large")
+        raise PayloadTooLarge(f"Datei größer als {get_settings().max_upload_mb} MB")
     if not content:
         raise AppError("Datei ist leer", code="file_empty")
     profile = profiles.get_profile(session, user, import_profile_id)
@@ -174,7 +174,7 @@ def list_rows(
 def resolve_rows(batch_id: int, data: RowResolve, session: SessionDep, user: CurrentUser):
     """`import` = als neue Buchung übernehmen, `duplicate` = ist schon vorhanden
     (Vorschlag oder `matched_transaction_id`), `skip` = ignorieren."""
-    batch = jobs.get_batch(session, user, batch_id)
+    batch = jobs.lock_batch(session, user, batch_id)
     count = jobs.resolve_rows(session, user, batch, jobs.Resolution(**data.model_dump()))
     session.commit()
     return {"resolved": count, "open_rows": batch.rows_review}
@@ -183,7 +183,7 @@ def resolve_rows(batch_id: int, data: RowResolve, session: SessionDep, user: Cur
 @router.post("/imports/{batch_id}/commit", response_model=ImportBatchRead)
 def commit_import(batch_id: int, session: SessionDep, user: CurrentUser):
     """Übernimmt einen geklärten Import in einer Datenbanktransaktion."""
-    batch = jobs.get_batch(session, user, batch_id)
+    batch = jobs.lock_batch(session, user, batch_id)
     if batch.status != BatchStatus.AWAITING_REVIEW:
         raise Conflict("Import wartet nicht auf Klärung", code="import_not_awaiting_review")
     conflicts = jobs.commit(session, batch)

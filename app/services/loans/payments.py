@@ -90,12 +90,19 @@ def _payment_transaction(
 
 
 def _target_entry(session: Session, loan: Loan, seq: int | None) -> LoanScheduleEntry | None:
+    """Nur die nächste offene Rate – eine spätere würde frühere offene Raten aus dem Plan drängen."""
+    entries = open_entries(session, loan)
     if seq is None:
-        entries = open_entries(session, loan)
         return entries[0] if entries else None
     entry = get_entry(session, loan, seq)
     if entry.status != ScheduleStatus.PLANNED:
         raise Conflict(f"Rate {seq} ist nicht offen", code="installment_not_open")
+    if entry.id != entries[0].id:
+        raise Conflict(
+            f"Zuerst Rate {entries[0].seq} buchen – Raten werden in ihrer Reihenfolge bezahlt",
+            code="installment_not_next",
+            details={"next_seq": entries[0].seq},
+        )
     return entry
 
 
@@ -104,17 +111,32 @@ def _last_payment_date(session: Session, loan: Loan) -> date:
     return last or session.get(Account, loan.account_id).opening_balance_date
 
 
+def _dues(
+    session: Session, loan: Loan, booking_date: date, entry: LoanScheduleEntry | None
+) -> tuple[Decimal, Decimal]:
+    """(fällige Zinsen, fällige Gebühren) für die Zahlung."""
+    if entry is not None:
+        return entry.planned_interest, entry.planned_extra
+    # Ohne Plan (Privatkredit): taggenau aufgelaufene Zinsen seit der letzten Zahlung
+    days = (booking_date - _last_payment_date(session, loan)).days
+    return accrued_interest(remaining_debt(session, loan), loan.annual_interest_rate, days), loan.extra_amount
+
+
 def suggest_split(
     session: Session, loan: Loan, amount: Decimal, booking_date: date, entry: LoanScheduleEntry | None
 ) -> tuple[Decimal, Decimal, Decimal]:
-    """(Zinsen, Tilgung, Gebühren): zuerst Gebühren, dann Zinsen, Rest Tilgung."""
-    if entry is not None:
-        interest_due, extra_due = entry.planned_interest, entry.planned_extra
-    else:
-        # Ohne Plan (Privatkredit): taggenau aufgelaufene Zinsen seit der letzten Zahlung
-        days = (booking_date - _last_payment_date(session, loan)).days
-        interest_due = accrued_interest(remaining_debt(session, loan), loan.annual_interest_rate, days)
-        extra_due = loan.extra_amount
+    """(Zinsen, Tilgung, Gebühren): zuerst Gebühren, dann Zinsen, Rest Tilgung.
+
+    Deckt die Zahlung die fälligen Zinsen und Gebühren nicht, wird sie abgelehnt – offene
+    Restforderungen werden (noch) nicht geführt und dürften nicht stillschweigend verfallen.
+    """
+    interest_due, extra_due = _dues(session, loan, booking_date, entry)
+    if amount < interest_due + extra_due:
+        raise Invalid(
+            "Zahlung deckt die fälligen Zinsen und Gebühren nicht – Teilzahlungen werden nicht unterstützt",
+            code="payment_below_interest",
+            details={"amount": amount, "interest_due": interest_due, "extra_due": extra_due},
+        )
     return split_payment(amount, interest_due=interest_due, extra_due=extra_due)
 
 
@@ -156,6 +178,16 @@ def record_payment(session: Session, user: User, loan: Loan, data: LoanPaymentCr
     amount = -tx.amount
     loan_account = session.get(Account, loan.account_id)
     check_booking_date(loan_account, tx.booking_date)
+    last_payment = session.exec(
+        select(func.max(LoanPayment.booking_date)).where(LoanPayment.loan_id == loan.id)
+    ).one()
+    if last_payment is not None and tx.booking_date < last_payment:
+        # Zinsintervalle und Restschuld späterer Zahlungen würden sonst nicht mehr stimmen
+        raise Invalid(
+            "Zahlung liegt vor einer bereits gebuchten Rate – Raten chronologisch erfassen",
+            code="payment_backdated",
+            details={"last_payment": last_payment},
+        )
     entry = _target_entry(session, loan, data.schedule_seq)
 
     overrides = (data.interest, data.principal, data.extra)

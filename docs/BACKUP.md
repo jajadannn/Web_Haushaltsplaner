@@ -21,6 +21,8 @@ scripts/backup.sh                    # nach backups/
 scripts/backup.sh /mnt/nas/finanzen  # anderer Zielordner
 ```
 
+**Vorher den Import-Worker beenden** (die API darf weiterlaufen). Der Worker verschiebt Dateien von `processing/` nach `archive/`; liefe er während der Sicherung, könnten Datenbank-Dump und Dateiarchiv verschiedene Stände enthalten. `backup.sh` erkennt einen laufenden Worker an dessen Sperrdatei `IMPORT_DIR/.worker.lock` und bricht dann ab.
+
 Die Skripte lesen `DATABASE_URL` und `IMPORT_DIR` aus `.env`; Umgebungsvariablen und Argumente haben Vorrang. Das Passwort aus `DATABASE_URL` wird nie ausgegeben.
 
 | Variable | Bedeutung | Standard |

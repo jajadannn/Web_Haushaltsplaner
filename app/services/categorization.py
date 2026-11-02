@@ -34,22 +34,46 @@ REGEX_TIMEOUT_SECONDS = 0.05
 MAX_TEXT_LENGTH = 1000
 
 
+_REPEAT = re.compile(r"\{\s*(\d+)\s*(?:,\s*(\d*)\s*)?\}")
+MAX_REPEAT = 50
+MAX_REPEAT_GROUPS = 2
+
+
+def _check_regex_size(pattern: str) -> None:
+    """Begrenzt Wiederholungszahlen VOR dem Kompilieren.
+
+    Das Zeitlimit greift nur bei der Suche; `x{1000000000}` würde schon beim Kompilieren
+    sehr viel Speicher belegen. Für Buchungstexte genügen kleine, wenige Wiederholungen.
+    """
+    repeats = _REPEAT.findall(pattern)
+    numbers = [int(n) for pair in repeats for n in pair if n]
+    if len(repeats) > MAX_REPEAT_GROUPS or any(n > MAX_REPEAT for n in numbers):
+        raise Invalid(
+            f"Regulärer Ausdruck zu aufwendig: höchstens {MAX_REPEAT_GROUPS} Wiederholungen "
+            f"{{n,m}} mit Werten bis {MAX_REPEAT}",
+            code="regex_too_complex",
+        )
+
+
 def compile_pattern(pattern: str, match_type: str, case_sensitive: bool):
     if match_type != MatchType.REGEX:
         return None
+    _check_regex_size(pattern)
     try:
         return regex.compile(pattern, 0 if case_sensitive else regex.IGNORECASE)
     except regex.error as exc:
         raise Invalid(f"Ungültiger regulärer Ausdruck: {exc}", code="invalid_regex") from exc
 
 
-def rule_text(rule: MappingRule, description: str | None, counterparty: str | None) -> str:
+def rule_texts(rule: MappingRule, description: str | None, counterparty: str | None) -> list[str]:
+    """Zu prüfende Texte, je Feld einzeln begrenzt – bei `any` verdrängt ein langer
+    Verwendungszweck so nicht die Gegenpartei."""
     parts = {
         MatchField.DESCRIPTION: [description],
         MatchField.COUNTERPARTY: [counterparty],
         MatchField.ANY: [description, counterparty],
     }[rule.match_field]
-    return " ".join(p for p in parts if p)[:MAX_TEXT_LENGTH]
+    return [p[:MAX_TEXT_LENGTH] for p in parts if p]
 
 
 @dataclass
@@ -58,9 +82,9 @@ class CompiledRule:
     compiled: object | None
 
     def matches(self, description: str | None, counterparty: str | None) -> bool:
-        text = rule_text(self.rule, description, counterparty)
-        if not text:
-            return False
+        return any(self._matches(text) for text in rule_texts(self.rule, description, counterparty))
+
+    def _matches(self, text: str) -> bool:
         if self.compiled is None:
             if self.rule.case_sensitive:
                 return self.rule.pattern in text

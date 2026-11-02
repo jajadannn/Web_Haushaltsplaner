@@ -184,6 +184,7 @@ class WatchFolderRead(ReadModel):
     subdir: str
     import_profile_id: int
     account_id: int | None
+    target_account_id: int | None = None
     path: str | None = None
     created_at: datetime
 
@@ -192,6 +193,7 @@ class ImportBatchRead(ReadModel):
     id: int
     import_profile_id: int
     account_id: int | None
+    target_account_id: int | None = None
     original_filename: str
     source: BatchSource
     status: BatchStatus

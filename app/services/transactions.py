@@ -273,7 +273,9 @@ def update_transaction(
     session: Session, user: User, tx: Transaction, changes: dict
 ) -> Transaction:
     _assert_editable(session, tx)
-    if tx.source == TransactionSource.IMPORT:
+    # Auch manuelle Buchungen, die als Dublette einer Bankzeile bestätigt wurden, tragen
+    # eine Importidentität – ihre Bankfelder dürfen sich nicht mehr unbemerkt verschieben
+    if has_import_identity(session, tx):
         fixed = sorted(k for k in _IMPORT_FIXED_FIELDS if k in changes and changes[k] != getattr(tx, k))
         if fixed:
             raise Invalid(
@@ -282,17 +284,7 @@ def update_transaction(
                 code="imported_fields_fixed",
                 details={"fields": fixed},
             )
-    if tx.transfer_peer_id is not None:
-        paired = sorted(
-            k for k in ("account_id", "booking_date", "amount", "kind")
-            if k in changes and changes[k] != getattr(tx, k)
-        )
-        if paired:
-            raise Invalid(
-                "Teil einer Umbuchung – zum Ändern beide Seiten löschen und neu anlegen",
-                code="transfer_pair_linked",
-                details={"fields": paired},
-            )
+    assert_pair_unchanged(tx, changes)
 
     account_id = changes.get("account_id", tx.account_id)
     booking_date = changes.get("booking_date", tx.booking_date)
@@ -337,6 +329,26 @@ def update_transaction(
     return tx
 
 
+def assert_pair_unchanged(tx: Transaction, changes: dict) -> None:
+    """Gekoppelte Umbuchung: Konto, Datum, Betrag und Art nur gemeinsam änderbar.
+
+    Gilt für alle Änderungswege (Bearbeiten, Prüfliste), sonst würde eine Seite zur
+    Ausgabe/Einnahme, während die Gegenseite eine Umbuchung bleibt.
+    """
+    if tx.transfer_peer_id is None:
+        return
+    paired = sorted(
+        k for k in ("account_id", "booking_date", "amount", "kind")
+        if k in changes and changes[k] != getattr(tx, k)
+    )
+    if paired or changes.get("category_id") is not None:
+        raise Invalid(
+            "Teil einer Umbuchung – zum Ändern beide Seiten löschen und neu anlegen",
+            code="transfer_pair_linked",
+            details={"fields": paired or ["category_id"]},
+        )
+
+
 def has_import_identity(session: Session, tx: Transaction) -> bool:
     """Importiert oder als Dublette einer Importzeile bestätigt."""
     if tx.source == TransactionSource.IMPORT:
@@ -354,9 +366,16 @@ def delete_transaction(session: Session, tx: Transaction) -> None:
             "damit ein erneuter Import sie nicht wiederherstellt",
             code="imported_use_exclude",
         )
-    # Umbuchung: Gegenseite mitlöschen, sonst entstünde Geld aus dem Nichts
+    # Umbuchung: Gegenseite mitlöschen, sonst entstünde Geld aus dem Nichts – aber nur,
+    # wenn auch sie gelöscht werden darf (keine Bank-Identität, keine Kreditbuchung)
     peer = session.get(Transaction, tx.transfer_peer_id) if tx.transfer_peer_id else None
-    if peer is not None and peer.source == TransactionSource.MANUAL:
+    if peer is not None:
+        if peer.source != TransactionSource.MANUAL or has_import_identity(session, peer):
+            raise Conflict(
+                "Die Gegenseite dieser Umbuchung ist mit Bankdaten abgeglichen – "
+                "die Umbuchung als Ganzes ausschließen statt löschen",
+                code="transfer_peer_imported",
+            )
         session.delete(peer)
     session.delete(tx)
     session.flush()
@@ -365,13 +384,19 @@ def delete_transaction(session: Session, tx: Transaction) -> None:
 def set_excluded(session: Session, tx: Transaction, reason: str | None) -> Transaction:
     """Schließt eine importierte Buchung aus Salden und Berichten aus (oder hebt das auf)."""
     _assert_editable(session, tx)
-    if not has_import_identity(session, tx):
+    peer = session.get(Transaction, tx.transfer_peer_id) if tx.transfer_peer_id else None
+    if not has_import_identity(session, tx) and not (peer and has_import_identity(session, peer)):
         raise Invalid(
             "Nur importierte Buchungen werden ausgeschlossen – manuelle bitte löschen",
             code="manual_use_delete",
         )
-    tx.excluded_at = datetime.now(UTC) if reason else None
-    tx.excluded_reason = reason
+    # Umbuchungspaare werden gemeinsam aus- bzw. eingeschlossen, sonst bliebe eine Seite
+    # wirksam und das Nettovermögen änderte sich allein durch den Ausschluss
+    if peer is not None:
+        _assert_editable(session, peer)
+    for side in (tx, peer) if peer is not None else (tx,):
+        side.excluded_at = datetime.now(UTC) if reason else None
+        side.excluded_reason = reason
     session.flush()
     return tx
 

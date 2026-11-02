@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.errors import register_error_handlers
+from app.middleware import UploadSizeLimit
 from app.routers import (
     accounts,
     categories,
@@ -32,6 +33,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Uploadgröße begrenzen, bevor FastAPI den Multipart-Body zwischenspeichert
+    app.add_middleware(UploadSizeLimit)
     register_error_handlers(app)
     for module in (users, institutions, accounts, categories, transactions, loans, imports, rules, reports):
         app.include_router(module.router)

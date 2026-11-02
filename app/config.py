@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     import_dir: Path = Path("imports")
     max_upload_mb: int = 10
     worker_poll_seconds: float = 2.0
-    stale_after_minutes: int = 15
 
 
 @lru_cache

@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterator
 import pytest
 from alembic.config import Config
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, make_url, text
 from sqlalchemy.engine import Connection, Engine
 from sqlmodel import Session
 
@@ -31,7 +31,14 @@ def import_dir(tmp_path, monkeypatch):
 
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
-    url = get_settings().test_database_url
+    settings = get_settings()
+    url = settings.test_database_url
+    test_db, app_db = make_url(url), make_url(settings.database_url)
+    # Schutz: das Schema wird gleich gelöscht – nie auf der Anwendungsdatenbank
+    if "test" not in (test_db.database or "") or (test_db.host, test_db.port, test_db.database) == (
+        app_db.host, app_db.port, app_db.database,
+    ):
+        pytest.exit(f"TEST_DATABASE_URL zeigt nicht auf eine eigene Testdatenbank: {test_db.database}", 2)
     engine = create_engine(url)
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))

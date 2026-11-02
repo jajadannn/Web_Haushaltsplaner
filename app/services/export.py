@@ -137,9 +137,15 @@ _TABLE_STYLE = TableStyle(
 )
 
 
+def _esc(text: str | None) -> str:
+    """Nutzertexte für ReportLab-Paragraphen escapen – Paragraph wertet Markup aus
+    (z. B. <img src=…>, das lokale Dateien einbetten würde)."""
+    return (text or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _p(text: str) -> Paragraph:
     """Zellen umbrechen lange Namen statt sie abzuschneiden."""
-    return Paragraph((text or "").replace("&", "&amp;").replace("<", "&lt;"), _CELL)
+    return Paragraph(_esc(text), _CELL)
 
 
 def _table(rows: list[list], widths: list[float], long: bool = False) -> Table:
@@ -170,7 +176,7 @@ def report_pdf(session: Session, user: User, date_from: date, date_to: date) -> 
     income = reports.categories(session, user, date_from, date_to, "income")
     period = f"{date_from:%d.%m.%Y} – {date_to:%d.%m.%Y}"
     story = [
-        Paragraph(f"Finanzbericht {user.name}", _STYLES["Title"]),
+        Paragraph(f"Finanzbericht {_esc(user.name)}", _STYLES["Title"]),
         Paragraph(f"Zeitraum {period}", _STYLES["Normal"]),
         Spacer(1, 6 * mm),
         Paragraph(f"Kontostände am {date_to:%d.%m.%Y}", _STYLES["Heading2"]),
@@ -224,8 +230,8 @@ def schedule_pdf(session: Session, loan: Loan) -> bytes:
     ]
     rate = f"{loan.annual_interest_rate:.2f}".replace(".", ",")
     story = [
-        Paragraph(f"Tilgungsplan {account.name}", _STYLES["Title"]),
-        Paragraph(f"{loan.lender_name} · {rate} % p. a.", _STYLES["Normal"]),
+        Paragraph(f"Tilgungsplan {_esc(account.name)}", _STYLES["Title"]),
+        Paragraph(f"{_esc(loan.lender_name)} · {rate} % p. a.", _STYLES["Normal"]),
         Spacer(1, 5 * mm),
         _table(rows, [10 * mm, 22 * mm, 22 * mm, 22 * mm, 22 * mm, 20 * mm, 26 * mm, 18 * mm], long=True),
     ]

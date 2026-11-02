@@ -41,7 +41,11 @@ Anschließend in `.env` den Port auf `5432` stellen und `alembic upgrade head` a
 .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000   # API, Doku unter /docs
 .venv/bin/python -m app.worker                                # Import-Worker (genau EIN Prozess)
 ```
-Der Worker ist ein eigener Prozess und läuft bewusst nicht im API-Prozess, denn bei mehreren API-Workern gäbe es sonst mehrere Dateibeobachter. Ohne Worker lassen sich wartende Importe auch per `POST /imports/process` verarbeiten.
+Der Worker ist ein eigener Prozess und läuft bewusst nicht im API-Prozess, denn bei mehreren API-Workern gäbe es sonst mehrere Dateibeobachter. Eine Sperrdatei (`IMPORT_DIR/.worker.lock`) verhindert einen zweiten Worker. Bricht der Worker mitten in einem Import ab, bleibt der Auftrag `queued` und wird beim nächsten Durchlauf erneut verarbeitet. Ohne Worker lassen sich wartende Importe auch per `POST /imports/process` verarbeiten.
+
+**Uploads** sind auf `MAX_UPLOAD_MB` begrenzt. Das Limit greift vor dem Zwischenspeichern des Bodys (Antwort 413).
+
+**Datenbankrolle:** Für die lokale Entwicklung genügt der Superuser `postgres` mit `trust`-Anmeldung auf Loopback. Sobald mehrere Personen den Rechner nutzen oder der Dienst im Netz erreichbar ist, gehört die Anwendung auf eine eigene Rolle ohne Superuser-Rechte mit Passwort. Die Tests brauchen eine eigene Datenbank: Ihr Name muss „test“ enthalten, sonst brechen sie vor dem Löschen des Schemas ab.
 
 ## Kontoauszüge importieren
 1. **Bank** anlegen: `POST /institutions`.

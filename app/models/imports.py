@@ -143,23 +143,27 @@ class ImportBatch(SQLModel, table=True):
             ["import_profile_id", "user_id"], ["import_profile.id", "import_profile.user_id"]
         ),
         ForeignKeyConstraint(["account_id", "user_id"], ["account.id", "account.user_id"]),
-        # Dieselbe Datei wird je Profil nur einmal (erfolgreich) verarbeitet
+        # Dieselbe Datei wird je Profil und gewähltem Zielkonto nur einmal (erfolgreich) verarbeitet
         Index(
             "uq_import_batch_file",
             "user_id",
             "import_profile_id",
+            text("coalesce(target_account_id, 0)"),
             "file_sha256",
             unique=True,
             postgresql_where=text("status <> 'failed'"),
         ),
+        ForeignKeyConstraint(["target_account_id", "user_id"], ["account.id", "account.user_id"]),
         Index("ix_import_batch_status", "status"),
     )
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="app_user.id")
     import_profile_id: int
-    # Vorgabe aus Upload bzw. Watch-Ordner; sonst Zuordnung je Zeile
+    # Erkanntes Konto (bei einer Datei für genau ein Konto)
     account_id: int | None = None
+    # Vom Nutzer gewähltes Zielkonto (Upload/Watch-Ordner) – Teil der Dateiidentität
+    target_account_id: int | None = None
     profile_version: int
     parser_version: str = Field(max_length=20)
     original_filename: str = Field(max_length=255)

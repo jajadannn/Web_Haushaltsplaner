@@ -9,6 +9,7 @@ Zusätzlich wird eine Datei erst übernommen, wenn sich Größe und Änderungsze
 Sekunden nicht mehr ändern.
 """
 
+import fcntl
 import logging
 import os
 import queue
@@ -128,9 +129,23 @@ class SettleTracker:
         return done
 
 
+def acquire_lock(directory: Path):
+    """Exklusive Sperre: genau ein Worker; `scripts/backup.sh` erkennt daran einen laufenden Worker."""
+    handle = open(directory / ".worker.lock", "w")  # noqa: SIM115 – bleibt bis Prozessende offen
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        raise SystemExit("Es läuft bereits ein Import-Worker für dieses Import-Verzeichnis.") from None
+    handle.write(str(os.getpid()))
+    handle.flush()
+    return handle
+
+
 def run() -> None:
     settings = get_settings()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    lock = acquire_lock(import_dir("."))  # noqa: F841 – Sperre gilt, solange der Prozess läuft
     inbox = import_dir("inbox")
     events: queue.Queue[Path] = queue.Queue()
     observer = Observer()

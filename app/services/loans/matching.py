@@ -1,6 +1,6 @@
 """Erkennt Kreditraten unter importierten Abbuchungen.
 
-Kandidat ist eine offene Planrate eines aktiven Kredits, wenn die Abbuchung vom
+Kandidat ist die nächste offene Planrate eines aktiven Kredits, wenn die Abbuchung vom
 hinterlegten Zahlkonto kommt, Gegen-IBAN oder Verwendungszweck zum Kreditgeber passen
 und die Fälligkeit höchstens 7 Tage entfernt liegt. Automatisch gebucht wird nur bei
 genau einem Kandidaten mit exakt passendem Betrag – sonst bleibt es ein Vorschlag.
@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from sqlmodel import Session, select
 
+from app.errors import AppError
 from app.models import Loan, LoanScheduleEntry, LoanStatus, ScheduleStatus, Transaction, User
 from app.models.imports import ImportRow
 from app.schemas.loan import LoanPaymentCreate
@@ -24,6 +25,14 @@ def _matches_lender(loan: Loan, tx: Transaction) -> bool:
         loan.payment_reference.casefold() in tx.description.casefold()
     )
     return by_iban or by_reference
+
+
+def _next_open_id(session: Session, loan: Loan) -> int | None:
+    return session.exec(
+        select(LoanScheduleEntry.id)
+        .where(LoanScheduleEntry.loan_id == loan.id, LoanScheduleEntry.status == ScheduleStatus.PLANNED)
+        .order_by(LoanScheduleEntry.seq)
+    ).first()
 
 
 def candidates(session: Session, user: User, tx: Transaction) -> list[tuple[Loan, LoanScheduleEntry]]:
@@ -44,6 +53,7 @@ def candidates(session: Session, user: User, tx: Transaction) -> list[tuple[Loan
             select(LoanScheduleEntry).where(
                 LoanScheduleEntry.loan_id == loan.id,
                 LoanScheduleEntry.status == ScheduleStatus.PLANNED,
+                LoanScheduleEntry.id == _next_open_id(session, loan),  # nur die nächste offene Rate
                 LoanScheduleEntry.due_date.between(tx.booking_date - DUE_WINDOW, tx.booking_date + DUE_WINDOW),
             )
         )
@@ -59,8 +69,13 @@ def match_imported_payment(session: Session, user: User, row: ImportRow, tx: Tra
     paid = -tx.amount
     if len(found) == 1 and found[0][1].planned_installment == paid:
         loan, entry = found[0]
-        record_payment(session, user, loan, LoanPaymentCreate(transaction_id=tx.id, schedule_seq=entry.seq))
-        return True
+        try:
+            with session.begin_nested():
+                record_payment(session, user, loan, LoanPaymentCreate(transaction_id=tx.id, schedule_seq=entry.seq))
+            return True
+        except AppError:
+            pass  # z. B. nicht die nächste offene Rate – dann nur als Vorschlag
+
     best = min(
         found,
         key=lambda c: (c[1].planned_installment != paid, abs((c[1].due_date - tx.booking_date).days), c[1].id),

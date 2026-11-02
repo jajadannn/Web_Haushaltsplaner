@@ -12,7 +12,7 @@ import os
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy.exc import IntegrityError
@@ -90,12 +90,20 @@ def validate_target_account(session: Session, user_id: int, profile: ImportProfi
     return account
 
 
-def existing_batch(session: Session, user_id: int, profile_id: int, file_hash: str) -> ImportBatch | None:
+def existing_batch(
+    session: Session, user_id: int, profile_id: int, file_hash: str, target_account_id: int | None
+) -> ImportBatch | None:
+    """Erfolgreicher/laufender Auftrag für dieselbe Datei im selben Zuordnungskontext.
+
+    Das Zielkonto gehört dazu: Dateien ohne Kontokennung können für zwei Konten derselben
+    Bank byte-gleich sein und sind trotzdem verschiedene Auszüge.
+    """
     return session.exec(
         select(ImportBatch).where(
             ImportBatch.user_id == user_id,
             ImportBatch.import_profile_id == profile_id,
             ImportBatch.file_sha256 == file_hash,
+            ImportBatch.target_account_id.is_not_distinct_from(target_account_id),
             ImportBatch.status != BatchStatus.FAILED,
         )
     ).first()
@@ -114,7 +122,7 @@ def create_batch(
 ) -> tuple[ImportBatch, bool]:
     """Legt einen Auftrag an; dieselbe Datei liefert den vorhandenen Auftrag (zweiter Wert False)."""
     file_hash = sha256(content)
-    found = existing_batch(session, user_id, profile.id, file_hash)
+    found = existing_batch(session, user_id, profile.id, file_hash, account_id)
     if found is not None:
         return found, False
     path = stored_path or store_bytes(content, original_filename)
@@ -122,6 +130,7 @@ def create_batch(
         user_id=user_id,
         import_profile_id=profile.id,
         account_id=account_id,
+        target_account_id=account_id,
         profile_version=profile.version,
         parser_version=PARSER_VERSION,
         original_filename=Path(original_filename).name[:255] or "datei",
@@ -134,7 +143,7 @@ def create_batch(
             session.add(batch)
     except IntegrityError:
         # Gleichzeitig über einen anderen Weg angelegt (z. B. Upload und Watcher)
-        found = existing_batch(session, user_id, profile.id, file_hash)
+        found = existing_batch(session, user_id, profile.id, file_hash, account_id)
         if found is None:
             raise
         if stored_path is None:
@@ -177,8 +186,8 @@ def resolve_accounts(
     per_row = [row.own_account or result.statement_account for row in result.rows]
     in_file = sorted({i for i in per_row if i})
 
-    if batch.account_id is not None:
-        account = session.get(Account, batch.account_id)
+    if batch.target_account_id is not None:
+        account = session.get(Account, batch.target_account_id)
         foreign = [i for i in in_file if not _identifies(account, i)]
         if foreign:
             raise ImportFailure(
@@ -300,6 +309,7 @@ def commit(session: Session, batch: ImportBatch) -> list[int]:
 def _mark_failed(session: Session, batch_id: int, failure: ImportFailure) -> None:
     batch = session.get(ImportBatch, batch_id)
     batch.status = BatchStatus.FAILED
+    batch.attempt += 1  # die Zählung im verworfenen Verarbeitungsversuch ging mit verloren
     batch.errors = [{"code": failure.code, "message": failure.message, "details": failure.details}]
     batch.finished_at = datetime.now(UTC)
     batch.rows_review = 0
@@ -307,7 +317,12 @@ def _mark_failed(session: Session, batch_id: int, failure: ImportFailure) -> Non
 
 
 def run_batch(session: Session, batch_id: int) -> ImportBatch:
-    """Verarbeitet einen übernommenen Auftrag; Fehler werden dauerhaft am Auftrag vermerkt."""
+    """Verarbeitet einen per `claim_next` gesperrten Auftrag in derselben Transaktion.
+
+    Bricht der Prozess ab, verwirft PostgreSQL die Transaktion samt Sperre – der Auftrag
+    ist dann wieder `queued` und wird erneut übernommen. Fachliche Fehler werden dauerhaft
+    am Auftrag vermerkt.
+    """
     batch = session.get(ImportBatch, batch_id)
     try:
         process_batch(session, batch)
@@ -327,6 +342,7 @@ def run_batch(session: Session, batch_id: int) -> ImportBatch:
 
 
 def claim_next(session: Session) -> int | None:
+    """Sperrt den nächsten wartenden Auftrag (ohne Commit – siehe `run_batch`)."""
     batch = session.exec(
         select(ImportBatch)
         .where(ImportBatch.status == BatchStatus.QUEUED)
@@ -341,7 +357,7 @@ def claim_next(session: Session) -> int | None:
     batch.status = BatchStatus.PROCESSING
     batch.attempt += 1
     batch.started_at = batch.heartbeat_at = now
-    session.commit()
+    session.flush()
     return batch.id
 
 
@@ -357,12 +373,14 @@ def process_queue(session: Session, limit: int | None = None) -> int:
 
 
 def requeue_stale(session: Session) -> int:
-    """Nach Prozessabbruch hängengebliebene Aufträge wieder einreihen."""
-    limit = datetime.now(UTC) - timedelta(minutes=get_settings().stale_after_minutes)
+    """Gespeicherte `processing`-Aufträge wieder einreihen.
+
+    Da `processing` nur innerhalb der Verarbeitungstransaktion gilt, kann ein dauerhaft
+    gespeicherter Status nur von einem Abbruch älterer Versionen stammen – unabhängig vom Alter.
+    Gerade laufende Aufträge sind gesperrt und für andere weiterhin `queued`.
+    """
     result = session.exec(
-        update(ImportBatch)
-        .where(ImportBatch.status == BatchStatus.PROCESSING, ImportBatch.heartbeat_at < limit)
-        .values(status=BatchStatus.QUEUED)
+        update(ImportBatch).where(ImportBatch.status == BatchStatus.PROCESSING).values(status=BatchStatus.QUEUED)
     )
     session.commit()
     return result.rowcount
@@ -410,14 +428,28 @@ def get_batch(session: Session, user: User, batch_id: int) -> ImportBatch:
     return get_owned(session, ImportBatch, batch_id, user.id, "Import")
 
 
+def lock_batch(session: Session, user: User, batch_id: int) -> ImportBatch:
+    """Lädt den Auftrag mit Zeilensperre und frischem Stand – parallele Freigaben warten
+    aufeinander und sehen danach den neuen Status."""
+    batch = session.exec(
+        select(ImportBatch)
+        .where(ImportBatch.id == batch_id, ImportBatch.user_id == user.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).first()
+    if batch is None:
+        raise NotFound(f"Import {batch_id} nicht gefunden")
+    return batch
+
+
 def retry(session: Session, user: User, batch: ImportBatch, account_id: int | None) -> ImportBatch:
     if batch.status != BatchStatus.FAILED:
         raise Conflict("Nur fehlgeschlagene Importe können wiederholt werden", code="import_not_failed")
     profile = session.get(ImportProfile, batch.import_profile_id)
     if account_id is not None:
         validate_target_account(session, user.id, profile, account_id)
-        batch.account_id = account_id
-    other = existing_batch(session, user.id, profile.id, batch.file_sha256)
+        batch.account_id = batch.target_account_id = account_id
+    other = existing_batch(session, user.id, profile.id, batch.file_sha256, batch.target_account_id)
     if other is not None:
         raise Conflict(
             f"Diese Datei wurde inzwischen mit Import {other.id} verarbeitet",

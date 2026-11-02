@@ -25,7 +25,7 @@ from app.models.imports import ImportRow
 from app.schemas.rule import ReviewConfirm
 from app.services.categorization import RuleSet, candidates_query, suggest_pattern
 from app.services.common import get_owned
-from app.services.transactions import _assert_editable
+from app.services.transactions import _assert_editable, assert_pair_unchanged
 
 
 def review_query(user: User, status: str | None):
@@ -81,6 +81,10 @@ def _loan_suggestions(session: Session, tx_ids: list[int]) -> dict[int, dict]:
 
 def _confirm(session: Session, user: User, tx: Transaction, data: ReviewConfirm, category: Category | None) -> None:
     _assert_editable(session, tx)
+    if data.as_transfer:
+        assert_pair_unchanged(tx, {"kind": TransactionKind.TRANSFER})
+    elif category is not None:
+        assert_pair_unchanged(tx, {"kind": TransactionKind.REGULAR, "category_id": category.id})
     if tx.splits:
         if any(s.kind == TransactionKind.REGULAR and s.category_id is None for s in tx.splits):
             raise Invalid(f"Buchung {tx.id}: Aufteilung hat Zeilen ohne Kategorie", code="split_incomplete")

@@ -68,6 +68,12 @@ trap 'exit 143' TERM
 # ---- Vorbedingungen ---------------------------------------------------------------------------
 werkzeug_pruefen pg_dump pg_restore psql
 command -v tar >/dev/null 2>&1 || fehler "tar nicht gefunden."
+# Der Import-Worker verschiebt Dateien (processing/ → archive/). Liefe er während der Sicherung,
+# könnten Dump und Dateiarchiv verschiedene Stände enthalten. Er hält dazu eine flock-Sperre.
+if [ -e "$IMPORT_DIR/.worker.lock" ] && command -v flock >/dev/null 2>&1 \
+  && ! flock -n "$IMPORT_DIR/.worker.lock" true; then
+  fehler "Der Import-Worker läuft – bitte zuerst beenden, dann sichern (die API darf weiterlaufen)."
+fi
 command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || fehler "Weder sha256sum noch shasum gefunden."
 
 QUELL_URL=$(url_fuer_db "$URL_DBNAME_ROH")

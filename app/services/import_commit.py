@@ -129,6 +129,8 @@ def commit_batch(session: Session, user: User, batch: ImportBatch) -> CommitResu
     for row in rows:
         action = effective_action(row)
         if action == RowResolution.IMPORT:
+            if row.created_transaction_id is not None:
+                continue  # schon übernommen – nie doppelt buchen
             account = accounts.setdefault(row.account_id, session.get(Account, row.account_id))
             if row.booking_date < account.opening_balance_date:
                 raise Invalid(

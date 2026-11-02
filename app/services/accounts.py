@@ -70,6 +70,18 @@ def update_account(session: Session, user: User, account: Account, changes: dict
     if "type" in changes and changes["type"] != account.type:
         _reject_loan_type(account.type)
         _reject_loan_type(changes["type"])
+    if account.type == AccountType.LOAN:
+        # Restschuld, Stichtag und Plan gehören zusammen – sonst widersprechen sich Saldo und Plan
+        locked = sorted(
+            k for k in ("opening_balance", "opening_balance_date")
+            if k in changes and changes[k] != getattr(account, k)
+        )
+        if locked:
+            raise Invalid(
+                "Anfangssaldo und Stichtag eines Kreditkontos werden über /loans verwaltet",
+                code="loan_account_via_loans",
+                details={"fields": locked},
+            )
     if changes.get("institution_id") is not None:
         get_owned(session, Institution, changes["institution_id"], user.id, "Bank")
     if "iban" in changes:

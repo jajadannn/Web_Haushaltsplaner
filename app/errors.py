@@ -32,6 +32,11 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class PayloadTooLarge(AppError):
+    status_code = 413
+    code = "file_too_large"
+
+
 class Invalid(AppError):
     """Fachlicher Validierungsfehler (422)."""
 
