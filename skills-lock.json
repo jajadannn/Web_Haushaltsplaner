@@ -12,6 +12,12 @@
       "sourceType": "github",
       "skillPath": "skills/frontend-design/SKILL.md",
       "computedHash": "89496d5dd00f4810205f351759594fc2742bf8eea85a2f2b2d1de59f4bd91576"
+    },
+    "generate-image": {
+      "source": "getedgehq/skills",
+      "sourceType": "github",
+      "skillPath": "generate-image/SKILL.md",
+      "computedHash": "b1a8660193a0046386839d43cf8c435cd07c961ad076d29c3cf3642497308106"
     }
   }
 }

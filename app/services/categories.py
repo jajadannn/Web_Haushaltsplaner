@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Session, func, select
 
 from app.errors import Conflict, Invalid
-from app.models import Category, MappingRule, Transaction, TransactionSplit, User
+from app.models import Category, FixedCost, MappingRule, Transaction, TransactionSplit, User
 from app.schemas.category import CategoryCreate
 from app.services.category_defaults import DEFAULT_CATEGORIES, DefaultCategory
 from app.services.common import apply_changes, flush_or_conflict, get_owned
@@ -87,6 +87,9 @@ def _usage(session: Session, category: Category) -> dict[str, int]:
         ).one(),
         "rules": session.exec(
             select(func.count()).where(MappingRule.target_category_id == category.id)
+        ).one(),
+        "fixed_costs": session.exec(
+            select(func.count()).where(FixedCost.category_id == category.id)
         ).one(),
     }
     return {k: v for k, v in usage.items() if v}
@@ -224,6 +227,7 @@ def merge_category(session: Session, user: User, source: Category, target_id: in
         .where(MappingRule.target_category_id == source.id)
         .values(target_category_id=target.id)
     )
+    session.execute(update(FixedCost).where(FixedCost.category_id == source.id).values(category_id=target.id))
     session.flush()
     session.expire_all()
     session.delete(source)

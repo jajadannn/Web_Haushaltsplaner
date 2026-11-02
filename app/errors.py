@@ -32,6 +32,11 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class Forbidden(AppError):
+    status_code = 403
+    code = "forbidden"
+
+
 class PayloadTooLarge(AppError):
     status_code = 413
     code = "file_too_large"

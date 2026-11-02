@@ -6,6 +6,7 @@ from app.errors import register_error_handlers
 from app.middleware import UploadSizeLimit
 from app.routers import (
     accounts,
+    budget,
     categories,
     imports,
     institutions,
@@ -38,7 +39,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_error_handlers(app)
-    for module in (users, institutions, accounts, categories, transactions, loans, imports, rules, reports):
+    for module in (users, institutions, accounts, categories, transactions, loans, imports, rules, reports, budget):
         app.include_router(module.router)
 
     @app.get("/health", tags=["System"])

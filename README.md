@@ -87,6 +87,8 @@ Eine schon erfolgreich verarbeitete Datei wird nicht noch einmal gebucht.
   - Nach jeder Zahlung wird der Plan ab der tatsächlichen Restschuld neu berechnet.
   - Bei vereinbarter Laufzeit ist die Rate am Laufzeitende die **Schlussrate**: Sie gleicht jeden Rundungsrest aus, es gibt nie mehr Raten als vereinbart. Eine Ratenpause verlängert die Laufzeit um einen Monat.
   - Importierte Raten werden erkannt: automatisch, wenn der Betrag exakt passt, sonst als Vorschlag in der Prüfliste.
+- **Fixkosten und Spielraum** (`/fixed-costs`, `/budget/month`): Frei verfügbar im Monat = Einnahmen − Fixkosten (inkl. fälliger Kreditraten) − variable Ausgaben. Eine Fixkost gilt als bezahlt, sobald eine passende Buchung (Kategorie und/oder Suchtext) im Monat vorliegt.
+- **Wanddisplay** (`GET /wall`): gemeinsamer Überblick über alle Profile ohne Profilwahl, nur lesend und nur aus dem lokalen Netz (`WALL_ALLOWED_NETWORKS`).
 - **Regeln** (`/mapping-rules`):
   - Teiltext oder Regex mit Zeitlimit; es gewinnt die Regel mit der kleinsten (priority, id).
   - Manuelle Kategorien werden nie überschrieben.

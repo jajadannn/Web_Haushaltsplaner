@@ -1,0 +1,77 @@
+{
+  "slug": "generate-image",
+  "source_path": "~/.claude/skills/generate-image",
+  "note": "Public-ready copy derived from a private original. The original was read, not modified. Every difference between the two is listed below, including the licence file, which the original does not have and this copy adds.",
+  "license": {
+    "spdx": "Apache-2.0",
+    "licensed_work": "the whole of this bundle: every file listed in copy_files, and this record",
+    "copyright_holder": "Floom",
+    "license_file": "LICENSE",
+    "license_file_sha256": "d0d0b1377c7be4c0094f0a1e0a84c4bb2c4d3c2a4d1c0355eb7cfe118d3bf1f1",
+    "applied": "2026-09-07",
+    "note": "Floom owns this copy and licenses it to you under Apache-2.0: you may use, modify and redistribute it, subject to that licence's attribution requirement. The licence terms in LICENSE are the upstream Apache-2.0 bytes unmodified; only the appendix copyright line differs, and it names the holder above. This grant applies from the version it appears on. It cannot be withdrawn from a version already fetched, and it says nothing about how well the Skill works: no evaluation has been run and no Trust state is asserted."
+  },
+  "hash_scope": "Each hash below is taken over the file list beside it, as path:sha256 in path order. copy_files does not list DERIVATION.json, because a record cannot contain its own hash. The published bundle is copy_files PLUS this record, and the hash of that is on the Release, not in here.",
+  "source_files_sha256": "76cb2302e9f08e8267ed408c6f12597ef1ad3f168ec0eee6805ff2dd976a68e1",
+  "copy_files_sha256": "cd12ab287c0a7c4a93aaa47e860e124f3175a4300b2a2f1072416c485dfb9062",
+  "source_files": [
+    {
+      "path": "PROMPTING.md",
+      "sha256": "9bef247159ac1384f2fbd2bfdce135debe2d3813b9eb01dd7f0e5621a4a8af61",
+      "size_bytes": 3508
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "10b457e000b54364d38220aca0bdf68dc57faf1c2a55bfcd5f535790c1b51b59",
+      "size_bytes": 2658
+    },
+    {
+      "path": "scripts/generate-image.sh",
+      "sha256": "7c27a210b5deef1dc276fe7b77fb341e9b38219b06f9601ab60a2fba108b849e",
+      "size_bytes": 2890
+    }
+  ],
+  "copy_files": [
+    {
+      "path": "LICENSE",
+      "sha256": "d0d0b1377c7be4c0094f0a1e0a84c4bb2c4d3c2a4d1c0355eb7cfe118d3bf1f1",
+      "size_bytes": 10756
+    },
+    {
+      "path": "PROMPTING.md",
+      "sha256": "9bef247159ac1384f2fbd2bfdce135debe2d3813b9eb01dd7f0e5621a4a8af61",
+      "size_bytes": 3508
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "ff7318b4b63b26622ae7ef2a568bc2b8e2361ce4c4f7259857dd75fa23aa2051",
+      "size_bytes": 3236
+    },
+    {
+      "path": "scripts/generate-image.sh",
+      "sha256": "7c27a210b5deef1dc276fe7b77fb341e9b38219b06f9601ab60a2fba108b849e",
+      "size_bytes": 2890
+    }
+  ],
+  "dropped_files": [],
+  "edits": [
+    {
+      "file": "SKILL.md",
+      "why": "the only prerequisite that decides whether this Skill runs at all was a clause in the middle of a paragraph, so a reader met it after installing. It is now the first thing under the title, in the words someone who has never heard of the Codex CLI can act on",
+      "removed_chars": 14,
+      "added_chars": 554
+    },
+    {
+      "file": "SKILL.md",
+      "why": "the only runnable line in the Skill assumed one agent's install directory. The installer writes into whichever agent it chose (.claude, .codex, .cursor and so on), so the copy points at the script beside it instead of at a path that is right for one reader and wrong for the rest",
+      "removed_chars": 104,
+      "added_chars": 142
+    },
+    {
+      "file": "LICENSE",
+      "why": "added: this copy is published under Apache-2.0 and the licence text travels with it. Applied 2026-09-07; before that the bundle carried no licence file and default copyright applied, which let a stranger read the Skill and not modify or redistribute it. The terms are upstream's bytes unmodified; only the appendix copyright line names Floom instead of the upstream author.",
+      "removed_chars": 0,
+      "added_chars": 10756
+    }
+  ]
+}

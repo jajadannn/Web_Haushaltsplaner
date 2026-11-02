@@ -1,6 +1,7 @@
 from app.models.account import Account, AccountType
 from app.models.base import metadata
 from app.models.category import Category, CategoryType
+from app.models.fixed_cost import FixedCost
 from app.models.imports import ImportBatch, ImportProfile, ImportRow, TransactionImportLink, WatchFolder
 from app.models.institution import Institution
 from app.models.loan import Loan, LoanPayment, LoanScheduleEntry, LoanStatus, LoanType, ScheduleStatus
@@ -22,6 +23,7 @@ __all__ = [
     "Category",
     "CategorySource",
     "CategoryType",
+    "FixedCost",
     "ImportBatch",
     "ImportProfile",
     "ImportRow",
