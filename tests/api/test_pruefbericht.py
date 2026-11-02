@@ -147,29 +147,68 @@ def test_8_gleiche_datei_fuer_zwei_konten_derselben_bank(client, headers, bank, 
     assert again["id"] == second["id"] and again["already_imported"] is True
 
 
-# 9 – Abgebrochene Verarbeitung bleibt wiederaufnehmbar
-def test_9_abbruch_waehrend_der_verarbeitung_laesst_nichts_haengen(client, headers, profile, giro, session):
+# 9 – Abgebrochene Verarbeitung bleibt wiederaufnehmbar, aber nicht endlos
+def test_9_abbruch_waehrend_der_verarbeitung(client, headers, profile, giro, session):
+    from datetime import timedelta
+
     queued = upload(client, headers, profile, csv_file(("02.01.2026", "-1,00", "X")), process=False)
     batch_id = import_jobs.claim_next(session)
     assert batch_id == queued["id"]
-    session.rollback()  # Prozess stirbt vor dem Commit
+    # Prozess stirbt nach der Übernahme: gespeichert sind `processing` und der Versuch
+    assert session.get(ImportBatch, batch_id).status == "processing"
+    assert import_jobs.requeue_stale(session, grace=timedelta(0)) == 1
     assert session.get(ImportBatch, batch_id).status == "queued"
-    # Ein (alt-)gespeichertes `processing` wird unabhängig vom Alter wieder eingereiht
-    batch = session.get(ImportBatch, batch_id)
-    batch.status = "processing"
-    session.commit()
-    assert import_jobs.requeue_stale(session) == 1
     assert import_jobs.process_queue(session) == 1
     assert session.get(ImportBatch, batch_id).status == "done"
 
 
+def test_9b_absturzschleife_endet_nach_drei_versuchen(client, headers, profile, giro, session):
+    from datetime import timedelta
+
+    queued = upload(client, headers, profile, csv_file(("02.01.2026", "-1,00", "X")), process=False)
+    for _ in range(3):  # dreimal übernommen und jedes Mal abgestürzt
+        import_jobs.claim_next(session)
+        import_jobs.requeue_stale(session, grace=timedelta(0))
+    batch = session.get(ImportBatch, queued["id"])
+    assert batch.status == "failed" and batch.errors[0]["code"] == "processing_aborted"
+
+
+def test_9c_fehler_wird_unter_sperre_vermerkt(client, headers, profile, giro, session, monkeypatch):
+    queued = upload(client, headers, profile, csv_file(("02.01.2026", "-1,00", "X")), process=False)
+    monkeypatch.setattr(import_jobs, "process_batch", lambda *_: (_ for _ in ()).throw(RuntimeError("kaputt")))
+    import_jobs.process_queue(session)
+    batch = session.get(ImportBatch, queued["id"])
+    assert (batch.status, batch.attempt, batch.errors[0]["code"]) == ("failed", 1, "internal_error")
+
+
 # 10 – Regex-Größe vor dem Kompilieren begrenzt
-@pytest.mark.parametrize("pattern", ["x{1000000000}", "a{51}", "(a{5}){5}{5}"])
+@pytest.mark.parametrize("pattern", ["x{1000000000}", "x{,1000000000}", "a{101}", "a{100}b{100}c{100}d{1}"])
 def test_10_aufwendige_regex_abgelehnt(client, headers, pattern):
     kat = client.post("/categories", json={"name": "R", "type": "expense"}, headers=headers).json()
     response = client.post("/mapping-rules", json={"pattern": pattern, "match_type": "regex",
                                                    "target_category_id": kat["id"]}, headers=headers)
     assert response.status_code == 422 and response.json()["error"]["code"] == "regex_too_complex"
+
+
+def test_10b_uebliche_muster_bleiben_erlaubt(client, headers):
+    kat = client.post("/categories", json={"name": "R", "type": "expense"}, headers=headers).json()
+    for pattern in (r"\d{2}\.\d{2}\.\d{4}", r"[A-Z]{2}\d{2}[A-Z0-9]{10,30}"):
+        response = client.post("/mapping-rules", json={"pattern": pattern, "match_type": "regex",
+                                                       "target_category_id": kat["id"]}, headers=headers)
+        assert response.status_code == 201, response.text
+
+
+def test_10c_alte_regel_blockiert_keine_importe(client, headers, profile, giro, session):
+    from app.models import MappingRule
+
+    kat = client.post("/categories", json={"name": "Tanken", "type": "expense"}, headers=headers).json()
+    rule = client.post("/mapping-rules", json={"pattern": "aral", "match_type": "regex",
+                                               "target_category_id": kat["id"]}, headers=headers).json()
+    session.get(MappingRule, rule["id"]).pattern = "x{1000}"  # vor der Größenprüfung gespeichert
+    session.commit()
+    assert client.patch(f"/mapping-rules/{rule['id']}", json={"priority": 5}, headers=headers).status_code == 200
+    batch = upload(client, headers, profile, csv_file(("02.01.2026", "-1,00", "ARAL")))
+    assert batch["status"] == "done"
 
 
 # 11 – Uploadlimit vor der Multipart-Verarbeitung
@@ -180,24 +219,36 @@ def test_11_upload_ueber_limit_wird_frueh_abgewiesen(client, headers, profile, m
         response = client.post("/imports", data={"import_profile_id": str(profile["id"])},
                                files={"file": ("gross.csv", big, "text/csv")}, headers=hdrs)
         assert response.status_code == 413 and response.json()["error"]["code"] == "file_too_large"
+    response = client.post("/imports", data={"import_profile_id": str(profile["id"])},
+                           files={"file": ("gross.csv", big, "text/csv")},
+                           headers={**headers, "Origin": "http://localhost:5173"})
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
 
 
-# 12 – Sicherung nicht bei laufendem Worker
-def test_12_backup_verweigert_bei_laufendem_worker(tmp_path):
+# 12 – Sicherung wartet auf laufende Dateiverschiebungen; nur ein Worker
+def test_12_backup_und_dateiverschiebungen(tmp_path, monkeypatch):
+    import fcntl
+
     from app.worker import acquire_lock
 
     lock = acquire_lock(tmp_path)
     try:
         with pytest.raises(SystemExit):
             acquire_lock(tmp_path)  # zweiter Worker
-        result = subprocess.run(
-            [str(PROJECT / "scripts/backup.sh"), str(tmp_path / "ziel")],
-            env={**os.environ, "IMPORT_DIR": str(tmp_path)}, capture_output=True, text=True, timeout=60,
-        )
-        assert result.returncode != 0
-        assert "Import-Worker läuft" in result.stderr + result.stdout
     finally:
         lock.close()
+    monkeypatch.setattr(get_settings(), "import_dir", tmp_path)
+    with import_jobs.file_moves():  # gerade läuft eine Verschiebung samt DB-Commit
+        with open(tmp_path / ".files.lock") as probe:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        result = subprocess.run(
+            [str(PROJECT / "scripts/backup.sh"), str(tmp_path / "ziel")],
+            env={**os.environ, "IMPORT_DIR": str(tmp_path), "BACKUP_LOCK_TIMEOUT": "1"},
+            capture_output=True, text=True, timeout=60,
+        )
+    assert result.returncode != 0
+    assert "Sperre nicht erhalten" in result.stderr + result.stdout
 
 
 # 13 – „beliebiges Feld“ verliert die Gegenpartei nicht
@@ -241,3 +292,46 @@ def test_15_transferpaar_mit_abgeglichener_seite(client, headers, profile, giro,
     assert out["excluded_at"] is not None  # beide Seiten gemeinsam
     total_after = sum(float(_balance(client, headers, a)) for a in (giro["id"], sparen["id"]))
     assert total_after == total_before
+
+
+# Review-Nachträge ----------------------------------------------------------------------------
+
+
+def test_any_feld_findet_muster_ueber_beide_felder(client, headers):
+    kat = client.post("/categories", json={"name": "Strom", "type": "expense"}, headers=headers).json()
+    client.post("/mapping-rules", json={"pattern": "Lastschrift.*Stadtwerke", "match_type": "regex",
+                                        "target_category_id": kat["id"]}, headers=headers)
+    preview = client.post("/mapping-rules/preview",
+                          json={"description": "Lastschrift Januar", "counterparty": "Stadtwerke"}, headers=headers)
+    assert preview.json()["winner"] is not None
+
+
+def test_dieselbe_datei_mit_und_ohne_kontowahl_bucht_nicht_doppelt(client, headers, profile, giro):
+    client.post("/transactions", json={"account_id": giro["id"], "booking_date": "2026-01-02", "amount": "-5.00",
+                                       "description": "manuell"}, headers=headers)
+    content = csv_file(("02.01.2026", "-5,00", "Kauf"), ("03.01.2026", "-7,00", "Neu"))
+    first = upload(client, headers, profile, content, account_id=giro["id"])
+    second = upload(client, headers, profile, content)  # ohne Kontowahl: eigener Auftrag
+    assert first["id"] != second["id"]
+    for batch in (first, second):
+        resolve(client, headers, batch, action="skip", decision="ambiguous")
+    assert client.post(f"/imports/{first['id']}/commit", headers=headers).json()["status"] == "done"
+    response = client.post(f"/imports/{second['id']}/commit", headers=headers)
+    assert response.status_code == 409 and response.json()["error"]["code"] == "import_new_conflicts"
+    amounts = [t["amount"] for t in client.get("/transactions", headers=headers).json()["items"]]
+    assert amounts.count("-7.00") == 1
+
+
+def test_kreditraten_in_neueste_zuerst_dateien(client, headers, profile, giro):
+    from tests.api.test_imports import LENDER_IBAN
+
+    loan = client.post("/loans", json={"name": "Auto", "loan_type": "annuity", "lender_name": "Autobank",
+                                       "lender_iban": LENDER_IBAN, "annual_interest_rate": "5",
+                                       "current_balance": "10000.00", "balance_date": "2026-01-01",
+                                       "first_due_date": "2026-01-30", "term_months": 48,
+                                       "payment_account_id": giro["id"]}, headers=headers).json()
+    content = csv_file(("27.02.2026", "-230,30", "Rate 2", "Autobank", LENDER_IBAN),
+                       ("30.01.2026", "-230,30", "Rate 1", "Autobank", LENDER_IBAN))
+    upload(client, headers, profile, content)
+    plan = client.get(f"/loans/{loan['id']}/schedule", headers=headers).json()
+    assert [e["status"] for e in plan[:2]] == ["paid", "paid"]

@@ -97,15 +97,32 @@ class CommitResult:
     new_conflicts: list[int] = field(default_factory=list)
 
 
-def _recheck(session: Session, rows: list[ImportRow], namespace: str) -> list[int]:
-    """Zeilen, deren Bank-ID inzwischen (z. B. durch einen parallelen Import) vergeben ist."""
+def _recheck(session: Session, batch: ImportBatch, rows: list[ImportRow], namespace: str) -> list[int]:
+    """Zeilen, die seit der Prüfung ein anderer Import übernommen hat.
+
+    Geprüft werden Bank-ID und – für Zeilen ohne Bank-ID – der Fingerprint. Neue Zeilen
+    hatten bei der Prüfung keinen Treffer; ein Treffer aus einem anderen Auftrag heißt also,
+    dass dieselbe Datei (z. B. einmal mit, einmal ohne Kontoauswahl) parallel verarbeitet wurde.
+    """
     conflicts = []
     for row in rows:
-        if effective_action(row) != RowResolution.IMPORT or not row.external_id or row.resolution:
+        if effective_action(row) != RowResolution.IMPORT or row.resolution or row.created_transaction_id:
             continue
-        link = _external_link(session, row.account_id, namespace, row.external_id)
+        if row.external_id:
+            link = _external_link(session, row.account_id, namespace, row.external_id)
+        else:
+            link = session.exec(
+                select(TransactionImportLink)
+                .outerjoin(ImportRow, ImportRow.id == TransactionImportLink.import_row_id)
+                .where(
+                    TransactionImportLink.account_id == row.account_id,
+                    TransactionImportLink.fingerprint == row.fingerprint,
+                    ImportRow.batch_id.is_distinct_from(batch.id),
+                )
+            ).first()
         if link is not None:
-            row.decision, row.match_kind = RowDecision.AMBIGUOUS, MatchKind.EXTERNAL_ID
+            row.decision = RowDecision.AMBIGUOUS
+            row.match_kind = MatchKind.EXTERNAL_ID if row.external_id else MatchKind.FINGERPRINT
             row.matched_transaction_id = link.transaction_id
             row.note = "Inzwischen durch einen anderen Import übernommen"
             conflicts.append(row.row_no)
@@ -118,7 +135,7 @@ def commit_batch(session: Session, user: User, batch: ImportBatch) -> CommitResu
     namespace = namespace_for(session, batch)
     rows = list(session.exec(select(ImportRow).where(ImportRow.batch_id == batch.id).order_by(ImportRow.row_no)))
 
-    result = CommitResult(new_conflicts=_recheck(session, rows, namespace))
+    result = CommitResult(new_conflicts=_recheck(session, batch, rows, namespace))
     if result.new_conflicts:
         batch.status = BatchStatus.AWAITING_REVIEW
         batch.rows_review = open_row_count(session, batch.id)

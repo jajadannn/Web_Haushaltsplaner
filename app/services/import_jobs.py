@@ -6,17 +6,21 @@ Die Arbeitskopie liegt unveränderlich unter `processing/`; Hash und Parser lese
 dieselben Bytes. Das Archivieren ist vom fachlichen Ergebnis getrennt (`archive_state`).
 """
 
+import fcntl
 import hashlib
 import logging
 import os
 import re
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, delete, select, update
+from sqlmodel import Session, delete, select
 
 from app.config import get_settings
 from app.errors import Conflict, Invalid, NotFound
@@ -300,49 +304,65 @@ def commit(session: Session, batch: ImportBatch) -> list[int]:
     if result.new_conflicts:
         return result.new_conflicts
     categorize_new(session, user, [tx for _, tx in result.created])
-    for row, tx in result.created:
+    # Chronologisch, da nur die jeweils nächste offene Rate gebucht werden kann
+    # (viele Bankexporte listen die neuesten Umsätze zuerst)
+    for row, tx in sorted(result.created, key=lambda item: (item[1].booking_date, item[0].row_no)):
         match_imported_payment(session, user, row, tx)
     session.flush()
     return []
 
 
-def _mark_failed(session: Session, batch_id: int, failure: ImportFailure) -> None:
-    batch = session.get(ImportBatch, batch_id)
+MAX_ATTEMPTS = 3
+CLAIM_GRACE = timedelta(minutes=1)
+
+
+def _mark_failed(batch: ImportBatch, failure: ImportFailure) -> None:
     batch.status = BatchStatus.FAILED
-    batch.attempt += 1  # die Zählung im verworfenen Verarbeitungsversuch ging mit verloren
     batch.errors = [{"code": failure.code, "message": failure.message, "details": failure.details}]
     batch.finished_at = datetime.now(UTC)
     batch.rows_review = 0
-    session.flush()
+
+
+def _lock(session: Session, batch_id: int, *, skip_locked: bool = False) -> ImportBatch | None:
+    return session.exec(
+        select(ImportBatch)
+        .where(ImportBatch.id == batch_id)
+        .with_for_update(skip_locked=skip_locked)
+        .execution_options(populate_existing=True)
+    ).first()
 
 
 def run_batch(session: Session, batch_id: int) -> ImportBatch:
-    """Verarbeitet einen per `claim_next` gesperrten Auftrag in derselben Transaktion.
+    """Verarbeitet einen per `claim_next` übernommenen Auftrag.
 
-    Bricht der Prozess ab, verwirft PostgreSQL die Transaktion samt Sperre – der Auftrag
-    ist dann wieder `queued` und wird erneut übernommen. Fachliche Fehler werden dauerhaft
-    am Auftrag vermerkt.
+    Während der Verarbeitung hält die Transaktion eine Zeilensperre (Lease). Fehler werden
+    per Savepoint zurückgerollt und noch unter derselben Sperre als `failed` vermerkt – kein
+    anderer Prozess kann den Auftrag dazwischen übernehmen. Bricht der Prozess ganz ab, fällt
+    die Sperre weg und `requeue_stale` reiht ihn wieder ein.
     """
-    batch = session.get(ImportBatch, batch_id)
-    try:
-        process_batch(session, batch)
-        session.commit()
-    except ImportFailure as failure:
+    batch = _lock(session, batch_id)
+    if batch is None or batch.status != BatchStatus.PROCESSING:
         session.rollback()
-        _mark_failed(session, batch_id, failure)
-        session.commit()
+        return batch
+    try:
+        with session.begin_nested():
+            process_batch(session, batch)
+    except ImportFailure as failure:
+        _mark_failed(batch, failure)
     except Exception as exc:
         log.exception("Import %s fehlgeschlagen", batch_id)
-        session.rollback()
-        _mark_failed(session, batch_id, ImportFailure(f"Interner Fehler: {exc}", code="internal_error"))
-        session.commit()
+        _mark_failed(batch, ImportFailure(f"Interner Fehler: {exc}", code="internal_error"))
+    session.commit()
     batch = session.get(ImportBatch, batch_id)
     archive_file(session, batch)
     return batch
 
 
 def claim_next(session: Session) -> int | None:
-    """Sperrt den nächsten wartenden Auftrag (ohne Commit – siehe `run_batch`)."""
+    """Übernimmt den nächsten wartenden Auftrag und speichert Status und Versuch sofort.
+
+    Der gespeicherte Versuchszähler überlebt auch einen Absturz mitten in der Verarbeitung.
+    """
     batch = session.exec(
         select(ImportBatch)
         .where(ImportBatch.status == BatchStatus.QUEUED)
@@ -357,7 +377,7 @@ def claim_next(session: Session) -> int | None:
     batch.status = BatchStatus.PROCESSING
     batch.attempt += 1
     batch.started_at = batch.heartbeat_at = now
-    session.flush()
+    session.commit()
     return batch.id
 
 
@@ -372,21 +392,53 @@ def process_queue(session: Session, limit: int | None = None) -> int:
     return processed
 
 
-def requeue_stale(session: Session) -> int:
-    """Gespeicherte `processing`-Aufträge wieder einreihen.
+def requeue_stale(session: Session, grace: timedelta = CLAIM_GRACE) -> int:
+    """Abgebrochene Verarbeitungen wieder einreihen.
 
-    Da `processing` nur innerhalb der Verarbeitungstransaktion gilt, kann ein dauerhaft
-    gespeicherter Status nur von einem Abbruch älterer Versionen stammen – unabhängig vom Alter.
-    Gerade laufende Aufträge sind gesperrt und für andere weiterhin `queued`.
+    Abgebrochen ist ein `processing`-Auftrag, dessen Zeilensperre niemand mehr hält (der
+    verarbeitende Prozess ist weg) und der älter als die kurze Übernahmefrist ist. Nach
+    `MAX_ATTEMPTS` Abbrüchen gilt er als fehlgeschlagen – eine Datei, die den Worker zum
+    Absturz bringt, blockiert so nicht dauerhaft alle späteren Importe.
     """
-    result = session.exec(
-        update(ImportBatch).where(ImportBatch.status == BatchStatus.PROCESSING).values(status=BatchStatus.QUEUED)
+    limit = datetime.now(UTC) - grace
+    stale = list(
+        session.exec(
+            select(ImportBatch)
+            .where(
+                ImportBatch.status == BatchStatus.PROCESSING,
+                or_(ImportBatch.started_at.is_(None), ImportBatch.started_at < limit),
+            )
+            .with_for_update(skip_locked=True)
+        )
     )
+    for batch in stale:
+        if batch.attempt >= MAX_ATTEMPTS:
+            _mark_failed(batch, ImportFailure(
+                f"Verarbeitung {batch.attempt}-mal abgebrochen – Datei prüfen", code="processing_aborted"
+            ))
+        else:
+            batch.status = BatchStatus.QUEUED
     session.commit()
-    return result.rowcount
+    return len(stale)
 
 
 # --- Archiv -------------------------------------------------------------------
+
+
+@contextmanager
+def file_moves() -> Iterator[None]:
+    """Geteilte Sperre für Dateiverschiebungen samt zugehörigem DB-Commit.
+
+    `scripts/backup.sh` hält dieselbe Sperre exklusiv, solange Dump und Dateiarchiv
+    entstehen – so passen gesicherte Pfade und Dateien zusammen, auch wenn API und
+    Worker weiterlaufen.
+    """
+    with open(import_dir(".") / ".files.lock", "a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_SH)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def archive_file(session: Session, batch: ImportBatch) -> None:
@@ -396,15 +448,16 @@ def archive_file(session: Session, batch: ImportBatch) -> None:
     folder = "archive" if batch.status == BatchStatus.DONE else "failed"
     source = Path(batch.stored_path)
     target = import_dir(folder) / f"{batch.id}_{safe_filename(batch.original_filename)}"
-    try:
-        if source != target:
-            os.replace(source, target)
-        batch.stored_path = str(target)
-        batch.archive_state = ArchiveState.DONE
-    except OSError:
-        log.exception("Archivieren von Import %s fehlgeschlagen", batch.id)
-        batch.archive_state = ArchiveState.ERROR
-    session.commit()
+    with file_moves():
+        try:
+            if source != target:
+                os.replace(source, target)
+            batch.stored_path = str(target)
+            batch.archive_state = ArchiveState.DONE
+        except OSError:
+            log.exception("Archivieren von Import %s fehlgeschlagen", batch.id)
+            batch.archive_state = ArchiveState.ERROR
+        session.commit()
 
 
 def archive_pending(session: Session) -> int:

@@ -68,11 +68,17 @@ trap 'exit 143' TERM
 # ---- Vorbedingungen ---------------------------------------------------------------------------
 werkzeug_pruefen pg_dump pg_restore psql
 command -v tar >/dev/null 2>&1 || fehler "tar nicht gefunden."
-# Der Import-Worker verschiebt Dateien (processing/ → archive/). Liefe er während der Sicherung,
-# könnten Dump und Dateiarchiv verschiedene Stände enthalten. Er hält dazu eine flock-Sperre.
-if [ -e "$IMPORT_DIR/.worker.lock" ] && command -v flock >/dev/null 2>&1 \
-  && ! flock -n "$IMPORT_DIR/.worker.lock" true; then
-  fehler "Der Import-Worker läuft – bitte zuerst beenden, dann sichern (die API darf weiterlaufen)."
+# API und Worker verschieben Import-Dateien (inbox/ → processing/ → archive/) samt DB-Update
+# unter einer geteilten flock-Sperre. Die Sicherung hält sie exklusiv bis zum Ende (fd 9 bleibt
+# offen): Verschiebungen warten so lange, Dump und Dateiarchiv zeigen denselben Stand.
+if [ -d "$IMPORT_DIR" ]; then
+  if command -v flock >/dev/null 2>&1; then
+    exec 9>>"$IMPORT_DIR/.files.lock"
+    flock -x -w "${BACKUP_LOCK_TIMEOUT:-60}" 9 \
+      || fehler "Import-Dateien werden gerade verschoben – Sperre nicht erhalten, später erneut versuchen."
+  else
+    warnung "flock nicht gefunden: Während der Sicherung sollten API und Worker keine Importe verarbeiten."
+  fi
 fi
 command -v sha256sum >/dev/null 2>&1 || command -v shasum >/dev/null 2>&1 || fehler "Weder sha256sum noch shasum gefunden."
 

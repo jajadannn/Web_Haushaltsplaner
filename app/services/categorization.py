@@ -34,23 +34,23 @@ REGEX_TIMEOUT_SECONDS = 0.05
 MAX_TEXT_LENGTH = 1000
 
 
-_REPEAT = re.compile(r"\{\s*(\d+)\s*(?:,\s*(\d*)\s*)?\}")
-MAX_REPEAT = 50
-MAX_REPEAT_GROUPS = 2
+# Wiederholungen {n}, {n,}, {,m}, {n,m} – auch ohne Untergrenze
+_REPEAT = re.compile(r"\{\s*(\d*)\s*(?:,\s*(\d*)\s*)?\}")
+MAX_REPEAT = 100
+MAX_REPEAT_SUM = 300
 
 
-def _check_regex_size(pattern: str) -> None:
-    """Begrenzt Wiederholungszahlen VOR dem Kompilieren.
+def check_regex_size(pattern: str) -> None:
+    """Begrenzt Wiederholungszahlen VOR dem Kompilieren (beim Anlegen/Ändern einer Regel).
 
     Das Zeitlimit greift nur bei der Suche; `x{1000000000}` würde schon beim Kompilieren
-    sehr viel Speicher belegen. Für Buchungstexte genügen kleine, wenige Wiederholungen.
+    sehr viel Speicher belegen. Typische Muster wie `\\d{2}\\.\\d{2}\\.\\d{4}` bleiben erlaubt.
     """
-    repeats = _REPEAT.findall(pattern)
-    numbers = [int(n) for pair in repeats for n in pair if n]
-    if len(repeats) > MAX_REPEAT_GROUPS or any(n > MAX_REPEAT for n in numbers):
+    numbers = [int(n) for pair in _REPEAT.findall(pattern) for n in pair if n]
+    if any(n > MAX_REPEAT for n in numbers) or sum(numbers) > MAX_REPEAT_SUM:
         raise Invalid(
-            f"Regulärer Ausdruck zu aufwendig: höchstens {MAX_REPEAT_GROUPS} Wiederholungen "
-            f"{{n,m}} mit Werten bis {MAX_REPEAT}",
+            f"Regulärer Ausdruck zu aufwendig: Wiederholungen {{n,m}} höchstens {MAX_REPEAT}, "
+            f"zusammen höchstens {MAX_REPEAT_SUM}",
             code="regex_too_complex",
         )
 
@@ -58,7 +58,6 @@ def _check_regex_size(pattern: str) -> None:
 def compile_pattern(pattern: str, match_type: str, case_sensitive: bool):
     if match_type != MatchType.REGEX:
         return None
-    _check_regex_size(pattern)
     try:
         return regex.compile(pattern, 0 if case_sensitive else regex.IGNORECASE)
     except regex.error as exc:
@@ -67,13 +66,17 @@ def compile_pattern(pattern: str, match_type: str, case_sensitive: bool):
 
 def rule_texts(rule: MappingRule, description: str | None, counterparty: str | None) -> list[str]:
     """Zu prüfende Texte, je Feld einzeln begrenzt – bei `any` verdrängt ein langer
-    Verwendungszweck so nicht die Gegenpartei."""
+    Verwendungszweck so nicht die Gegenpartei. Für `any` zusätzlich der verbundene Text,
+    damit Muster über beide Felder (z. B. `Lastschrift.*Stadtwerke`) weiter greifen."""
     parts = {
         MatchField.DESCRIPTION: [description],
         MatchField.COUNTERPARTY: [counterparty],
         MatchField.ANY: [description, counterparty],
     }[rule.match_field]
-    return [p[:MAX_TEXT_LENGTH] for p in parts if p]
+    texts = [p[:MAX_TEXT_LENGTH] for p in parts if p]
+    if len(texts) == 2:
+        texts.append(" ".join(texts))
+    return texts
 
 
 @dataclass
@@ -109,9 +112,14 @@ class RuleSet:
                     .order_by(MappingRule.priority, MappingRule.id)
                 )
             )
-        self.rules = [
-            CompiledRule(r, compile_pattern(r.pattern, r.match_type, r.case_sensitive)) for r in rules
-        ]
+        self.rules = []
+        for rule in rules:
+            try:
+                compiled = compile_pattern(rule.pattern, rule.match_type, rule.case_sensitive)
+                self.rules.append(CompiledRule(rule, compiled))
+            except Invalid:
+                # Eine fehlerhafte gespeicherte Regel darf Importe nicht blockieren
+                log.warning("Regel %s lässt sich nicht kompilieren – übersprungen", rule.id)
 
     def matching(self, description: str | None, counterparty: str | None) -> list[MappingRule]:
         return [c.rule for c in self.rules if c.matches(description, counterparty)]

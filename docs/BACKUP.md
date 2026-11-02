@@ -21,7 +21,7 @@ scripts/backup.sh                    # nach backups/
 scripts/backup.sh /mnt/nas/finanzen  # anderer Zielordner
 ```
 
-**Vorher den Import-Worker beenden** (die API darf weiterlaufen). Der Worker verschiebt Dateien von `processing/` nach `archive/`; liefe er während der Sicherung, könnten Datenbank-Dump und Dateiarchiv verschiedene Stände enthalten. `backup.sh` erkennt einen laufenden Worker an dessen Sperrdatei `IMPORT_DIR/.worker.lock` und bricht dann ab.
+**API und Worker dürfen weiterlaufen.** Beide verschieben Import-Dateien (`inbox/` → `processing/` → `archive/`) samt Datenbank-Update unter einer gemeinsamen Sperre (`IMPORT_DIR/.files.lock`). `backup.sh` hält diese Sperre exklusiv, bis Dump und Dateiarchiv fertig sind; Verschiebungen warten so lange. Wird die Sperre nicht innerhalb von `BACKUP_LOCK_TIMEOUT` Sekunden (Standard 60) frei, bricht die Sicherung ab.
 
 Die Skripte lesen `DATABASE_URL` und `IMPORT_DIR` aus `.env`; Umgebungsvariablen und Argumente haben Vorrang. Das Passwort aus `DATABASE_URL` wird nie ausgegeben.
 

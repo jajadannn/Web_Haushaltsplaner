@@ -27,6 +27,7 @@ from app.models.imports import BatchSource, ImportProfile
 from app.services.import_jobs import (
     archive_pending,
     create_batch,
+    file_moves,
     import_dir,
     process_queue,
     requeue_stale,
@@ -63,19 +64,20 @@ def ingest_inbox_file(session: Session, path: Path, inbox: Path) -> int | None:
         log.warning("Kein Watch-Ordner '%s' angelegt – Datei nach %s verschoben", subdir, target)
         return None
     working = import_dir("processing") / f"{uuid.uuid4().hex}_{safe_filename(path.name)}"
-    os.replace(path, working)  # atomar: ab jetzt unveränderliche Arbeitskopie
     profile = session.get(ImportProfile, folder.import_profile_id)
-    batch, created = create_batch(
-        session,
-        user_id=folder.user_id,
-        profile=profile,
-        content=working.read_bytes(),
-        original_filename=path.name,
-        source=BatchSource.WATCHER,
-        account_id=folder.account_id,
-        stored_path=working,
-    )
-    session.commit()
+    with file_moves():  # Verschieben und Auftrag gemeinsam – konsistent für backup.sh
+        os.replace(path, working)  # atomar: ab jetzt unveränderliche Arbeitskopie
+        batch, created = create_batch(
+            session,
+            user_id=folder.user_id,
+            profile=profile,
+            content=working.read_bytes(),
+            original_filename=path.name,
+            source=BatchSource.WATCHER,
+            account_id=folder.account_id,
+            stored_path=working,
+        )
+        session.commit()
     if not created:
         duplicate = import_dir("archive") / f"{batch.id}_bereits-importiert_{working.name}"
         os.replace(working, duplicate)
@@ -176,6 +178,7 @@ def run() -> None:
                         except Exception:
                             session.rollback()
                             log.exception("Datei %s konnte nicht übernommen werden", path)
+                requeue_stale(session)  # abgebrochene Verarbeitungen (Sperre frei) erneut einreihen
                 process_queue(session)
                 archive_pending(session)
     except KeyboardInterrupt:

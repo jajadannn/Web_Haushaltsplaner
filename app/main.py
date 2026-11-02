@@ -27,14 +27,16 @@ Fehler haben immer das Format `{"error": {"code", "message", "details"}}`.
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Finanzplaner API", version="0.1.0", description=DESCRIPTION)
+    # Uploadgröße begrenzen, bevor FastAPI den Multipart-Body zwischenspeichert.
+    # Vor CORS registriert: Die zuletzt registrierte Middleware ist die äußerste, so trägt
+    # auch die 413-Antwort die CORS-Header und das Frontend kann sie lesen.
+    app.add_middleware(UploadSizeLimit)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=get_settings().cors_origins,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    # Uploadgröße begrenzen, bevor FastAPI den Multipart-Body zwischenspeichert
-    app.add_middleware(UploadSizeLimit)
     register_error_handlers(app)
     for module in (users, institutions, accounts, categories, transactions, loans, imports, rules, reports):
         app.include_router(module.router)
