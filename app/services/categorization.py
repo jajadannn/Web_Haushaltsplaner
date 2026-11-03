@@ -151,11 +151,14 @@ def categorize_new(session: Session, user: User, transactions: list[Transaction]
 
 
 def candidates_query(user: User):
-    """Buchungen, die Regeln (neu) zuordnen dürfen: nie manuell oder über Kredite kategorisiert."""
+    """Buchungen, die Regeln (neu) zuordnen dürfen: nie manuell oder über Kredite kategorisiert.
+
+    Vorschläge der KI dürfen Regeln überschreiben – eine Regel hat der Nutzer selbst angelegt.
+    """
     return select(Transaction).where(
         Transaction.user_id == user.id,
         Transaction.kind == TransactionKind.REGULAR,
-        Transaction.category_source.in_([CategorySource.NONE, CategorySource.RULE]),
+        Transaction.category_source.in_([CategorySource.NONE, CategorySource.RULE, CategorySource.AI]),
         Transaction.excluded_at.is_(None),
         not_(exists().where(TransactionSplit.transaction_id == Transaction.id)),
     )

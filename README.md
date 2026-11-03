@@ -133,6 +133,46 @@ Eine schon erfolgreich verarbeitete Datei wird nicht noch einmal gebucht.
 - Ohne ID gilt ein Treffer über gleichen Text, Betrag und Tag nur als *mögliche* Dublette, ebenso eine ähnliche manuell erfasste Buchung.
 - Nichts wird still verworfen, und Zahlungen, die mehrfach echt vorkommen, bleiben erhalten.
 
+## Lokale KI in der Prüfliste
+
+Eine KI im Heimnetz kann Kategorien für offene Buchungen vorschlagen. Sie **bestätigt nie selbst**:
+- **Vorschlag:** Die Buchung landet unter „Automatisch zugeordnet“, mit Begründung und Sicherheit. Bestätigt wird wie gewohnt einzeln oder gesammelt.
+- **Keine passende Kategorie:** Die Buchung bleibt unter „Ohne Kategorie“, mit dem Hinweis der KI.
+
+Der Import-Worker arbeitet in einem eigenen Thread nach und nach alle offenen Buchungen ohne Kategorie ab, die neuesten zuerst. Importe warten dabei nicht.
+
+**Was die KI zu sehen bekommt:**
+- die Buchung selbst
+- die passenden Kategorien
+- bis zu fünf bestätigte Buchungen derselben Gegenpartei als Beispiele
+
+Je mehr bestätigt ist, desto treffsicherer wird sie. Regeln haben Vorrang: „Regel anwenden“ überschreibt KI-Vorschläge.
+
+| Variable | Bedeutung | Beispiel |
+|---|---|---|
+| `AI_URL` | Adresse des KI-Servers; leer = aus | Ollama: `http://192.168.178.40:11434`, LM Studio u. a.: `http://192.168.178.40:1234/v1` |
+| `AI_MODEL` | Modellname auf dem Server | `gemma4:e2b` (Ollama), `google/gemma-4-12b-qat` (LM Studio) |
+| `AI_TIMEOUT_SECONDS` | Höchstdauer je Buchung | `300` |
+
+**Schnittstelle:** Endet die Adresse auf `/v1`, wird die OpenAI-kompatible Schnittstelle genutzt (LM Studio, llama.cpp, vLLM), sonst Ollama. Das „Nachdenken“ (Reasoning) wird abgeschaltet; es kostet bei der Zuordnung nur Zeit.
+
+**Auf dem KI-Rechner:**
+- **Ollama:** `OLLAMA_HOST=0.0.0.0` setzen und das Modell mit `ollama pull <modell>` laden.
+- **LM Studio:** „Serve on Local Network“ einschalten und das Modell laden.
+
+**Docker:** `AI_URL` und `AI_MODEL` in eine `.env` neben `docker-compose.yml` schreiben, danach `docker-compose up -d`.
+
+**Status:** `GET /api/review/ai` liefert, ob die KI erreichbar ist und wie viele Buchungen noch offen sind. `POST /api/review/ai/retry` legt Buchungen ohne Treffer erneut vor, zum Beispiel nach neuen Kategorien. Beides zeigt auch die Prüfen-Seite.
+
+**Erfahrungswerte:**
+
+| Modell | Hardware | Zeit je Buchung |
+|---|---|---|
+| gemma4:e2b | Laptop-CPU | 15–20 s |
+| gemma-4-12b | Heimnetz-Rechner | ca. 10 s |
+
+Beide Modelle irren sich gelegentlich, auch wenn sie „hoch“ als Sicherheit angeben. Deshalb bleibt das Bestätigen beim Menschen.
+
 ## Fachliche Regeln (Kurzfassung)
 - **Saldo** = Anfangssaldo + Buchungen vom Stichtag bis zum Abfragetag. Er wird immer berechnet und nie gespeichert.
 - **Umbuchungen** (`kind: transfer`, `POST /transfers`) ändern Kontostände, zählen aber nicht als Einnahme oder Ausgabe.

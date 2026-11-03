@@ -98,6 +98,7 @@ class TransactionRead(ReadModel):
     transfer_peer_id: int | None
     excluded_at: datetime | None
     excluded_reason: str | None
+    ai_note: str | None
     created_at: datetime
     updated_at: datetime
     splits: list[SplitRead]

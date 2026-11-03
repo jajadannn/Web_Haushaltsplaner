@@ -27,6 +27,9 @@ services:
     environment: &app-env
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/finanzplaner
       TIMEZONE: Europe/Berlin
+      # Lokale KI für die Prüfliste – Werte aus einer .env neben dieser Datei, leer = aus
+      AI_URL: ${AI_URL:-}
+      AI_MODEL: ${AI_MODEL:-gemma4:e2b}
     ports:
       # Im Heimnetz erreichbar: http://<rechner>:8000/ und /wand
       - "8000:8000"

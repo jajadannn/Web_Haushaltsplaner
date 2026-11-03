@@ -94,8 +94,13 @@ export const useTransactions = (query: Query) =>
 export const useFixedCosts = () => useProfileQuery<FixedCost[]>('fixed-costs', '/fixed-costs')
 export const useLoans = () => useProfileQuery<Loan[]>('loans', '/loans')
 export const useRules = () => useProfileQuery<Rule[]>('rules', '/mapping-rules')
-export const useReview = (query: Query) =>
-  useProfileQuery<Schemas['ReviewPage']>('review', '/review', query)
+export const useReview = (query: Query, options?: { refetchInterval?: number | false }) =>
+  useProfileQuery<Schemas['ReviewPage']>('review', '/review', query, options)
+/** Lokale KI der Prüfliste; fragt alle 10 s nach, solange sie noch Buchungen prüft. */
+export const useAiStatus = () =>
+  useProfileQuery<Schemas['AiStatus']>('review', '/review/ai', undefined, {
+    refetchInterval: (data) => (data?.enabled && data.pending > 0 ? 10_000 : false),
+  })
 export const useImportProfiles = () => useProfileQuery<ImportProfile[]>('import-profiles', '/import-profiles')
 export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folders', '/watch-folders')
 

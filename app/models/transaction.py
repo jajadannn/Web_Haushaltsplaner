@@ -17,6 +17,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -44,6 +45,7 @@ class CategorySource(StrEnum):
     MANUAL = "manual"
     RULE = "rule"
     LOAN = "loan"
+    AI = "ai"  # Vorschlag der lokalen KI (bleibt zur Bestätigung in der Prüfliste)
     NONE = "none"
 
 
@@ -68,6 +70,12 @@ class Transaction(SQLModel, table=True):
         Index("ix_transaction_account_id_booking_date", "account_id", "booking_date"),
         Index("ix_transaction_user_id_booking_date", "user_id", "booking_date"),
         Index("ix_transaction_category_id", "category_id"),
+        # Warteschlange der lokalen KI: offene Buchungen ohne Kategorie, noch nicht vorgelegt
+        Index(
+            "ix_transaction_ai_pending",
+            "id",
+            postgresql_where=text("ai_checked_at IS NULL AND review_status = 'needs_review' AND category_id IS NULL"),
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -96,6 +104,9 @@ class Transaction(SQLModel, table=True):
     )
     excluded_at: datetime | None = Field(default=None, sa_column=nullable_timestamp())
     excluded_reason: str | None = Field(default=None, max_length=500)
+    # Lokale KI: wann die Buchung ihr vorgelegt wurde (einmal je Buchung) und ihre Begründung
+    ai_checked_at: datetime | None = Field(default=None, sa_column=nullable_timestamp())
+    ai_note: str | None = Field(default=None, max_length=300)
     created_at: datetime | None = Field(default=None, sa_column=created_at_column())
     updated_at: datetime | None = Field(default=None, sa_column=updated_at_column())
 

@@ -118,3 +118,16 @@ class RuleSuggestion(BaseModel):
     match_field: MatchField
     target_category_id: int | None
     matching_transactions: int
+
+
+class AiStatus(BaseModel):
+    """Lokale KI in der Prüfliste."""
+
+    enabled: bool  # AI_URL gesetzt
+    model: str | None
+    reachable: bool | None  # None, wenn aus
+    pending: int  # Buchungen dieses Profils, die die KI noch prüfen wird
+
+
+class AiRetryResult(BaseModel):
+    queued: int

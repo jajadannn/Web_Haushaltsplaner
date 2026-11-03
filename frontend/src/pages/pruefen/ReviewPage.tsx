@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Schemas } from '../../api/client'
 import {
-  MONEY_AREAS, useAccounts, useApiMutation, useCategories, useReview, useRules, useTransactions,
+  MONEY_AREAS, useAccounts, useAiStatus, useApiMutation, useCategories, useReview, useRules, useTransactions,
   type Category, type Transaction,
 } from '../../api/hooks'
 import { fullDate, shortDate } from '../../lib/dates'
 import { formatEuro } from '../../lib/money'
 import { Button, Checkbox, SelectField, Segmented, TextField } from '../../ui/controls'
-import { EmptyState, ErrorBox, Loading, Money, PageHeader } from '../../ui/blocks'
+import { EmptyState, ErrorBox, Loading, Money, Notice, PageHeader } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
 import { useToast } from '../../ui/overlay'
 import { useFormErrors } from '../../ui/useFormErrors'
@@ -18,6 +18,8 @@ import './pruefen.css'
  * Prüfen (Entwurf C · Tabelle mit Sammelleiste): Buchungen ohne Kategorie oder mit
  * automatisch gesetzter Kategorie bestätigen – einzeln, gesammelt oder als Regel für
  * die Zukunft. Vom Import erkannte Kreditraten lassen sich direkt als Rate buchen.
+ * Ist eine lokale KI eingerichtet, schlägt sie im Hintergrund Kategorien vor; ihre
+ * Vorschläge stehen unter „Automatisch zugeordnet“ mit Begründung und warten aufs Bestätigen.
  */
 
 type ReviewItem = Schemas['ReviewItem']
@@ -45,7 +47,10 @@ function useFrequentCategories(categories: Category[]) {
 export function ReviewPage() {
   const toast = useToast()
   const [status, setStatus] = useState<Status>('needs_review')
-  const review = useReview({ status, limit: PAGE })
+  const ai = useAiStatus()
+  const aiWorking = Boolean(ai.data?.enabled && ai.data.reachable && ai.data.pending > 0)
+  // Solange die KI arbeitet, erscheinen ihre Vorschläge ohne Neuladen der Seite
+  const review = useReview({ status, limit: PAGE }, { refetchInterval: aiWorking ? 15_000 : false })
   const categories = useCategories({ active: true })
   const accounts = useAccounts({ include_archived: true })
   const rules = useRules()
@@ -71,6 +76,7 @@ export function ReviewPage() {
     transaction_ids: [...marked],
     ...(bulkCategory === TRANSFER ? { as_transfer: true } : { category_id: bulkCategory ? Number(bulkCategory) : null }),
   }), MONEY_AREAS)
+  const aiRetry = useApiMutation(() => api.post<Schemas['AiRetryResult']>('/review/ai/retry'), ['review'])
   const bookLoan = useApiMutation((item: ReviewItem) => api.post(`/loans/${item.suggested_loan!.loan_id}/payments`, {
     transaction_id: item.transaction.id, schedule_seq: item.suggested_loan!.seq,
   }), [...MONEY_AREAS, 'fixed-costs'])
@@ -115,6 +121,12 @@ export function ReviewPage() {
           ? total === 1 ? '1 Buchung braucht eine Kategorie' : `${total} Buchungen brauchen eine Kategorie`
           : `${total} automatisch zugeordnete Buchungen zum Bestätigen`}
       </p>
+      <AiNotice status={ai.data} canRetry={status === 'needs_review' && items.some((i) => i.transaction.ai_note)}
+        retrying={aiRetry.isPending}
+        onRetry={() => aiRetry.mutate(undefined, {
+          onSuccess: (r) => toast.ok(r.queued === 1 ? '1 Buchung wird erneut geprüft' : `${r.queued} Buchungen werden erneut geprüft`),
+          onError: toast.error,
+        })} />
       <Segmented<Status> label="Ansicht" value={status} onChange={(s) => { setStatus(s); setMarked(new Set()) }} options={[
         { value: 'needs_review', label: 'Ohne Kategorie' },
         { value: 'auto_categorized', label: 'Automatisch zugeordnet' },
@@ -179,8 +191,13 @@ export function ReviewPage() {
                           </select>
                           <Icon name="chevronDown" size={18} className="select-chevron" />
                         </div>
+                        {t.ai_note && !(t.category_source === 'ai' && value === String(t.category_id)) && (
+                          <p className="ai-hint is-muted"><Icon name="sparkle" size={16} /> KI: {t.ai_note}</p>
+                        )}
                         <div className="review-chips">
-                          {t.applied_rule_id && t.category_id && value === String(t.category_id) ? (
+                          {t.category_source === 'ai' && t.category_id && value === String(t.category_id) ? (
+                            <span className="ai-hint"><Icon name="sparkle" size={16} /> KI: {t.ai_note}</span>
+                          ) : t.applied_rule_id && t.category_id && value === String(t.category_id) ? (
                             <span className="rule-hint"><Icon name="list" size={16} /> Regel „{ruleName(t.applied_rule_id)}“</span>
                           ) : (
                             <>
@@ -256,6 +273,37 @@ export function ReviewPage() {
       )}
     </div>
   )
+}
+
+/** Zeile über der Liste: Was die lokale KI gerade tut (nichts, wenn keine eingerichtet ist). */
+function AiNotice({ status, canRetry, retrying, onRetry }: {
+  status: Schemas['AiStatus'] | undefined
+  canRetry: boolean
+  retrying: boolean
+  onRetry: () => void
+}) {
+  if (!status?.enabled) return null
+  const retry = canRetry ? <Button variant="secondary" busy={retrying} onClick={onRetry}>Erneut prüfen</Button> : null
+  if (status.reachable === false) {
+    return (
+      <Notice tone="due" icon="alert" action={retry}>
+        KI ({status.model}) nicht erreichbar – Vorschläge kommen, sobald sie wieder läuft.
+      </Notice>
+    )
+  }
+  if (status.pending > 0) {
+    return (
+      <Notice tone="info" icon="sparkle">
+        KI ({status.model}) prüft im Hintergrund – noch {status.pending === 1 ? '1 Buchung' : `${status.pending} Buchungen`}.
+        Vorschläge erscheinen unter „Automatisch zugeordnet“.
+      </Notice>
+    )
+  }
+  return retry ? (
+    <Notice tone="info" icon="sparkle" action={retry}>
+      Für einige Buchungen hat die KI keine passende Kategorie gefunden.
+    </Notice>
+  ) : null
 }
 
 /** „Regel vorschlagen“: Vorschlag des Backends, bearbeitbar, dann als Regel speichern. */

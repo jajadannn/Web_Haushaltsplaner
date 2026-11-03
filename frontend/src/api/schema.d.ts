@@ -904,6 +904,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/review/ai": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ai Status
+         * @description Ob die lokale KI eingerichtet und erreichbar ist und wie viele Buchungen sie noch prüft.
+         */
+        get: operations["ai_status_review_ai_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review/ai/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Retry
+         * @description Offene Buchungen, zu denen die KI nichts gefunden hat, erneut vorlegen.
+         */
+        post: operations["ai_retry_review_ai_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/review/{transaction_id}/confirm": {
         parameters: {
             query?: never;
@@ -1304,6 +1344,25 @@ export interface components {
             /** Bank Account Ref */
             bank_account_ref?: string | null;
         };
+        /** AiRetryResult */
+        AiRetryResult: {
+            /** Queued */
+            queued: number;
+        };
+        /**
+         * AiStatus
+         * @description Lokale KI in der Prüfliste.
+         */
+        AiStatus: {
+            /** Enabled */
+            enabled: boolean;
+            /** Model */
+            model: string | null;
+            /** Reachable */
+            reachable: boolean | null;
+            /** Pending */
+            pending: number;
+        };
         /** ApplyResult */
         ApplyResult: {
             /** Dry Run */
@@ -1495,7 +1554,7 @@ export interface components {
          * CategorySource
          * @enum {string}
          */
-        CategorySource: "manual" | "rule" | "loan" | "none";
+        CategorySource: "manual" | "rule" | "loan" | "ai" | "none";
         /**
          * CategoryType
          * @enum {string}
@@ -2568,6 +2627,8 @@ export interface components {
             excluded_at: string | null;
             /** Excluded Reason */
             excluded_reason: string | null;
+            /** Ai Note */
+            ai_note: string | null;
             /**
              * Created At
              * Format: date-time
@@ -5263,6 +5324,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_status_review_ai_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_retry_review_ai_retry_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiRetryResult"];
                 };
             };
             /** @description Validation Error */

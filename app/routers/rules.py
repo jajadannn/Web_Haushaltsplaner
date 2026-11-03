@@ -2,9 +2,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
+from app.config import get_settings
 from app.deps import CurrentUser, SessionDep
 from app.models import ReviewStatus
 from app.schemas.rule import (
+    AiRetryResult,
+    AiStatus,
     ApplyResult,
     BulkConfirm,
     ReviewConfirm,
@@ -17,7 +20,7 @@ from app.schemas.rule import (
     RuleUpdate,
 )
 from app.schemas.transaction import TransactionRead
-from app.services import review, rules
+from app.services import ai_review, review, rules
 from app.services.categorization import RuleSet, apply_rules
 from app.services.transactions import get_transaction
 
@@ -104,6 +107,27 @@ def bulk_confirm(data: BulkConfirm, session: SessionDep, user: CurrentUser):
     count = review.bulk_confirm(session, user, data.transaction_ids, data)
     session.commit()
     return {"confirmed": count}
+
+
+@router.get("/review/ai", response_model=AiStatus, tags=["Prüfliste"])
+def ai_status(session: SessionDep, user: CurrentUser):
+    """Ob die lokale KI eingerichtet und erreichbar ist und wie viele Buchungen sie noch prüft."""
+    settings = get_settings()
+    enabled = bool(settings.ai_url)
+    return AiStatus(
+        enabled=enabled,
+        model=settings.ai_model if enabled else None,
+        reachable=ai_review.reachable() if enabled else None,
+        pending=ai_review.pending_count(session, user),
+    )
+
+
+@router.post("/review/ai/retry", response_model=AiRetryResult, tags=["Prüfliste"])
+def ai_retry(session: SessionDep, user: CurrentUser):
+    """Offene Buchungen, zu denen die KI nichts gefunden hat, erneut vorlegen."""
+    queued = ai_review.retry(session, user)
+    session.commit()
+    return AiRetryResult(queued=queued)
 
 
 @router.post("/review/{transaction_id}/confirm", response_model=TransactionRead, tags=["Prüfliste"])
