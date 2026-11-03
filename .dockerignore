@@ -1,0 +1,21 @@
+# Nur Quellcode ins Build – keine lokalen Daten, Werkzeuge oder Build-Reste
+.git
+.env
+.venv
+.tools
+.uv-cache
+.pg
+.pytest_cache
+.hypothesis
+.impeccable
+.agents
+.claude
+**/__pycache__
+backups
+imports
+tests
+docs
+frontend/node_modules
+frontend/dist
+frontend/e2e
+frontend/openapi.json

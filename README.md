@@ -81,6 +81,28 @@ Danach im WLAN: `http://<rechner>:8000/` (persönlich, am Handy „Zum Home-Bild
 fürs Wanddisplay (Browser im Vollbild/Kiosk-Modus). Anfragen von außerhalb der erlaubten Netze bekommen 403
 `local_network_only`. Den Port nicht im Router nach außen freigeben.
 
+### Mit Docker betreiben
+
+Das `Dockerfile` baut die Oberfläche und packt sie mit der API in ein Image. `docker-compose.yml` startet drei Container:
+
+| Dienst | Aufgabe |
+|---|---|
+| `db` | PostgreSQL 16, nur über `127.0.0.1:5432` erreichbar |
+| `app` | Oberfläche und API auf Port 8000 im Heimnetz; führt beim Start `alembic upgrade head` aus |
+| `worker` | Import-Worker; startet erst, wenn `app` bereit ist (also nach der Migration) |
+
+```bash
+docker compose up -d --build                     # bauen und starten
+docker compose logs -f app worker                # Protokolle
+docker compose up -d --build app worker          # nach einem Update neu bauen
+```
+
+- **Daten:** Datenbank im Volume `pgdata`, Import-Verzeichnis im Volume `imports` (gemeinsam für `app` und `worker`).
+- **Watch-Ordner:** Dateien gelangen über `docker compose cp <datei> worker:/data/imports/inbox/<ordner>/` hinein, oder man ersetzt das Volume `imports` durch einen Ordner auf dem Rechner (der Container läuft als UID 1000).
+- **Sicherung:** `docker compose exec db pg_dump -U postgres -Fc finanzplaner > finanzplaner.dump`.
+- **Zugangsdaten:** Das Datenbank-Passwort `postgres` aus `docker-compose.yml` vor dem ersten Start ändern (in `db` und in `DATABASE_URL`).
+- **Netzsperre:** Die App sieht die echte Adresse der Geräte im WLAN. Bei rootless Docker oder Podman erscheinen alle Anfragen dagegen mit einer internen Adresse und gelten damit als „Heimnetz“, die Sperre greift dann nicht. Der Port darf deshalb erst recht nicht nach außen freigegeben werden.
+
 ## Kontoauszüge importieren
 1. **Bank** anlegen: `POST /institutions`.
 2. **Konten** anlegen: `POST /accounts`, mit IBAN und **Stichtag**. Der Anfangssaldo gilt zu *Beginn* des Stichtags.

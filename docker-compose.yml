@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -11,6 +12,44 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d finanzplaner"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Oberfläche + API auf Port 8000; migriert die Datenbank beim Start
+  app:
+    build: .
+    image: finanzplaner:latest
+    restart: unless-stopped
+    init: true
+    environment: &app-env
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/finanzplaner
+      TIMEZONE: Europe/Berlin
+    ports:
+      # Im Heimnetz erreichbar: http://<rechner>:8000/ und /wand
+      - "8000:8000"
+    volumes:
+      - imports:/data/imports
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Import-Worker – genau EIN Prozess; startet erst, wenn die App migriert hat
+  worker:
+    image: finanzplaner:latest
+    pull_policy: never   # dasselbe Image wie „app“, wird dort gebaut
+    restart: unless-stopped
+    init: true
+    command: ["worker"]
+    environment: *app-env
+    volumes:
+      - imports:/data/imports
+    depends_on:
+      app:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  imports:
