@@ -370,3 +370,101 @@
 .settings-watch .row-card {
   min-height: 64px;
 }
+
+/* Fixkost aus Buchung übernehmen */
+.pick-from {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.tx-picker {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--card-line);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+}
+
+.tx-picker-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.tx-picker-head .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-picker-list {
+  display: grid;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tx-picker-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tx-picker-row:hover {
+  background: var(--card-hover);
+}
+
+.tx-picker-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tx-picker-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.tx-picker-top strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-picker-top .money {
+  flex: none;
+  font-weight: 700;
+}
+
+.tx-picker-sub {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-picker-monthly {
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgb(143 211 255 / 0.14);
+  color: var(--focus);
+  font-size: 13px;
+  font-weight: 600;
+}
