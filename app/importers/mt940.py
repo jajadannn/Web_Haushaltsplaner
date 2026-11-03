@@ -10,7 +10,14 @@ from decimal import Decimal
 
 import mt940
 
-from app.importers.base import ParsedRow, ParseError, ParseResult, compact_account, looks_like_iban
+from app.importers.base import (
+    ParsedRow,
+    ParseError,
+    ParseResult,
+    compact_account,
+    looks_like_iban,
+    statement_account,
+)
 
 _STATEMENT_START = re.compile(r"(?m)^:20:")
 _SUBFIELD = re.compile(r"\?(\d{2})")
@@ -88,7 +95,7 @@ def parse_mt940(content: bytes) -> ParseResult:
             statement.parse(chunk)
         except Exception as exc:  # Bibliothek wirft unterschiedliche Fehlertypen
             raise ParseError(f"MT940-Auszug nicht lesbar: {exc}") from exc
-        own = compact_account(statement.data.get("account_identification"))
+        own = statement_account(statement.data.get("account_identification"))
         if own:
             accounts.add(own)
         for tx in statement:

@@ -25,7 +25,7 @@ from sqlmodel import Session, delete, select
 from app.config import get_settings
 from app.errors import Conflict, Invalid, NotFound
 from app.importers import PARSER_VERSION, CsvOptions, ParseError, ParseResult, parse_csv, parse_mt940, parse_ofx
-from app.importers.base import compact_account, looks_like_iban
+from app.importers.base import compact_account, german_account_number, looks_like_iban
 from app.models import Account, AccountType, Transaction, User
 from app.models.imports import (
     ArchiveState,
@@ -180,7 +180,22 @@ def parse(profile: ImportProfile, content: bytes) -> ParseResult:
 
 
 def _identifies(account: Account, identifier: str) -> bool:
-    return identifier in (account.iban_normalized, compact_account(account.bank_account_ref))
+    """Passt die Kontoangabe der Datei zum Konto?
+
+    Neben dem genauen Treffer (IBAN oder Kontokennung) zählt auch die deutsche Kontonummer:
+    Manche Banken liefern nur die Kontonummer (OFX), und manches Konto ist nur mit
+    Kontonummer statt IBAN angelegt.
+    """
+    iban, ref = account.iban_normalized, compact_account(account.bank_account_ref)
+    if identifier in (iban, ref):
+        return True
+    number = german_account_number(identifier)
+    if number is None:
+        return False
+    if looks_like_iban(identifier):
+        # Volle IBAN in der Datei: Kontonummer nur vergleichen, wenn das Konto keine IBAN hat
+        return iban is None and german_account_number(ref) == number
+    return number in (german_account_number(iban), german_account_number(ref))
 
 
 def resolve_accounts(
@@ -195,7 +210,8 @@ def resolve_accounts(
         foreign = [i for i in in_file if not _identifies(account, i)]
         if foreign:
             raise ImportFailure(
-                f"Datei gehört nicht zum gewählten Konto „{account.name}“ – Auswahl prüfen",
+                f"Datei gehört nicht zum gewählten Konto „{account.name}“ (in der Datei: {', '.join(foreign)}) – "
+                "Auswahl oder IBAN des Kontos prüfen",
                 code="account_mismatch",
                 details={"selected_account_id": account.id, "accounts_in_file": foreign},
             )
@@ -211,16 +227,19 @@ def resolve_accounts(
         accounts = list(session.exec(select(Account).where(Account.user_id == batch.user_id)))
         mapping, unknown = {}, []
         for identifier in in_file:
-            match = next((a for a in accounts if _identifies(a, identifier)), None)
-            if match is None or (
-                not looks_like_iban(identifier) and match.institution_id != profile.institution_id
-            ):
+            # Eine IBAN ist eindeutig; alles andere (Kontonummer) nur bei der Bank des Profils suchen
+            match = next((a for a in accounts if a.iban_normalized == identifier), None) or next(
+                (a for a in accounts if a.institution_id == profile.institution_id and _identifies(a, identifier)),
+                None,
+            )
+            if match is None:
                 unknown.append(identifier)
             else:
                 mapping[identifier] = match
         if unknown:
             raise ImportFailure(
-                "Datei enthält Konten, die (bei dieser Bank) nicht angelegt sind",
+                f"Kein passendes Konto bei dieser Bank für {', '.join(unknown)} – "
+                "beim Konto die IBAN eintragen oder beim Upload das Konto auswählen",
                 code="unknown_accounts",
                 details={"accounts": unknown},
             )

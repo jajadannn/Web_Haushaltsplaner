@@ -278,6 +278,46 @@ def test_unbekanntes_konto(client, headers, profile, giro):
     assert batch["errors"][0]["details"] == {"accounts": [IBAN_B]}
 
 
+def mt940_file(account: str) -> bytes:
+    return (
+        f":20:STARTUMS\r\n:25:{account}\r\n:28C:00001/001\r\n:60F:C260101EUR100,00\r\n"
+        ":61:2601020102D10,00NTRFNONREF\r\n:86:166?00ÜBERWEISUNG?20Testbuchung\r\n"
+        ":62F:C260131EUR90,00\r\n-\r\n"
+    ).encode()
+
+
+@pytest.fixture
+def mt940_profile(client, headers, bank):
+    response = client.post("/import-profiles", json={"name": "MT940", "institution_id": bank["id"], "format": "mt940"},
+                           headers=headers)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+@pytest.mark.parametrize("account_id_given", [False, True])
+def test_mt940_mit_blz_und_kontonummer_findet_konto_mit_iban(client, headers, mt940_profile, giro, account_id_given):
+    """:25:37040044/0532013000 gehört zum Konto mit IBAN DE89370400440532013000."""
+    batch = upload(client, headers, mt940_profile, mt940_file("37040044/0532013000"), name="auszug.sta",
+                   account_id=giro["id"] if account_id_given else None)
+    assert batch["status"] == "done", batch["errors"]
+    assert balance(client, headers, giro["id"]) == "990.00"
+
+
+def test_mt940_konto_nur_mit_kontonummer_angelegt(client, headers, mt940_profile, bank, make_account):
+    konto = make_account("Giro alt", institution_id=bank["id"], bank_account_ref="532013000",
+                         opening_balance="0", opening_balance_date="2026-01-01")
+    batch = upload(client, headers, mt940_profile, mt940_file("37040044/0532013000"), name="auszug.sta")
+    assert batch["status"] == "done", batch["errors"]
+    assert balance(client, headers, konto["id"]) == "-10.00"
+
+
+def test_mt940_fremdes_konto_nennt_die_kontoangabe(client, headers, mt940_profile, giro):
+    batch = upload(client, headers, mt940_profile, mt940_file("12030000/0000202051"), name="auszug.sta")
+    error = batch["errors"][0]
+    assert error["code"] == "unknown_accounts" and error["details"] == {"accounts": [IBAN_B]}
+    assert IBAN_B in error["message"]
+
+
 def test_konto_einer_anderen_bank_als_auswahl_abgelehnt(client, headers, profile, make_institution, make_account):
     andere = make_institution("DKB")
     konto = make_account("DKB Giro", institution_id=andere["id"])

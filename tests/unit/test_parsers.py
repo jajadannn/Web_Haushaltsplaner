@@ -23,8 +23,11 @@ from app.importers.base import (
     ParseResult,
     compact_account,
     fingerprint,
+    german_account_number,
+    german_iban,
     looks_like_iban,
     parse_amount,
+    statement_account,
 )
 from app.importers.csv_profile import CsvOptions, parse_csv
 from app.importers.mt940 import parse_details, parse_mt940
@@ -947,3 +950,44 @@ def test_ofx_without_account_raises():
 def test_mt940_broken_file_raises(content, message):
     with pytest.raises(ParseError, match=message):
         parse_mt940(content)
+
+
+# --------------------------------------------------------------------------------------- MT940: Kontoangabe :25:
+def test_german_iban_from_blz_and_account_number():
+    assert german_iban("37040044", "0532013000") == ACCOUNT_A
+    assert german_iban("37040044", "532013000") == ACCOUNT_A  # ohne führende Null
+    assert german_iban("12030000", "202051") == ACCOUNT_B
+
+
+@pytest.mark.parametrize("raw", [
+    ACCOUNT_A,
+    "DE89 3704 0044 0532 0130 00",
+    "37040044/0532013000",
+    "37040044/532013000",
+    "37040044/0532013000EUR",
+    ACCOUNT_A + "EUR",
+])
+def test_statement_account_variants_give_the_iban(raw):
+    assert statement_account(raw) == ACCOUNT_A
+
+
+def test_statement_account_keeps_unknown_formats():
+    assert statement_account("0532013000") == "0532013000"
+    assert statement_account("ABC/123") == "ABC/123"
+    assert statement_account(None) is None
+
+
+def test_german_account_number():
+    assert german_account_number(ACCOUNT_A) == "532013000"
+    assert german_account_number("0532013000") == "532013000"
+    assert german_account_number("AT611904300234573201") is None
+    assert german_account_number(None) is None
+
+
+def test_mt940_blz_account_identification_becomes_iban():
+    """Sparkassen/Volksbanken schreiben in :25: oft „BLZ/Kontonummer“ statt der IBAN."""
+    text = mt940_text(mt940_entry("2601020102D10,00NTRFNONREF", "166?00ÜBERWEISUNG?20Test"),
+                      account="37040044/0532013000")
+    result = parse_mt940(text.encode())
+    assert result.statement_account == ACCOUNT_A
+    assert [r.own_account for r in result.rows] == [ACCOUNT_A]
