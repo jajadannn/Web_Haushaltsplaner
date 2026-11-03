@@ -90,6 +90,8 @@ class WallProfile(BaseModel):
     income: Money
     fixed_total: Money
     variable_spent: Money
+    available_per_day: Money | None
+    timeline: list[MonthItem]
     upcoming: list[MonthItem]
     open_items: int
 
@@ -111,5 +113,6 @@ class WallView(BaseModel):
     generated_at: datetime
     month: date
     as_of: date
+    days_left: int
     profiles: list[WallProfile]
     loans: list[WallLoan]

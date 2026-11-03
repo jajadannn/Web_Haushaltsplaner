@@ -1,0 +1,287 @@
+/* Startseite – Entwurf A (Kachelraster), vermessen an .impeccable/mocks/start/start-a.png */
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 56px;
+}
+
+.month-nav h1 {
+  min-width: 9ch;
+  font-size: 36px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.month-nav .icon-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Kopfkachel: Spielraum | Aufschlüsselung | Knopf */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0;
+  padding: 30px 26px 30px 40px;
+}
+
+.hero > * + * {
+  border-left: 1px solid var(--line);
+}
+
+.available-label {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.available-amount {
+  margin-top: 4px;
+  font-size: clamp(48px, 6vw, 76px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.available-sub {
+  margin-top: 8px;
+  color: var(--ink-muted);
+  font-size: 20px;
+}
+
+.is-overdrawn .available-label,
+.is-overdrawn .available-amount {
+  color: var(--overdue);
+}
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 36px;
+}
+
+.breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  font-size: 20px;
+}
+
+.breakdown > div + div {
+  border-top: 1px solid var(--line);
+}
+
+.breakdown dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.hero-action {
+  display: flex;
+  justify-content: center;
+  padding-left: 36px;
+}
+
+/* Raster darunter: Fixkosten | Letzte Ausgaben | Kredit */
+.start-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+  align-items: start;
+}
+
+.start-grid.no-loans {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.start-grid .tile {
+  padding: 26px 16px 18px;
+  min-height: 100%;
+}
+
+.start-grid .tile-header {
+  padding: 0 14px;
+}
+
+.start-grid .tile-title {
+  font-size: 30px;
+}
+
+.recent-row {
+  text-decoration: none;
+}
+
+.recent-row:hover {
+  background: var(--card-hover);
+}
+
+.recent-date {
+  display: block;
+  font-size: 17px;
+  color: var(--ink);
+}
+
+.recent-what {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-muted);
+  font-size: 18px;
+}
+
+.recent-what strong {
+  display: inline !important;
+  color: var(--ink-muted);
+  font-size: 18px !important;
+  font-weight: 500 !important;
+}
+
+.loans-tile {
+  align-self: stretch;
+}
+
+.loan-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.loan-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 14px;
+  text-decoration: none;
+  border-radius: var(--radius-card);
+}
+
+.loan-summary:hover .loan-summary-name {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+
+.loan-summary-name {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px !important;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.loan-summary-debt {
+  font-size: clamp(36px, 3.6vw, 56px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.progress {
+  height: 14px;
+  margin-top: 18px;
+  border-radius: 999px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--paid);
+}
+
+@media (max-width: 1280px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .hero-action {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+    padding: 22px 0 0;
+    border-left: 0 !important;
+  }
+
+  .hero-action .btn {
+    width: 100%;
+  }
+
+  .start-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loans-tile {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .month-nav {
+    gap: 6px;
+  }
+
+  .month-nav h1 {
+    font-size: 26px;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 22px 18px;
+  }
+
+  .hero > * + * {
+    border-left: 0;
+  }
+
+  .breakdown {
+    margin-top: 16px;
+    padding: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .breakdown > div {
+    font-size: 18px;
+  }
+
+  /* Auf dem Handy übernimmt der runde Plus-Knopf die Erfassung */
+  .hero-action {
+    display: none;
+  }
+
+  .start-grid,
+  .start-grid.no-loans {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .start-grid .tile {
+    padding: 18px 10px 12px;
+  }
+
+  .start-grid .tile-title {
+    font-size: 22px;
+  }
+
+  .row-card {
+    min-height: 64px;
+    padding: 10px 14px;
+  }
+
+  .row-main strong,
+  .row-end {
+    font-size: 17px;
+  }
+
+  .loan-summary-name {
+    font-size: 22px;
+  }
+}

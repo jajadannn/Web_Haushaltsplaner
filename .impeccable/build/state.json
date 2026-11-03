@@ -2,84 +2,326 @@
   "tool": "build-phase",
   "version": 2,
   "startedAt": "2026-11-02T21:59:39.201Z",
-  "comp": null,
+  "comp": ".impeccable/mocks/wand-c.png",
   "direction": "863d9162",
-  "breakpoint": null,
+  "breakpoint": "1536x1024",
   "artifact": null,
-  "phase": "comps",
+  "phase": "review",
   "phases": {
     "comps": {
-      "status": "open",
+      "status": "closed",
       "openedAt": "2026-11-02T21:59:39.200Z",
-      "closedAt": null,
-      "attempts": 0,
+      "closedAt": "2026-11-02T22:49:50.716Z",
+      "attempts": 2,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "3 comps, 1 approved",
+        "approved": ".impeccable/mocks/wand-c.png",
+        "at": "2026-11-02T22:49:50.716Z"
+      },
       "forced": null
     },
     "spec": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
-      "attempts": 0,
+      "status": "closed",
+      "openedAt": "2026-11-02T22:49:50.793Z",
+      "closedAt": "2026-11-02T22:52:16.821Z",
+      "attempts": 3,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "19 regions, 0 plates, 12 text regions measured",
+        "at": "2026-11-02T22:52:16.821Z"
+      },
       "forced": null
     },
     "plates": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
-      "attempts": 0,
+      "status": "closed",
+      "openedAt": "2026-11-02T22:52:16.821Z",
+      "closedAt": "2026-11-02T22:52:20.569Z",
+      "attempts": 1,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "no plates owed",
+        "at": "2026-11-02T22:52:20.569Z"
+      },
       "forced": null
     },
     "hero": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
-      "attempts": 0,
+      "status": "closed",
+      "openedAt": "2026-11-02T22:52:20.569Z",
+      "closedAt": "2026-11-02T23:06:21.965Z",
+      "attempts": 3,
       "notes": [],
-      "gate": null,
-      "forced": null
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "hero 86% (match)",
+        "score": 0.8622,
+        "verdict": "match",
+        "report": ".impeccable/review/diff/hero/report.json",
+        "sideBySide": ".impeccable/review/diff/hero/side-by-side.png",
+        "worst": [
+          "loan-debt drift 57%",
+          "event-card drift 58%",
+          "month-title drift 61%"
+        ],
+        "worstIds": [
+          "loan-debt",
+          "event-card",
+          "month-title"
+        ],
+        "worstCrops": [
+          {
+            "id": "loan-debt",
+            "verdict": "drift",
+            "score": {
+              "overall": 0.5744,
+              "structure": 0.4271,
+              "color": 0.793,
+              "colorIntersection": 0.6415,
+              "paletteMatch": 0.8746,
+              "detail": 0.6306,
+              "detailRaw": 0.6463,
+              "detailAdded": 0.0313,
+              "bands": 0.6802
+            },
+            "file": ".impeccable/review/diff/hero/regions/loan-debt.png"
+          },
+          {
+            "id": "event-card",
+            "verdict": "drift",
+            "score": {
+              "overall": 0.5846,
+              "structure": 0.7759,
+              "color": 0.5997,
+              "colorIntersection": 0.4444,
+              "paletteMatch": 0.6833,
+              "detail": 0.3886,
+              "detailRaw": 0.4459,
+              "detailAdded": 0.1146,
+              "bands": 0.44
+            },
+            "file": ".impeccable/review/diff/hero/regions/event-card.png"
+          },
+          {
+            "id": "month-title",
+            "verdict": "drift",
+            "score": {
+              "overall": 0.6067,
+              "structure": 0.4658,
+              "color": 0.7631,
+              "colorIntersection": 0.5451,
+              "paletteMatch": 0.8805,
+              "detail": 0.7426,
+              "detailRaw": 0.7947,
+              "detailAdded": 0.1042,
+              "bands": 0.7167
+            },
+            "file": ".impeccable/review/diff/hero/regions/month-title.png"
+          }
+        ],
+        "advisories": [
+          "(advisory, above the 72% bar; fix in the polish pass before responsive) 2 readings:",
+          "  text profile-name: cap height 25px in the build, 32.5px in the comp (-23%); set font-size so the cap height renders at 32.5px",
+          "  text loan-debt: cap height 33.5px in the build, 48px in the comp (-30%); set font-size so the cap height renders at 48px"
+        ],
+        "regionVerdicts": {
+          "month-title": "drift",
+          "status-line": "drift",
+          "profile-tile": "match",
+          "profile-tile-2": "drift",
+          "available-amount-2": "drift",
+          "profile-name": "drift",
+          "available-label": "drift",
+          "available-amount": "drift",
+          "per-day": "drift",
+          "loan-tile": "drift",
+          "loan-name": "drift",
+          "loan-debt": "drift",
+          "loan-payoff": "drift",
+          "timeline-panel": "match",
+          "timeline-name": "drift",
+          "today-marker": "drift",
+          "event-card": "drift",
+          "event-text": "drift",
+          "day-axis": "match"
+        },
+        "at": "2026-11-02T23:15:53.804Z"
+      },
+      "forced": null,
+      "readingsSeen": {
+        "text loan-debt: cap height 32.5px in the build, 48px in the comp (-32%); set font-size so the cap height renders at 48px": 1,
+        "text loan-payoff: cap height 5px in the build, 21.2px in the comp (-76%); set font-size so the cap height renders at 21.2px": 1,
+        "text event-text: ink is #48c888 in the build, #52595b in the comp; use the comp's colour": 3,
+        "text loan-payoff: cap height 14.9px in the build, 21.2px in the comp (-30%); set font-size so the cap height renders at 21.2px": 1,
+        "text profile-name: cap height 25px in the build, 32.5px in the comp (-23%); set font-size so the cap height renders at 32.5px": 2,
+        "text loan-debt: cap height 33.5px in the build, 48px in the comp (-30%); set font-size so the cap height renders at 48px": 2
+      },
+      "history": [
+        {
+          "at": "2026-11-02T23:05:39.660Z",
+          "score": 0.8087,
+          "worstIds": [
+            "loan-payoff",
+            "loan-debt",
+            "event-card"
+          ],
+          "regionVerdicts": {
+            "month-title": "drift",
+            "status-line": "drift",
+            "profile-tile": "match",
+            "profile-tile-2": "match",
+            "available-amount-2": "drift",
+            "profile-name": "drift",
+            "available-label": "drift",
+            "available-amount": "drift",
+            "per-day": "drift",
+            "loan-tile": "drift",
+            "loan-name": "drift",
+            "loan-debt": "contradicted",
+            "loan-payoff": "missing",
+            "timeline-panel": "drift",
+            "timeline-name": "match",
+            "today-marker": "drift",
+            "event-card": "drift",
+            "event-text": "drift",
+            "day-axis": "drift"
+          },
+          "artifactHash": null
+        },
+        {
+          "at": "2026-11-02T23:06:08.335Z",
+          "score": 0.8166,
+          "worstIds": [
+            "loan-payoff",
+            "loan-debt",
+            "event-card"
+          ],
+          "regionVerdicts": {
+            "month-title": "drift",
+            "status-line": "drift",
+            "profile-tile": "match",
+            "profile-tile-2": "match",
+            "available-amount-2": "drift",
+            "profile-name": "drift",
+            "available-label": "drift",
+            "available-amount": "drift",
+            "per-day": "drift",
+            "loan-tile": "drift",
+            "loan-name": "drift",
+            "loan-debt": "drift",
+            "loan-payoff": "contradicted",
+            "timeline-panel": "drift",
+            "timeline-name": "match",
+            "today-marker": "drift",
+            "event-card": "drift",
+            "event-text": "drift",
+            "day-axis": "drift"
+          },
+          "artifactHash": null
+        },
+        {
+          "at": "2026-11-02T23:06:21.965Z",
+          "score": 0.8188,
+          "worstIds": [
+            "event-card",
+            "month-title",
+            "loan-payoff"
+          ],
+          "regionVerdicts": {
+            "month-title": "drift",
+            "status-line": "drift",
+            "profile-tile": "match",
+            "profile-tile-2": "match",
+            "available-amount-2": "drift",
+            "profile-name": "drift",
+            "available-label": "drift",
+            "available-amount": "drift",
+            "per-day": "drift",
+            "loan-tile": "match",
+            "loan-name": "drift",
+            "loan-debt": "drift",
+            "loan-payoff": "drift",
+            "timeline-panel": "drift",
+            "timeline-name": "match",
+            "today-marker": "drift",
+            "event-card": "drift",
+            "event-text": "drift",
+            "day-axis": "drift"
+          },
+          "artifactHash": null
+        }
+      ],
+      "records": 2
     },
     "sections": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
-      "attempts": 0,
+      "status": "closed",
+      "openedAt": "2026-11-02T23:06:21.965Z",
+      "closedAt": "2026-11-02T23:06:26.461Z",
+      "attempts": 1,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "no mechanical gate",
+        "at": "2026-11-02T23:06:26.461Z"
+      },
       "forced": null
     },
     "motion": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
-      "attempts": 0,
+      "status": "closed",
+      "openedAt": "2026-11-02T23:06:26.461Z",
+      "closedAt": "2026-11-02T23:06:32.205Z",
+      "attempts": 1,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "no mechanical gate",
+        "at": "2026-11-02T23:06:32.204Z"
+      },
       "forced": null
     },
     "responsive": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
-      "attempts": 0,
+      "status": "closed",
+      "openedAt": "2026-11-02T23:06:32.205Z",
+      "closedAt": "2026-11-02T23:06:46.516Z",
+      "attempts": 1,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "desktop 76% (drift)",
+        "score": 0.7629,
+        "sideBySide": ".impeccable/review/diff/desktop/side-by-side.png",
+        "at": "2026-11-02T23:06:46.516Z"
+      },
       "forced": null
     },
     "review": {
-      "status": "pending",
-      "openedAt": null,
-      "closedAt": null,
+      "status": "closed",
+      "openedAt": "2026-11-02T23:06:46.516Z",
+      "closedAt": "2026-11-02T23:15:53.922Z",
       "attempts": 0,
-      "notes": [],
+      "notes": [
+        {
+          "at": "2026-11-02T23:15:53.865Z",
+          "text": "Finish-Review 'fix' umgesetzt: Bühnen-Zentrierung (Mobil/Desktop), Figtree 800 statt Inter, helle kommende Tage, 4px Heute-Linie mit Freiraum im Layout, Fit statt Ellipse, Überzogen in Rot, vier Helligkeitsstufen."
+        }
+      ],
       "gate": null,
       "forced": null
     }
   },
-  "finish": null
+  "finish": {
+    "disposition": "ship",
+    "at": "2026-11-02T23:15:53.922Z",
+    "phaseAtFinish": "review"
+  },
+  "plates": {}
 }

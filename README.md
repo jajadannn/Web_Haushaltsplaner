@@ -1,10 +1,11 @@
-# Finanzplaner – Backend
+# Finanzplaner
 
 Interner Finanzplaner. Er umfasst Konten bei mehreren Banken, Buchungen mit Aufteilung, Kredite mit Tilgungsplan, den automatischen Import von Kontoauszügen (CSV, OFX, MT940), Kategorisierungsregeln, Berichte und Export.
 Das Backend basiert auf FastAPI, SQLModel/SQLAlchemy, PostgreSQL 16 und Alembic. Den Entwicklungsplan beschreibt [`ARBEITSPLAN.md`](ARBEITSPLAN.md).
 
 > **Zugriff:** Profile werden per Header `X-User-Id` gewählt, ein Passwort gibt es nicht. Das ist **kein** Zugriffsschutz.
-> API und Datenbank sind deshalb nur lokal erreichbar (`127.0.0.1`). Bevor das System im Netzwerk freigegeben wird, braucht es eine bewusste Entscheidung über den Zugriffsschutz.
+> Deshalb antworten API und Oberfläche nur Geräten aus dem Heimnetz (`ALLOWED_NETWORKS`, Standard: Loopback und private
+> Adressbereiche). Wer im WLAN ist, kann jedes Profil öffnen und ändern – Gäste-WLAN getrennt halten.
 
 ## Einrichtung
 
@@ -35,6 +36,7 @@ Anschließend in `.env` den Port auf `5432` stellen und `alembic upgrade head` a
 | `TIMEZONE` | Zeitzone für „heute“ | `Europe/Berlin` |
 | `CORS_ORIGINS` | erlaubte Frontend-Ursprünge | `["http://localhost:5173"]` |
 | `MAX_UPLOAD_MB` | Größenlimit für Uploads | `10` |
+| `ALLOWED_NETWORKS` | Netze, die API und Oberfläche nutzen dürfen (früher `WALL_ALLOWED_NETWORKS`) | Loopback + private Netze |
 
 ## Betrieb
 ```bash
@@ -46,6 +48,38 @@ Der Worker ist ein eigener Prozess und läuft bewusst nicht im API-Prozess, denn
 **Uploads** sind auf `MAX_UPLOAD_MB` begrenzt. Das Limit greift vor dem Zwischenspeichern des Bodys (Antwort 413).
 
 **Datenbankrolle:** Für die lokale Entwicklung genügt der Superuser `postgres` mit `trust`-Anmeldung auf Loopback. Sobald mehrere Personen den Rechner nutzen oder der Dienst im Netz erreichbar ist, gehört die Anwendung auf eine eigene Rolle ohne Superuser-Rechte mit Passwort. Die Tests brauchen eine eigene Datenbank: Ihr Name muss „test“ enthalten, sonst brechen sie vor dem Löschen des Schemas ab.
+
+## Oberfläche (Frontend)
+
+React + Vite + TypeScript in `frontend/`. Wanddisplay unter `/wand`, persönliche Ansicht unter `/`.
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:5173 – leitet /api an die API auf 127.0.0.1:8000 weiter
+npm run gen:api      # API-Typen (src/api/schema.d.ts) nach Backend-Änderungen neu erzeugen
+npm test             # Unit-Tests (Vitest)
+npm run build        # Produktionsbuild nach frontend/dist
+```
+
+**Demo-Daten zum Ausprobieren:** `.venv/bin/python scripts/seed_demo.py` legt die eigene Datenbank `finanzplaner_demo`
+neu an (Profile Fabian und Lea, Konten, Fixkosten, Autokredit, Buchungen). Die echte Datenbank bleibt unberührt.
+API dagegen starten: `DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5433/finanzplaner_demo .venv/bin/uvicorn app.main:app --port 8000`.
+Durchklick-Tests im Browser (brauchen die Demo-API und `npm run dev`): `node e2e/paket1.mjs`, `paket2.mjs`, `paket3.mjs`.
+
+## Im Heimnetz betreiben
+
+Ein Prozess liefert Oberfläche und API über einen Port aus (API unter `/api`):
+
+```bash
+npm --prefix frontend run build
+.venv/bin/uvicorn app.server:app --host 0.0.0.0 --port 8000
+.venv/bin/python -m app.worker        # Import-Worker
+```
+
+Danach im WLAN: `http://<rechner>:8000/` (persönlich, am Handy „Zum Home-Bildschirm“) und `http://<rechner>:8000/wand`
+fürs Wanddisplay (Browser im Vollbild/Kiosk-Modus). Anfragen von außerhalb der erlaubten Netze bekommen 403
+`local_network_only`. Den Port nicht im Router nach außen freigeben.
 
 ## Kontoauszüge importieren
 1. **Bank** anlegen: `POST /institutions`.
@@ -88,7 +122,7 @@ Eine schon erfolgreich verarbeitete Datei wird nicht noch einmal gebucht.
   - Bei vereinbarter Laufzeit ist die Rate am Laufzeitende die **Schlussrate**: Sie gleicht jeden Rundungsrest aus, es gibt nie mehr Raten als vereinbart. Eine Ratenpause verlängert die Laufzeit um einen Monat.
   - Importierte Raten werden erkannt: automatisch, wenn der Betrag exakt passt, sonst als Vorschlag in der Prüfliste.
 - **Fixkosten und Spielraum** (`/fixed-costs`, `/budget/month`): Frei verfügbar im Monat = Einnahmen − Fixkosten (inkl. fälliger Kreditraten) − variable Ausgaben. Eine Fixkost gilt als bezahlt, sobald eine passende Buchung (Kategorie und/oder Suchtext) im Monat vorliegt.
-- **Wanddisplay** (`GET /wall`): gemeinsamer Überblick über alle Profile ohne Profilwahl, nur lesend und nur aus dem lokalen Netz (`WALL_ALLOWED_NETWORKS`).
+- **Wanddisplay** (`GET /wall`): gemeinsamer Überblick über alle Profile ohne Profilwahl, nur lesend; wie alle Routen nur aus dem Heimnetz (`ALLOWED_NETWORKS`).
 - **Regeln** (`/mapping-rules`):
   - Teiltext oder Regex mit Zeitlimit; es gewinnt die Regel mit der kleinsten (priority, id).
   - Manuelle Kategorien werden nie überschrieben.

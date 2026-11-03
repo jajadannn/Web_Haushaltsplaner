@@ -1,0 +1,25 @@
+/* Gemeinsame Gestaltungswerte – Smart-Home-Panel (Wand und persönliche Ansicht). */
+:root {
+  /* vier Helligkeitsstufen: Grund < Zeitleiste/Leiste < Kachel < Karte */
+  --ground: #0f1215;
+  --panel: #1b1f25;
+  --tile: #1f2328;
+  --card: #2e3439;
+  --card-hover: #363d43;
+  --card-line: rgb(255 255 255 / 0.14);
+  --line: rgb(255 255 255 / 0.08);
+  --ink: #f1f3f5;
+  --ink-muted: #a9afb6;
+  --ink-past: #9fa3a8;
+  --ink-faint: #7a8087;
+  --axis-past: #4d535a;
+  --paid: #4cc38a;
+  --paid-ink: #0f1215;
+  --due: #f0a33a;
+  --overdue: #e5534b;
+  --focus: #8fd3ff;
+  --font: 'Figtree Variable', Figtree, system-ui, sans-serif;
+  --radius-tile: 22px;
+  --radius-card: 14px;
+  --radius-control: 12px;
+}

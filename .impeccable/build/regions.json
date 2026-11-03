@@ -1,0 +1,119 @@
+{
+ "regions": [
+  {
+   "id": "month-title",
+   "kind": "text",
+   "grid": "A0:C0",
+   "note": "Monatsname, Kopfzeile"
+  },
+  {
+   "id": "status-line",
+   "kind": "text",
+   "grid": "G0:J0",
+   "note": "Stand-Zeitstempel und verbleibende Tage"
+  },
+  {
+   "id": "profile-tile",
+   "kind": "chrome",
+   "grid": "A1:D3",
+   "note": "Spielraum-Kachel je Person, abgerundet #1f2328"
+  },
+  {
+   "id": "profile-tile-2",
+   "kind": "chrome",
+   "grid": "E1:G3",
+   "note": "zweite Spielraum-Kachel (gleiche Komponente)"
+  },
+  {
+   "id": "available-amount-2",
+   "kind": "text",
+   "grid": "E2:G3",
+   "note": "Spielraum zweite Person"
+  },
+  {
+   "id": "profile-name",
+   "kind": "text",
+   "grid": "A1:B1",
+   "note": "Profilname, Versalien"
+  },
+  {
+   "id": "available-label",
+   "kind": "text",
+   "grid": "A1:B2",
+   "note": "Frei verfügbar, gedämpft"
+  },
+  {
+   "id": "available-amount",
+   "kind": "text",
+   "grid": "A2:C3",
+   "note": "größte Zahl im Raum, Tabellenziffern"
+  },
+  {
+   "id": "per-day",
+   "kind": "text",
+   "grid": "A3:B3",
+   "note": "Betrag pro Tag, gedämpft"
+  },
+  {
+   "id": "loan-tile",
+   "kind": "chrome",
+   "grid": "H1:J3",
+   "note": "Kreditkachel"
+  },
+  {
+   "id": "loan-name",
+   "kind": "text",
+   "grid": "H1:I1",
+   "note": "Kreditname"
+  },
+  {
+   "id": "loan-debt",
+   "kind": "text",
+   "grid": "H2:J2",
+   "note": "Restschuld"
+  },
+  {
+   "id": "loan-payoff",
+   "kind": "text",
+   "grid": "H3:J3",
+   "note": "Abbezahlt-Datum, Restraten"
+  },
+  {
+   "id": "timeline-panel",
+   "kind": "chrome",
+   "grid": "A4:J9",
+   "note": "große Kachel mit Zeitleisten je Person",
+   "container": true
+  },
+  {
+   "id": "timeline-name",
+   "kind": "text",
+   "grid": "A4:B4",
+   "note": "Profilname über der Zeitleiste"
+  },
+  {
+   "id": "today-marker",
+   "kind": "chrome",
+   "grid": "F4:F9",
+   "note": "weiße Heute-Linie mit Beschriftung"
+  },
+  {
+   "id": "event-card",
+   "kind": "chrome",
+   "grid": "A5:B5",
+   "note": "Fälligkeitskarte mit Status-Icon, Pin zur Achse"
+  },
+  {
+   "id": "event-text",
+   "kind": "text",
+   "grid": "A5:B5",
+   "note": "Name Betrag fett, Tag und Status gedämpft"
+  },
+  {
+   "id": "day-axis",
+   "kind": "chrome",
+   "grid": "A6:J6",
+   "note": "Tagesachse 1–30 mit Ticks und Punkten"
+  }
+ ]
+}

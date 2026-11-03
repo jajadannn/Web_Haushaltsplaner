@@ -76,7 +76,8 @@ def client(connection: Connection) -> Iterator[TestClient]:
             yield session
 
     app.dependency_overrides[get_session] = request_session
-    with TestClient(app) as test_client:
+    # wie ein Browser auf dem Rechner selbst – die Netzsperre lässt nur Heimnetz-Adressen zu
+    with TestClient(app, client=("127.0.0.1", 50000)) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 

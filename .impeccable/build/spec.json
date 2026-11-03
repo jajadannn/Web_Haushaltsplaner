@@ -1,0 +1,1359 @@
+{
+  "tool": "comp-spec",
+  "version": 1,
+  "createdAt": "2026-11-02T22:51:52.739Z",
+  "comp": ".impeccable/mocks/wand-c.png",
+  "warnings": [
+    "region timeline-panel: \"container\": true set in the regions file (the region-size refusal is overridden: one undivided element)"
+  ],
+  "uncoveredInkCells": [],
+  "compSize": {
+    "width": 1536,
+    "height": 1024
+  },
+  "aspect": 1.5,
+  "orientation": "landscape",
+  "palette": [
+    {
+      "hex": "#172323",
+      "coverage": 0.6036
+    },
+    {
+      "hex": "#181828",
+      "coverage": 0.3299
+    },
+    {
+      "hex": "#f5f6f6",
+      "coverage": 0.0424
+    },
+    {
+      "hex": "#5c6368",
+      "coverage": 0.0121
+    },
+    {
+      "hex": "#aeb2b8",
+      "coverage": 0.012
+    }
+  ],
+  "bands": [
+    {
+      "y": 0.0235,
+      "strength": 0.5209
+    },
+    {
+      "y": 0.0471,
+      "strength": 0.3823
+    },
+    {
+      "y": 0.1176,
+      "strength": 0.2988
+    },
+    {
+      "y": 0.1412,
+      "strength": 0.4322
+    },
+    {
+      "y": 0.2118,
+      "strength": 0.7159
+    },
+    {
+      "y": 0.2471,
+      "strength": 0.2921
+    },
+    {
+      "y": 0.2824,
+      "strength": 0.839
+    },
+    {
+      "y": 0.3059,
+      "strength": 0.21
+    },
+    {
+      "y": 0.3294,
+      "strength": 0.2593
+    },
+    {
+      "y": 0.4118,
+      "strength": 0.2032
+    },
+    {
+      "y": 0.4353,
+      "strength": 0.2029
+    },
+    {
+      "y": 0.4824,
+      "strength": 0.5217
+    },
+    {
+      "y": 0.5882,
+      "strength": 0.4156
+    },
+    {
+      "y": 0.6118,
+      "strength": 0.2102
+    },
+    {
+      "y": 0.6353,
+      "strength": 0.2299
+    },
+    {
+      "y": 0.7529,
+      "strength": 0.2837
+    },
+    {
+      "y": 0.7765,
+      "strength": 0.5221
+    },
+    {
+      "y": 0.8824,
+      "strength": 0.4447
+    }
+  ],
+  "regions": [
+    {
+      "id": "month-title",
+      "kind": "text",
+      "note": "Monatsname, Kopfzeile",
+      "grid": "A0:C0",
+      "coverBox": {
+        "x": 0,
+        "y": 0,
+        "w": 0.3,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0195,
+        "y": 0.0117,
+        "w": 0.2617,
+        "h": 0.0527
+      },
+      "px": {
+        "x": 30,
+        "y": 12,
+        "w": 402,
+        "h": 54
+      },
+      "aspect": 7.4444,
+      "palette": [
+        {
+          "hex": "#101617",
+          "coverage": 0.6885
+        },
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.2607
+        },
+        {
+          "hex": "#333439",
+          "coverage": 0.02
+        },
+        {
+          "hex": "#676a6d",
+          "coverage": 0.0196
+        },
+        {
+          "hex": "#b5b6b8",
+          "coverage": 0.0112
+        }
+      ],
+      "detail": {
+        "energy": 77.357
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 12,
+          "capHeightPx": 35.1,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.7697,
+          "advTall": 0.7839,
+          "advX": 0.7554,
+          "gap": 0.1425,
+          "xRatio": 0.7455,
+          "stemW": 0.2193,
+          "contrast": 1.191,
+          "serif": null,
+          "densTall": 0.5777,
+          "densX": 0.6069,
+          "weight": 0.5777
+        },
+        "widthClass": "wide",
+        "weightClass": "bold",
+        "chosen": {
+          "family": "Inter",
+          "weight": 700,
+          "fontSizePx": 50,
+          "source": "catalog",
+          "estimatedSize": true,
+          "stamp": "ab54cf20110a"
+        }
+      }
+    },
+    {
+      "id": "status-line",
+      "kind": "text",
+      "note": "Stand-Zeitstempel und verbleibende Tage",
+      "grid": "G0:J0",
+      "coverBox": {
+        "x": 0.6,
+        "y": 0,
+        "w": 0.4,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.6354,
+        "y": 0.0176,
+        "w": 0.1914,
+        "h": 0.0352
+      },
+      "px": {
+        "x": 976,
+        "y": 18,
+        "w": 294,
+        "h": 36
+      },
+      "aspect": 8.1667,
+      "palette": [
+        {
+          "hex": "#101517",
+          "coverage": 0.8053
+        },
+        {
+          "hex": "#d7d9dc",
+          "coverage": 0.1378
+        },
+        {
+          "hex": "#93969a",
+          "coverage": 0.0238
+        },
+        {
+          "hex": "#555a5a",
+          "coverage": 0.0238
+        },
+        {
+          "hex": "#373842",
+          "coverage": 0.0094
+        }
+      ],
+      "detail": {
+        "energy": 64.0787
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 17,
+          "capHeightPx": 22.4,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.6357,
+          "advTall": 0.6469,
+          "advX": 0.6246,
+          "gap": 0.1785,
+          "xRatio": 0.7322,
+          "stemW": 0.1564,
+          "contrast": 1.0608,
+          "serif": 0.9577,
+          "densTall": 0.4636,
+          "densX": 0.5488,
+          "weight": 0.4636
+        },
+        "widthClass": "normal",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "profile-tile",
+      "kind": "chrome",
+      "note": "Spielraum-Kachel je Person, abgerundet #1f2328",
+      "grid": "A1:D3",
+      "box": {
+        "x": 0,
+        "y": 0.1,
+        "w": 0.4,
+        "h": 0.3
+      },
+      "px": {
+        "x": 0,
+        "y": 102,
+        "w": 614,
+        "h": 307
+      },
+      "aspect": 2,
+      "palette": [
+        {
+          "hex": "#172525",
+          "coverage": 0.8492
+        },
+        {
+          "hex": "#f6f7f7",
+          "coverage": 0.0833
+        },
+        {
+          "hex": "#191929",
+          "coverage": 0.0413
+        },
+        {
+          "hex": "#afb2b8",
+          "coverage": 0.0191
+        },
+        {
+          "hex": "#54595d",
+          "coverage": 0.0071
+        }
+      ],
+      "detail": {
+        "energy": 26.8435
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "profile-tile-2",
+      "kind": "chrome",
+      "note": "zweite Spielraum-Kachel (gleiche Komponente)",
+      "grid": "E1:G3",
+      "box": {
+        "x": 0.4,
+        "y": 0.1,
+        "w": 0.3,
+        "h": 0.3
+      },
+      "px": {
+        "x": 614,
+        "y": 102,
+        "w": 461,
+        "h": 307
+      },
+      "aspect": 1.5016,
+      "palette": [
+        {
+          "hex": "#182626",
+          "coverage": 0.8167
+        },
+        {
+          "hex": "#f7f7f8",
+          "coverage": 0.1046
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.0481
+        },
+        {
+          "hex": "#b4babf",
+          "coverage": 0.0204
+        },
+        {
+          "hex": "#464950",
+          "coverage": 0.0102
+        }
+      ],
+      "detail": {
+        "energy": 25.594
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "available-amount-2",
+      "kind": "text",
+      "note": "Spielraum zweite Person",
+      "grid": "E2:G3",
+      "coverBox": {
+        "x": 0.4,
+        "y": 0.2,
+        "w": 0.3,
+        "h": 0.2
+      },
+      "box": {
+        "x": 0.3997,
+        "y": 0.2002,
+        "w": 0.2109,
+        "h": 0.1406
+      },
+      "px": {
+        "x": 614,
+        "y": 205,
+        "w": 324,
+        "h": 144
+      },
+      "aspect": 2.25,
+      "palette": [
+        {
+          "hex": "#1a2828",
+          "coverage": 0.5961
+        },
+        {
+          "hex": "#f7f8f8",
+          "coverage": 0.249
+        },
+        {
+          "hex": "#191929",
+          "coverage": 0.1021
+        },
+        {
+          "hex": "#bbc0c6",
+          "coverage": 0.0353
+        },
+        {
+          "hex": "#83888f",
+          "coverage": 0.0175
+        }
+      ],
+      "detail": {
+        "energy": 37.6735
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 5,
+          "capHeightPx": 71.9,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.7645,
+          "advTall": 0.7645,
+          "advX": null,
+          "gap": 0.1042,
+          "xRatio": 0.829,
+          "stemW": 0.2319,
+          "contrast": 1.2028,
+          "serif": 1.8255,
+          "densTall": 0.6048,
+          "densX": null,
+          "weight": 0.6048
+        },
+        "widthClass": "normal",
+        "weightClass": "bold",
+        "chosen": {
+          "family": "Hepta Slab",
+          "weight": 700,
+          "fontSizePx": 103,
+          "source": "catalog",
+          "estimatedSize": true,
+          "stamp": "ab5765ddf4e5"
+        }
+      }
+    },
+    {
+      "id": "profile-name",
+      "kind": "text",
+      "note": "Profilname, Versalien",
+      "grid": "A1:B1",
+      "coverBox": {
+        "x": 0,
+        "y": 0.1,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0313,
+        "y": 0.1055,
+        "w": 0.1484,
+        "h": 0.0938
+      },
+      "px": {
+        "x": 48,
+        "y": 108,
+        "w": 228,
+        "h": 96
+      },
+      "aspect": 2.375,
+      "palette": [
+        {
+          "hex": "#1a2727",
+          "coverage": 0.6625
+        },
+        {
+          "hex": "#f5f6f6",
+          "coverage": 0.1361
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.1062
+        },
+        {
+          "hex": "#aaaeb5",
+          "coverage": 0.0695
+        },
+        {
+          "hex": "#72767b",
+          "coverage": 0.0257
+        }
+      ],
+      "detail": {
+        "energy": 33.7628
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 7,
+          "capHeightPx": 32.5,
+          "inkIsDark": false,
+          "allCaps": true,
+          "advance": 0.6462,
+          "advTall": 0.6462,
+          "advX": null,
+          "gap": 0.1231,
+          "xRatio": null,
+          "stemW": 0.2447,
+          "contrast": 1.303,
+          "serif": 0.5919,
+          "densTall": 0.6032,
+          "densX": null,
+          "weight": 0.6032
+        },
+        "widthClass": "normal",
+        "weightClass": "bold"
+      }
+    },
+    {
+      "id": "available-label",
+      "kind": "text",
+      "note": "Frei verfügbar, gedämpft",
+      "grid": "A1:B2",
+      "coverBox": {
+        "x": 0,
+        "y": 0.1,
+        "w": 0.2,
+        "h": 0.2
+      },
+      "box": {
+        "x": 0.0313,
+        "y": 0.1055,
+        "w": 0.1686,
+        "h": 0.1934
+      },
+      "px": {
+        "x": 48,
+        "y": 108,
+        "w": 259,
+        "h": 198
+      },
+      "aspect": 1.3081,
+      "palette": [
+        {
+          "hex": "#1a2828",
+          "coverage": 0.6411
+        },
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.2149
+        },
+        {
+          "hex": "#1b1b2b",
+          "coverage": 0.0895
+        },
+        {
+          "hex": "#acafb6",
+          "coverage": 0.0386
+        },
+        {
+          "hex": "#72777c",
+          "coverage": 0.0159
+        }
+      ],
+      "detail": {
+        "energy": 31.6656
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 4,
+          "capHeightPx": 71.2,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.723,
+          "advTall": 0.723,
+          "advX": null,
+          "gap": 0.0983,
+          "xRatio": 0.8435,
+          "stemW": 0.2349,
+          "contrast": 1.2379,
+          "serif": null,
+          "densTall": 0.5548,
+          "densX": null,
+          "weight": 0.5548
+        },
+        "widthClass": "normal",
+        "weightClass": "medium"
+      }
+    },
+    {
+      "id": "available-amount",
+      "kind": "text",
+      "note": "größte Zahl im Raum, Tabellenziffern",
+      "grid": "A2:C3",
+      "coverBox": {
+        "x": 0,
+        "y": 0.2,
+        "w": 0.3,
+        "h": 0.2
+      },
+      "box": {
+        "x": 0.0313,
+        "y": 0.2002,
+        "w": 0.2148,
+        "h": 0.1406
+      },
+      "px": {
+        "x": 48,
+        "y": 205,
+        "w": 330,
+        "h": 144
+      },
+      "aspect": 2.2917,
+      "palette": [
+        {
+          "hex": "#1a2828",
+          "coverage": 0.6389
+        },
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.2271
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.0858
+        },
+        {
+          "hex": "#b6bcc2",
+          "coverage": 0.0347
+        },
+        {
+          "hex": "#3d3e45",
+          "coverage": 0.0136
+        }
+      ],
+      "detail": {
+        "energy": 36.167
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 5,
+          "capHeightPx": 71.2,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.7299,
+          "advTall": 0.7299,
+          "advX": null,
+          "gap": 0.0983,
+          "xRatio": 0.8389,
+          "stemW": 0.234,
+          "contrast": 1.207,
+          "serif": null,
+          "densTall": 0.5535,
+          "densX": null,
+          "weight": 0.5535
+        },
+        "widthClass": "normal",
+        "weightClass": "medium",
+        "chosen": {
+          "family": "Delius Unicase",
+          "weight": 700,
+          "fontSizePx": 102,
+          "source": "catalog",
+          "estimatedSize": true,
+          "stamp": "05481c486b21"
+        }
+      }
+    },
+    {
+      "id": "per-day",
+      "kind": "text",
+      "note": "Betrag pro Tag, gedämpft",
+      "grid": "A3:B3",
+      "coverBox": {
+        "x": 0,
+        "y": 0.3,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0313,
+        "y": 0.2998,
+        "w": 0.1641,
+        "h": 0.041
+      },
+      "px": {
+        "x": 48,
+        "y": 307,
+        "w": 252,
+        "h": 42
+      },
+      "aspect": 6,
+      "palette": [
+        {
+          "hex": "#1b2828",
+          "coverage": 0.7143
+        },
+        {
+          "hex": "#b6bdc3",
+          "coverage": 0.1212
+        },
+        {
+          "hex": "#1e1e2e",
+          "coverage": 0.1134
+        },
+        {
+          "hex": "#6b7079",
+          "coverage": 0.032
+        },
+        {
+          "hex": "#878f93",
+          "coverage": 0.019
+        }
+      ],
+      "detail": {
+        "energy": 36.6481
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 11,
+          "capHeightPx": 23.2,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.6453,
+          "advTall": 0.6453,
+          "advX": 0.5915,
+          "gap": 0.2474,
+          "xRatio": 0.7459,
+          "stemW": 0.166,
+          "contrast": 1.1937,
+          "serif": 0.9357,
+          "densTall": 0.4386,
+          "densX": 0.4962,
+          "weight": 0.4386
+        },
+        "widthClass": "normal",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "loan-tile",
+      "kind": "chrome",
+      "note": "Kreditkachel",
+      "grid": "H1:J3",
+      "box": {
+        "x": 0.7,
+        "y": 0.1,
+        "w": 0.3,
+        "h": 0.3
+      },
+      "px": {
+        "x": 1075,
+        "y": 102,
+        "w": 461,
+        "h": 307
+      },
+      "aspect": 1.5016,
+      "palette": [
+        {
+          "hex": "#172525",
+          "coverage": 0.8335
+        },
+        {
+          "hex": "#f6f7f7",
+          "coverage": 0.0635
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.0547
+        },
+        {
+          "hex": "#a9adb3",
+          "coverage": 0.0278
+        },
+        {
+          "hex": "#484c51",
+          "coverage": 0.0204
+        }
+      ],
+      "detail": {
+        "energy": 29.1446
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "loan-name",
+      "kind": "text",
+      "note": "Kreditname",
+      "grid": "H1:I1",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0.1,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.7507,
+        "y": 0.0996,
+        "w": 0.1491,
+        "h": 0.0879
+      },
+      "px": {
+        "x": 1153,
+        "y": 102,
+        "w": 229,
+        "h": 90
+      },
+      "aspect": 2.5444,
+      "palette": [
+        {
+          "hex": "#1a2828",
+          "coverage": 0.7041
+        },
+        {
+          "hex": "#f5f5f6",
+          "coverage": 0.1241
+        },
+        {
+          "hex": "#1d1d2d",
+          "coverage": 0.0963
+        },
+        {
+          "hex": "#aaaeb4",
+          "coverage": 0.0534
+        },
+        {
+          "hex": "#747a7e",
+          "coverage": 0.0221
+        }
+      ],
+      "detail": {
+        "energy": 35.9666
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 10,
+          "capHeightPx": 30.5,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.6885,
+          "advTall": 0.6393,
+          "advX": 0.6885,
+          "gap": 0.0984,
+          "xRatio": 0.7213,
+          "stemW": 0.2107,
+          "contrast": 1.2318,
+          "serif": null,
+          "densTall": 0.5214,
+          "densX": 0.6143,
+          "weight": 0.5214
+        },
+        "widthClass": "normal",
+        "weightClass": "medium",
+        "chosen": {
+          "family": "Ysabeau SC",
+          "weight": 700,
+          "fontSizePx": 44,
+          "source": "catalog",
+          "estimatedSize": true,
+          "stamp": "d374eaea7bbd"
+        }
+      }
+    },
+    {
+      "id": "loan-debt",
+      "kind": "text",
+      "note": "Restschuld",
+      "grid": "H2:J2",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0.2,
+        "w": 0.3,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.7507,
+        "y": 0.2002,
+        "w": 0.2188,
+        "h": 0.0996
+      },
+      "px": {
+        "x": 1153,
+        "y": 205,
+        "w": 336,
+        "h": 102
+      },
+      "aspect": 3.2941,
+      "palette": [
+        {
+          "hex": "#1a2727",
+          "coverage": 0.5868
+        },
+        {
+          "hex": "#f6f7f7",
+          "coverage": 0.1988
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.127
+        },
+        {
+          "hex": "#abafb5",
+          "coverage": 0.0512
+        },
+        {
+          "hex": "#40444a",
+          "coverage": 0.0363
+        }
+      ],
+      "detail": {
+        "energy": 50.3847
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 7,
+          "capHeightPx": 48,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.7917,
+          "advTall": 0.7917,
+          "advX": null,
+          "gap": 0.125,
+          "xRatio": 0.839,
+          "stemW": 0.2377,
+          "contrast": 1.2545,
+          "serif": 1.0149,
+          "densTall": 0.5607,
+          "densX": null,
+          "weight": 0.5607
+        },
+        "widthClass": "wide",
+        "weightClass": "bold"
+      }
+    },
+    {
+      "id": "loan-payoff",
+      "kind": "text",
+      "note": "Abbezahlt-Datum, Restraten",
+      "grid": "H3:J3",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0.3,
+        "w": 0.3,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.7507,
+        "y": 0.2998,
+        "w": 0.1367,
+        "h": 0.0352
+      },
+      "px": {
+        "x": 1153,
+        "y": 307,
+        "w": 210,
+        "h": 36
+      },
+      "aspect": 5.8333,
+      "palette": [
+        {
+          "hex": "#1b2828",
+          "coverage": 0.6655
+        },
+        {
+          "hex": "#a8acb3",
+          "coverage": 0.1238
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.1155
+        },
+        {
+          "hex": "#747a80",
+          "coverage": 0.0476
+        },
+        {
+          "hex": "#454a50",
+          "coverage": 0.0476
+        }
+      ],
+      "detail": {
+        "energy": 35.5645
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 11,
+          "capHeightPx": 21.2,
+          "inkIsDark": false,
+          "allCaps": false,
+          "advance": 0.6363,
+          "advTall": 0.6599,
+          "advX": 0.6363,
+          "gap": 0.1296,
+          "xRatio": 0.7408,
+          "stemW": 0.1532,
+          "contrast": 1.1202,
+          "serif": 0.9521,
+          "densTall": 0.4557,
+          "densX": 0.5079,
+          "weight": 0.4557
+        },
+        "widthClass": "normal",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "timeline-panel",
+      "kind": "chrome",
+      "note": "große Kachel mit Zeitleisten je Person",
+      "grid": "A4:J9",
+      "container": true,
+      "box": {
+        "x": 0,
+        "y": 0.4,
+        "w": 1,
+        "h": 0.6
+      },
+      "px": {
+        "x": 0,
+        "y": 410,
+        "w": 1536,
+        "h": 614
+      },
+      "aspect": 2.5016,
+      "palette": [
+        {
+          "hex": "#181828",
+          "coverage": 0.525
+        },
+        {
+          "hex": "#1a2424",
+          "coverage": 0.4286
+        },
+        {
+          "hex": "#595f65",
+          "coverage": 0.0202
+        },
+        {
+          "hex": "#f6f6f6",
+          "coverage": 0.0172
+        },
+        {
+          "hex": "#8d9194",
+          "coverage": 0.0091
+        }
+      ],
+      "detail": {
+        "energy": 21.1672
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "timeline-name",
+      "kind": "text",
+      "note": "Profilname über der Zeitleiste",
+      "grid": "A4:B4",
+      "coverBox": {
+        "x": 0,
+        "y": 0.4,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0273,
+        "y": 0.4004,
+        "w": 0.1094,
+        "h": 0.0469
+      },
+      "px": {
+        "x": 42,
+        "y": 410,
+        "w": 168,
+        "h": 48
+      },
+      "aspect": 3.5,
+      "palette": [
+        {
+          "hex": "#1a2828",
+          "coverage": 0.5295
+        },
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.2449
+        },
+        {
+          "hex": "#1a1a2a",
+          "coverage": 0.161
+        },
+        {
+          "hex": "#616468",
+          "coverage": 0.0488
+        },
+        {
+          "hex": "#bdbfc3",
+          "coverage": 0.0159
+        }
+      ],
+      "detail": {
+        "energy": 32.7872
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 7,
+          "capHeightPx": 27.9,
+          "inkIsDark": false,
+          "allCaps": true,
+          "advance": 0.6451,
+          "advTall": 0.6451,
+          "advX": null,
+          "gap": 0.1254,
+          "xRatio": null,
+          "stemW": 0.2357,
+          "contrast": 1.2384,
+          "serif": 0.9805,
+          "densTall": 0.6163,
+          "densX": null,
+          "weight": 0.6163
+        },
+        "widthClass": "normal",
+        "weightClass": "bold"
+      }
+    },
+    {
+      "id": "today-marker",
+      "kind": "chrome",
+      "note": "weiße Heute-Linie mit Beschriftung",
+      "grid": "F4:F9",
+      "box": {
+        "x": 0.5,
+        "y": 0.4,
+        "w": 0.1,
+        "h": 0.6
+      },
+      "px": {
+        "x": 768,
+        "y": 410,
+        "w": 154,
+        "h": 614
+      },
+      "aspect": 0.2508,
+      "palette": [
+        {
+          "hex": "#181828",
+          "coverage": 0.5146
+        },
+        {
+          "hex": "#1b2525",
+          "coverage": 0.4121
+        },
+        {
+          "hex": "#f5f5f5",
+          "coverage": 0.0417
+        },
+        {
+          "hex": "#676b74",
+          "coverage": 0.0188
+        },
+        {
+          "hex": "#989b9f",
+          "coverage": 0.0127
+        }
+      ],
+      "detail": {
+        "energy": 11.2162
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "event-card",
+      "kind": "chrome",
+      "note": "Fälligkeitskarte mit Status-Icon, Pin zur Achse",
+      "grid": "A5:B5",
+      "box": {
+        "x": 0,
+        "y": 0.5,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "px": {
+        "x": 0,
+        "y": 512,
+        "w": 307,
+        "h": 102
+      },
+      "aspect": 3.0098,
+      "palette": [
+        {
+          "hex": "#1c2027",
+          "coverage": 0.9393
+        },
+        {
+          "hex": "#52585b",
+          "coverage": 0.0368
+        },
+        {
+          "hex": "#68d693",
+          "coverage": 0.0089
+        },
+        {
+          "hex": "#93959f",
+          "coverage": 0.0086
+        },
+        {
+          "hex": "#c7cdd4",
+          "coverage": 0.0063
+        }
+      ],
+      "detail": {
+        "energy": 16.7268
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "event-text",
+      "kind": "text",
+      "note": "Name Betrag fett, Tag und Status gedämpft",
+      "grid": "A5:B5",
+      "coverBox": {
+        "x": 0,
+        "y": 0.5,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0234,
+        "y": 0.5,
+        "w": 0.1764,
+        "h": 0.0996
+      },
+      "px": {
+        "x": 36,
+        "y": 512,
+        "w": 271,
+        "h": 102
+      },
+      "aspect": 2.6569,
+      "palette": [
+        {
+          "hex": "#1d2128",
+          "coverage": 0.9312
+        },
+        {
+          "hex": "#52595b",
+          "coverage": 0.0417
+        },
+        {
+          "hex": "#68d693",
+          "coverage": 0.0101
+        },
+        {
+          "hex": "#93959f",
+          "coverage": 0.0098
+        },
+        {
+          "hex": "#c7cdd4",
+          "coverage": 0.0072
+        }
+      ],
+      "detail": {
+        "energy": 18.3025
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": null,
+        "measuredAt": "2026-11-02T22:51:56.571Z",
+        "note": "no separable lettering in the crop; size by the region box"
+      }
+    },
+    {
+      "id": "day-axis",
+      "kind": "chrome",
+      "note": "Tagesachse 1–30 mit Ticks und Punkten",
+      "grid": "A6:J6",
+      "box": {
+        "x": 0,
+        "y": 0.6,
+        "w": 1,
+        "h": 0.1
+      },
+      "px": {
+        "x": 0,
+        "y": 614,
+        "w": 1536,
+        "h": 102
+      },
+      "aspect": 15.0588,
+      "palette": [
+        {
+          "hex": "#181828",
+          "coverage": 0.7488
+        },
+        {
+          "hex": "#182525",
+          "coverage": 0.2199
+        },
+        {
+          "hex": "#8f9296",
+          "coverage": 0.0135
+        },
+        {
+          "hex": "#f0f0f0",
+          "coverage": 0.0107
+        },
+        {
+          "hex": "#63676d",
+          "coverage": 0.0071
+        }
+      ],
+      "detail": {
+        "energy": 13.2004
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    }
+  ]
+}

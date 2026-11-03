@@ -14,3 +14,6 @@ __pycache__/
 # Sicherungen (scripts/backup.sh)
 backups/
 .hypothesis/
+
+# Entwurfsprüfung: Screenshots und Diffs (jederzeit neu erzeugbar)
+.impeccable/review/

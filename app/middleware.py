@@ -23,7 +23,11 @@ class UploadSizeLimit:
         self.paths = paths
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] not in self.paths:
+        path = scope.get("path", "")
+        root = scope.get("root_path", "")
+        if root and path.startswith(root):  # unter /api eingehängt (app/server.py)
+            path = path[len(root):]
+        if scope["type"] != "http" or scope["method"] != "POST" or path not in self.paths:
             await self.app(scope, receive, send)
             return
         limit_mb = get_settings().max_upload_mb

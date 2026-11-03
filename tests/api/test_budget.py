@@ -173,11 +173,14 @@ def test_wanddisplay_zeigt_alle_profile(client, headers, szenario, make_user, wa
     r = wall_client("192.168.1.20").get("/wall")
     assert r.status_code == 200, r.text
     wall = r.json()
-    assert (wall["month"], wall["as_of"]) == ("2026-11-01", "2026-11-18")
+    assert (wall["month"], wall["as_of"], wall["days_left"]) == ("2026-11-01", "2026-11-18", 13)
     profiles = {p["name"]: p for p in wall["profiles"]}
-    assert profiles["Alex"]["available"] == "1749.21"
+    assert (profiles["Alex"]["available"], profiles["Alex"]["available_per_day"]) == ("1749.21", "134.55")
+    timeline = [(i["name"], i["status"]) for i in profiles["Alex"]["timeline"]]
+    assert timeline == [("Miete", "paid"), ("Strom", "paid"), ("Handy", "open"), ("Autokredit", "open")]
     assert [i["name"] for i in profiles["Alex"]["upcoming"]] == ["Handy", "Autokredit"]
     assert profiles["Lea"]["available"] == "-15.00" and profiles["Lea"]["open_items"] == 1
+    assert profiles["Lea"]["available_per_day"] is None  # kein Spielraum mehr
     loan = wall["loans"][0]
     details = client.get(f"/loans/{szenario['loan']['id']}", headers=headers).json()
     assert (loan["profile_name"], loan["name"], loan["remaining_debt"]) == ("Alex", "Autokredit", "10000.00")
@@ -189,4 +192,4 @@ def test_wanddisplay_zeigt_alle_profile(client, headers, szenario, make_user, wa
 def test_wanddisplay_nur_im_lokalen_netz(wall_client, host, today):
     response = wall_client(host).get("/wall")
     assert response.status_code == 403
-    assert response.json()["error"]["code"] == "wall_local_only"
+    assert response.json()["error"]["code"] == "local_network_only"

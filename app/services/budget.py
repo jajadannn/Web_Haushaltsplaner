@@ -290,6 +290,9 @@ def wall_view(session: Session, today: date, generated_at, upcoming_limit: int =
             "income": budget["income"],
             "fixed_total": budget["fixed_total"],
             "variable_spent": budget["variable_spent"],
+            "available_per_day": budget["available_per_day"],
+            # alle Fixkosten und Raten des Monats mit Status – Grundlage der Zeitleiste
+            "timeline": budget["items"],
             "upcoming": open_items[:upcoming_limit],
             "open_items": len(open_items),
         })
@@ -318,6 +321,7 @@ def wall_view(session: Session, today: date, generated_at, upcoming_limit: int =
         "generated_at": generated_at,
         "month": month_start(today),
         "as_of": today,
+        "days_left": (month_end(month_start(today)) - today).days + 1,
         "profiles": profiles,
         "loans": loans,
     }
