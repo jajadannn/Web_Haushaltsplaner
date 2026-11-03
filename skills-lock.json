@@ -1,6 +1,13 @@
 {
   "version": 1,
   "skills": {
+    "find-bugs": {
+      "source": "getsentry/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-bugs/SKILL.md",
+      "computedHash": "7bf00be700d1d205b747126aa96d3587bbc2855cd09897614676e179eebe35ed",
+      "installMode": "copy"
+    },
     "find-skills": {
       "source": "vercel-labs/skills",
       "sourceType": "github",
@@ -18,6 +25,20 @@
       "sourceType": "github",
       "skillPath": "generate-image/SKILL.md",
       "computedHash": "b1a8660193a0046386839d43cf8c435cd07c961ad076d29c3cf3642497308106"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "3219a1944e404ffc14d1d9d6aef6dd2e3855b81387ee0a044ccbfe14d34c2357",
+      "installMode": "copy"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "a6a44d5498f7e8f68289902f3dedfc6f38ae0cee1e96527c80724cf27f727c2a",
+      "installMode": "copy"
     }
   }
 }
