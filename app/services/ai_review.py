@@ -6,7 +6,8 @@ kurzer Begründung, bestätigt wird in der Prüfliste. Jede Buchung wird der KI 
 vorgelegt (`ai_checked_at`); „Erneut prüfen“ setzt das für noch offene Buchungen zurück.
 
 Der Import-Worker arbeitet die Warteschlange in einem eigenen Thread ab, damit lange
-Antwortzeiten (auf schwacher Hardware 15–20 s je Buchung) keine Importe aufhalten.
+Antwortzeiten (auf schwacher Hardware 15–20 s je Buchung) keine Importe aufhalten. Bis zu
+`AI_PARALLEL` Buchungen (höchstens 4) gehen gleichzeitig an den KI-Server.
 """
 
 import json
@@ -14,6 +15,8 @@ import logging
 import threading
 import urllib.error
 import urllib.request
+from collections.abc import Callable
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -108,10 +111,19 @@ def pending_count(session: Session, user: User) -> int:
     return session.exec(select(func.count()).select_from(pending_query(user.id).subquery())).one()
 
 
+def next_pending_ids(session: Session, limit: int, exclude: set[int] | None = None) -> list[int]:
+    """Neueste zuerst – frisch importierte Buchungen sind am schnellsten dran.
+
+    `exclude`: Buchungen, die gerade bei der KI liegen (noch nicht als geprüft markiert).
+    """
+    query = pending_query().with_only_columns(Transaction.id)
+    if exclude:
+        query = query.where(Transaction.id.not_in(exclude))
+    return list(session.exec(query.order_by(Transaction.id.desc()).limit(limit)))
+
+
 def next_pending_id(session: Session) -> int | None:
-    """Neueste zuerst – frisch importierte Buchungen sind am schnellsten dran."""
-    query = pending_query().with_only_columns(Transaction.id).order_by(Transaction.id.desc()).limit(1)
-    return session.exec(query).first()
+    return next(iter(next_pending_ids(session, 1)), None)
 
 
 def retry(session: Session, user: User) -> int:
@@ -375,30 +387,71 @@ def _give_up(engine: Engine, tx_id: int) -> None:
             session.commit()
 
 
+def _review_task(sessions: Callable[[], Session], tx_id: int) -> Suggestion | None:
+    with sessions() as session:
+        return review_one(session, tx_id)
+
+
 def run_forever(engine: Engine, stop: threading.Event) -> None:
     settings = get_settings()
-    log.info("Lokale KI aktiv: %s (%s) mit Modell %s", settings.ai_url, settings.ai_api, settings.ai_model)
-    while not stop.is_set():
-        tx_id = None
-        try:
-            with Session(engine) as session:
-                tx_id = next_pending_id(session)
-                session.rollback()
-                if tx_id is None:
-                    stop.wait(IDLE_SECONDS)
-                    continue
-                review_one(session, tx_id)
-        except AiUnavailable as exc:
-            log.warning("KI nicht verfügbar (%s) – neuer Versuch in %.0f s", exc, BACKOFF_SECONDS)
-            stop.wait(BACKOFF_SECONDS)
-        except Exception:
-            log.exception("KI-Prüfung von Buchung %s fehlgeschlagen", tx_id)
-            if tx_id is not None:
+    log.info(
+        "Lokale KI aktiv: %s (%s) mit Modell %s, bis zu %s Anfragen gleichzeitig",
+        settings.ai_url, settings.ai_api, settings.ai_model, settings.ai_parallel,
+    )
+    work_queue(lambda: Session(engine), stop, settings.ai_parallel, give_up=lambda tx_id: _give_up(engine, tx_id))
+
+
+def work_queue(
+    sessions: Callable[[], Session],
+    stop: threading.Event,
+    parallel: int,
+    give_up: Callable[[int], None],
+) -> None:
+    """Hält bis zu `parallel` Anfragen gleichzeitig bei der KI.
+
+    Jede Anfrage hat eine eigene Session. Ist der KI-Server nicht erreichbar, werden keine
+    neuen Anfragen gestellt; nach dem Ende der laufenden wird BACKOFF_SECONDS gewartet.
+    """
+    running: dict[Future, int] = {}
+
+    def collect(done) -> AiUnavailable | None:
+        unavailable = None
+        for future in done:
+            tx_id = running.pop(future)
+            exc = future.exception()
+            if isinstance(exc, AiUnavailable):
+                unavailable = exc
+            elif exc is not None:
+                log.error("KI-Prüfung von Buchung %s fehlgeschlagen", tx_id, exc_info=exc)
                 try:
-                    _give_up(engine, tx_id)
+                    give_up(tx_id)
                 except Exception:
                     log.exception("Buchung %s konnte nicht markiert werden", tx_id)
-            stop.wait(IDLE_SECONDS)
+        return unavailable
+
+    with ThreadPoolExecutor(max_workers=parallel, thread_name_prefix="ki") as pool:
+        while not stop.is_set():
+            free = parallel - len(running)
+            if free > 0:
+                try:
+                    with sessions() as session:
+                        ids = next_pending_ids(session, free, exclude=set(running.values()))
+                        session.rollback()
+                except Exception:
+                    log.exception("Warteschlange der KI nicht lesbar – neuer Versuch in %.0f s", BACKOFF_SECONDS)
+                    stop.wait(BACKOFF_SECONDS)
+                    continue
+                for tx_id in ids:
+                    running[pool.submit(_review_task, sessions, tx_id)] = tx_id
+            if not running:
+                stop.wait(IDLE_SECONDS)
+                continue
+            done, _ = wait(running, timeout=IDLE_SECONDS, return_when=FIRST_COMPLETED)
+            unavailable = collect(done)
+            if unavailable is not None:
+                collect(wait(running).done)  # laufende Anfragen zu Ende bringen, dann Pause
+                log.warning("KI nicht verfügbar (%s) – neuer Versuch in %.0f s", unavailable, BACKOFF_SECONDS)
+                stop.wait(BACKOFF_SECONDS)
 
 
 def start_in_background(engine: Engine) -> threading.Event | None:

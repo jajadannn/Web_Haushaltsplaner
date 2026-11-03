@@ -6,7 +6,7 @@ einem Kontoauszug abgestimmt wurde.
 
 from sqlmodel import Session, func, select
 
-from app.errors import Invalid
+from app.errors import AppError, Invalid
 from app.models import (
     Account,
     Category,
@@ -125,6 +125,27 @@ def bulk_confirm(session: Session, user: User, tx_ids: list[int], data: ReviewCo
         _confirm(session, user, tx, data, category)
     session.flush()
     return len(txs)
+
+
+def confirm_all_suggestions(session: Session, user: User) -> dict:
+    """Alle automatisch zugeordneten Buchungen (Regel/KI) so bestätigen, wie vorgeschlagen.
+
+    Anders als die Sammelbestätigung nicht „alles oder nichts“: Eine Buchung, die sich nicht
+    bestätigen lässt (z. B. als Kreditrate gebucht), wird übersprungen und bleibt in der Liste.
+    """
+    txs = list(session.exec(review_query(user, ReviewStatus.AUTO_CATEGORIZED).order_by(Transaction.id)))
+    confirmed, skipped = 0, 0
+    for tx in txs:
+        savepoint = session.begin_nested()
+        try:
+            _confirm(session, user, tx, ReviewConfirm(), None)
+            session.flush()
+            savepoint.commit()
+            confirmed += 1
+        except AppError:
+            savepoint.rollback()
+            skipped += 1
+    return {"confirmed": confirmed, "skipped": skipped}
 
 
 def suggest_rule(session: Session, user: User, tx: Transaction) -> dict:

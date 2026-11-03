@@ -10,6 +10,7 @@ from app.schemas.rule import (
     AiStatus,
     ApplyResult,
     BulkConfirm,
+    ConfirmAllResult,
     ReviewConfirm,
     ReviewPage,
     RuleCreate,
@@ -107,6 +108,14 @@ def bulk_confirm(data: BulkConfirm, session: SessionDep, user: CurrentUser):
     count = review.bulk_confirm(session, user, data.transaction_ids, data)
     session.commit()
     return {"confirmed": count}
+
+
+@router.post("/review/confirm-all", response_model=ConfirmAllResult, tags=["Prüfliste"])
+def confirm_all(session: SessionDep, user: CurrentUser):
+    """Alle automatisch zugeordneten Buchungen (Regel/KI) mit der vorgeschlagenen Kategorie bestätigen."""
+    result = review.confirm_all_suggestions(session, user)
+    session.commit()
+    return result
 
 
 @router.get("/review/ai", response_model=AiStatus, tags=["Prüfliste"])

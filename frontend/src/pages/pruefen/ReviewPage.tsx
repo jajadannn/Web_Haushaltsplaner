@@ -76,6 +76,7 @@ export function ReviewPage() {
     transaction_ids: [...marked],
     ...(bulkCategory === TRANSFER ? { as_transfer: true } : { category_id: bulkCategory ? Number(bulkCategory) : null }),
   }), MONEY_AREAS)
+  const confirmAll = useApiMutation(() => api.post<Schemas['ConfirmAllResult']>('/review/confirm-all'), MONEY_AREAS)
   const aiRetry = useApiMutation(() => api.post<Schemas['AiRetryResult']>('/review/ai/retry'), ['review'])
   const bookLoan = useApiMutation((item: ReviewItem) => api.post(`/loans/${item.suggested_loan!.loan_id}/payments`, {
     transaction_id: item.transaction.id, schedule_seq: item.suggested_loan!.seq,
@@ -107,6 +108,17 @@ export function ReviewPage() {
   return (
     <div className="page review-page">
       <PageHeader title="Prüfen">
+        {status === 'auto_categorized' && marked.size === 0 && total > 0 && (
+          <Button variant="primary" icon="check" busy={confirmAll.isPending} onClick={() => confirmAll.mutate(undefined, {
+            onSuccess: (r) => {
+              const text = r.confirmed === 1 ? '1 Vorschlag bestätigt' : `${r.confirmed} Vorschläge bestätigt`
+              toast.ok(r.skipped ? `${text} – ${r.skipped} ließen sich nicht bestätigen` : text)
+            },
+            onError: toast.error,
+          })}>
+            {total === 1 ? 'Vorschlag bestätigen' : `Alle ${total} bestätigen`}
+          </Button>
+        )}
         {marked.size > 0 && (
           <Button variant="primary" busy={bulk.isPending} onClick={() => bulk.mutate(undefined, {
             onSuccess: () => { toast.ok(`${marked.size} Buchungen bestätigt`); setMarked(new Set()) },

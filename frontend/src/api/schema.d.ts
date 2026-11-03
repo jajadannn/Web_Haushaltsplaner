@@ -904,6 +904,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/review/confirm-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm All
+         * @description Alle automatisch zugeordneten Buchungen (Regel/KI) mit der vorgeschlagenen Kategorie bestätigen.
+         */
+        post: operations["confirm_all_review_confirm_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/review/ai": {
         parameters: {
             query?: never;
@@ -1573,6 +1593,13 @@ export interface components {
             color?: string | null;
             /** Active */
             active?: boolean | null;
+        };
+        /** ConfirmAllResult */
+        ConfirmAllResult: {
+            /** Confirmed */
+            confirmed: number;
+            /** Skipped */
+            skipped: number;
         };
         /** FixedCostCreate */
         FixedCostCreate: {
@@ -5324,6 +5351,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_all_review_confirm_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmAllResult"];
                 };
             };
             /** @description Validation Error */

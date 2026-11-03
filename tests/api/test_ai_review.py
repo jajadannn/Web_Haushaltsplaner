@@ -4,6 +4,8 @@ Der KI-Server wird nicht aufgerufen – `ai_review.chat` liefert eine vorgegeben
 """
 
 import json
+import threading
+import time
 from datetime import UTC, datetime
 
 import pytest
@@ -207,3 +209,109 @@ def test_server_fehler_wird_zu_ai_unavailable(monkeypatch):
     monkeypatch.setattr(ai_review, "_post", kaputt)
     with pytest.raises(ai_review.AiUnavailable):
         ai_review.chat([{"role": "user", "content": "x"}])
+
+
+# --- Parallele Anfragen --------------------------------------------------------------------
+
+
+class _FakeQueue:
+    """Warteschlange ohne Datenbank: liefert IDs, bis alle einmal vergeben sind."""
+
+    def __init__(self, n, stop):
+        self.todo, self.stop, self.done = list(range(n, 0, -1)), stop, []
+        self.lock, self.active, self.max_active = threading.Lock(), 0, 0
+
+    def next_ids(self, _session, limit, exclude=None):
+        with self.lock:
+            ids = [i for i in self.todo if i not in (exclude or set())][:limit]
+            return ids
+
+    def review(self, _sessions, tx_id, fail=None):
+        with self.lock:
+            self.todo.remove(tx_id)
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+        time.sleep(0.05)  # KI „rechnet“
+        with self.lock:
+            self.active -= 1
+            self.done.append(tx_id)
+            if not self.todo and self.active == 0:
+                self.stop.set()
+        if fail:
+            raise fail
+
+
+class _NoSession:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def rollback(self):
+        pass
+
+
+@pytest.mark.parametrize("parallel", [1, 4])
+def test_hoechstens_parallel_viele_anfragen_gleichzeitig(monkeypatch, parallel):
+    stop = threading.Event()
+    fake = _FakeQueue(10, stop)
+    monkeypatch.setattr(ai_review, "IDLE_SECONDS", 0.01)
+    monkeypatch.setattr(ai_review, "next_pending_ids", fake.next_ids)
+    monkeypatch.setattr(ai_review, "_review_task", fake.review)
+    worker = threading.Thread(target=ai_review.work_queue, args=(_NoSession, stop, parallel, lambda _id: None))
+    worker.start()
+    worker.join(timeout=10)
+    assert not worker.is_alive()
+    assert sorted(fake.done) == list(range(1, 11))  # jede Buchung genau einmal
+    assert fake.max_active == parallel
+
+
+def test_server_weg_keine_neuen_anfragen_bis_zur_pause(monkeypatch):
+    stop = threading.Event()
+    fake = _FakeQueue(10, stop)
+    pauses = []
+    monkeypatch.setattr(ai_review, "IDLE_SECONDS", 0.01)
+    monkeypatch.setattr(ai_review, "next_pending_ids", fake.next_ids)
+    monkeypatch.setattr(ai_review, "_review_task",
+                        lambda s, tx_id: fake.review(s, tx_id, fail=ai_review.AiUnavailable("weg")))
+    real_wait = stop.wait
+
+    def pause(seconds):
+        if seconds == ai_review.BACKOFF_SECONDS:
+            pauses.append(len(fake.done))
+            stop.set()
+        return real_wait(0)
+
+    monkeypatch.setattr(stop, "wait", pause)
+    ai_review.work_queue(_NoSession, stop, 4, lambda _id: None)
+    assert pauses == [4]  # erste Runde zu Ende gebracht, dann Pause statt weiterer Anfragen
+
+
+def test_unerwarteter_fehler_markiert_nur_diese_buchung(monkeypatch):
+    stop = threading.Event()
+    fake = _FakeQueue(3, stop)
+    given_up = []
+    monkeypatch.setattr(ai_review, "IDLE_SECONDS", 0.01)
+    monkeypatch.setattr(ai_review, "next_pending_ids", fake.next_ids)
+    monkeypatch.setattr(ai_review, "_review_task",
+                        lambda s, tx_id: fake.review(s, tx_id, fail=RuntimeError("kaputt") if tx_id == 2 else None))
+    ai_review.work_queue(_NoSession, stop, 4, given_up.append)
+    assert given_up == [2] and sorted(fake.done) == [1, 2, 3]
+
+
+def test_alle_vorschlaege_mit_einem_klick_bestaetigen(client, headers, session, giro, tanken, ki):
+    vorschlaege = [book(client, headers, giro, description=f"Tanken {i}") for i in range(3)]
+    offen = book(client, headers, giro, counterparty="Unbekannt")
+    ki.answer = {"kategorie_id": tanken["id"], "sicherheit": "hoch", "begruendung": "Tankstelle"}
+    for tx in vorschlaege:
+        ai_review.review_one(session, tx["id"])
+
+    response = client.post("/review/confirm-all", headers=headers)
+    assert response.json() == {"confirmed": 3, "skipped": 0}
+    for tx in vorschlaege:
+        data = client.get(f"/transactions/{tx['id']}", headers=headers).json()
+        assert (data["review_status"], data["category_id"], data["category_source"]) == ("confirmed", tanken["id"], "ai")
+    # Buchungen ohne Vorschlag bleiben offen
+    assert client.get(f"/transactions/{offen['id']}", headers=headers).json()["review_status"] == "needs_review"
+    assert client.post("/review/confirm-all", headers=headers).json() == {"confirmed": 0, "skipped": 0}

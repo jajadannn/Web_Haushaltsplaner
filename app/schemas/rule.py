@@ -131,3 +131,8 @@ class AiStatus(BaseModel):
 
 class AiRetryResult(BaseModel):
     queued: int
+
+
+class ConfirmAllResult(BaseModel):
+    confirmed: int
+    skipped: int  # ließen sich nicht bestätigen und bleiben in der Liste

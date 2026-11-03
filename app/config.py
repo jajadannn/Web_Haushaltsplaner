@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     ai_url: str | None = Field(default=None, validation_alias=AliasChoices("ai_url", "ollama_url"))
     ai_model: str = "gemma4:e2b"
     ai_timeout_seconds: float = 300.0
+    # Gleichzeitige Anfragen an den KI-Server (1–4); mehr bremst kleine Server eher aus
+    ai_parallel: int = Field(default=4, ge=1, le=4)
 
     @property
     def ai_api(self) -> str:
