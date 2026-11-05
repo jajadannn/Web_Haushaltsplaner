@@ -38,7 +38,7 @@ export type MonthReserve = Schemas['MonthReserve']
 export type Area =
   | 'accounts' | 'institutions' | 'categories' | 'transactions' | 'budget' | 'fixed-costs'
   | 'loans' | 'rules' | 'review' | 'imports' | 'import-profiles' | 'watch-folders' | 'reports'
-  | 'suggestions' | 'changes' | 'settings' | 'merchants' | 'expected-incomes' | 'forecast'
+  | 'suggestions' | 'changes' | 'settings' | 'merchants' | 'expected-incomes' | 'forecast' | 'documents'
 
 /** Buchungen verändern Salden, Spielraum, Prüfliste, Berichte und Kredite. */
 export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans', 'forecast', 'suggestions']
@@ -142,7 +142,7 @@ export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folde
 /** Annehmen/Ablehnen/Rücknahme verändern Fixkosten, Spielraum, Verlauf und die Vorschlagsliste. */
 export const SUGGESTION_AREAS: Area[] = [
   'suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules', 'transactions', 'imports', 'import-profiles', 'merchants',
-  'expected-incomes', 'forecast',
+  'expected-incomes', 'forecast', 'documents',
 ]
 
 export const useSuggestions = (query: Query) => useProfileQuery<Suggestion[]>('suggestions', '/suggestions', query)

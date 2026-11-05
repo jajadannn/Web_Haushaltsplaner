@@ -1,6 +1,7 @@
 /** Linien-Icons der Kachelsprache (24er-Raster, 2px Strich, runde Enden). */
 
 const PATHS = {
+  file: 'M6 3h8l5 5v13H6zM14 3v5h5M9 13h6M9 17h6',
   home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   list: 'M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01',
   import: 'M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2',

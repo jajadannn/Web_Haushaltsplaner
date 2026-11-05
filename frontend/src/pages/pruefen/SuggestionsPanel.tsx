@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
-import { SUGGESTION_AREAS, useApiMutation, useCategories, useSuggestions, type Category, type Suggestion } from '../../api/hooks'
-import { monthLabel } from '../../lib/dates'
+import { SUGGESTION_AREAS, useAccounts, useApiMutation, useCategories, useSuggestions, type Category, type Suggestion } from '../../api/hooks'
+import { monthLabel, shortDate } from '../../lib/dates'
 import { formatEuro } from '../../lib/money'
 import { Button, SelectField, TextField } from '../../ui/controls'
 import { Icon } from '../../ui/Icon'
 import { useToast } from '../../ui/overlay'
 import {
-  consistencyText, parseChange, parseConsistency, parseQuestion, parseRule, ruleEvidenceText, sortSuggestions,
+  alternativesText, consistencyText, parseChange, parseConsistency, parseQuestion, parseRefundMatch, parseRule, parseSplitTemplate,
+  parseTransferMatch, ruleEvidenceText, sortSuggestions,
   type MatchField,
 } from './review'
 
@@ -30,8 +31,12 @@ export function SuggestionsPanel() {
   const changes = useOpen('fixed_cost_change')
   const consistency = useOpen('consistency')
   const questions = useOpen('question')
+  const transfers = useOpen('transfer_match')
+  const refunds = useOpen('refund_match')
+  const splits = useOpen('split_template')
+  const accounts = useAccounts()
   const [expanded, setExpanded] = useState(true)
-  const total = rules.length + changes.length + consistency.length + questions.length
+  const total = rules.length + changes.length + consistency.length + questions.length + transfers.length + refunds.length + splits.length
 
   const accept = useApiMutation(
     ({ id, body }: { id: number; body?: Record<string, unknown> }) => api.post(`/suggestions/${id}/accept`, body), SUGGESTION_AREAS)
@@ -39,6 +44,7 @@ export function SuggestionsPanel() {
   const busy = accept.isPending || reject.isPending
 
   const categoryName = (id: number) => categories.data?.find((c) => c.id === id)?.name ?? 'Kategorie'
+  const accountName = (id: number | null) => accounts.data?.find((a) => a.id === id)?.name ?? 'Konto'
   const take = (s: Suggestion, ok: string, body?: Record<string, unknown>) =>
     accept.mutate({ id: s.id, body }, { onSuccess: () => toast.ok(ok), onError: toast.error })
   const drop = (s: Suggestion, ok: string) => reject.mutate(s.id, { onSuccess: () => toast.ok(ok), onError: toast.error })
@@ -91,6 +97,59 @@ export function SuggestionsPanel() {
               </div>
             </li>
           ))}
+          {transfers.map((s) => {
+            const t = parseTransferMatch(s.payload)
+            return (
+              <li key={s.id} className="suggestion-card">
+                <p><Icon name="transfer" size={18} /> <strong>Umbuchung</strong>{t.amount ? <> über {formatEuro(t.amount)}</> : null}:
+                  {' '}{t.fromName ?? accountName(t.fromAccountId)} → {t.toName ?? accountName(t.toAccountId)}
+                  {t.dates.length > 0 && <span className="muted"> ({t.dates.map(shortDate).join(' / ')})</span>}
+                </p>
+                <p className="muted">{s.reason || 'Zwei Buchungen gleichen sich aus und sind vermutlich eine Umbuchung zwischen eigenen Konten.'}</p>
+                <div className="suggestion-actions">
+                  <Button variant="primary" icon="check" disabled={busy} onClick={() => take(s, 'Als Umbuchung verbunden')}>Als Umbuchung verbinden</Button>
+                  <Button disabled={busy} onClick={() => drop(s, 'Vorschlag abgelehnt')}>Ablehnen</Button>
+                </div>
+              </li>
+            )
+          })}
+          {refunds.map((s) => {
+            const r = parseRefundMatch(s.payload)
+            const more = alternativesText(r.alternativeCount)
+            return (
+              <li key={s.id} className="suggestion-card">
+                <p><Icon name="refresh" size={18} /> <strong>{r.partial ? 'Teilerstattung' : 'Erstattung'}</strong>
+                  {r.counterparty ? <> von {r.counterparty}</> : null}{r.amount ? <>: {formatEuro(r.amount)}</> : null}
+                  {r.partial && r.originalAmount ? <span className="muted"> (Einkauf: {formatEuro(r.originalAmount)})</span> : null}
+                </p>
+                <p>Kategorie des Einkaufs übernehmen: <strong>{r.category ?? (r.categoryId ? categoryName(r.categoryId) : 'Kategorie')}</strong></p>
+                {more && <p className="muted">{more}</p>}
+                {s.reason && <p className="muted">{s.reason}</p>}
+                <div className="suggestion-actions">
+                  <Button variant="primary" icon="check" disabled={busy} onClick={() => take(s, 'Erstattung zugeordnet')}>Zuordnen</Button>
+                  <Button disabled={busy} onClick={() => drop(s, 'Vorschlag abgelehnt')}>Ablehnen</Button>
+                </div>
+              </li>
+            )
+          })}
+          {splits.map((s) => {
+            const t = parseSplitTemplate(s.payload)
+            return (
+              <li key={s.id} className="suggestion-card">
+                <p><Icon name="split" size={18} /> <strong>{t.counterparty ?? 'Buchung'}</strong> wie beim letzten Mal aufteilen</p>
+                <ul className="split-preview">
+                  {t.lines.map((l, i) => (
+                    <li key={i}>{formatEuro(l.amount)} – {l.kind === 'transfer' ? 'Umbuchung' : l.categoryId ? categoryName(l.categoryId) : 'ohne Kategorie'}</li>
+                  ))}
+                </ul>
+                {s.reason && <p className="muted">{s.reason}</p>}
+                <div className="suggestion-actions">
+                  <Button variant="primary" icon="check" disabled={busy} onClick={() => take(s, 'Buchung aufgeteilt')}>Aufteilen</Button>
+                  <Button disabled={busy} onClick={() => drop(s, 'Vorschlag abgelehnt')}>Ablehnen</Button>
+                </div>
+              </li>
+            )
+          })}
           {questions.map((s) => {
             const q = parseQuestion(s.payload)
             return (

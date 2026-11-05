@@ -37,6 +37,8 @@ const GENERIC: Record<string, string> = {
   income_account_type: 'Erwartete Einnahmen lassen sich nur einem Zahlkonto zuordnen, nicht einem Kreditkonto.',
   income_category_type: 'Für erwartete Einnahmen bitte eine Einnahmenkategorie wählen.',
   month_in_future: 'Dieser Monat liegt in der Zukunft.',
+  document_type: 'Dieses Dateiformat wird nicht unterstützt. Erlaubt sind PDF, JPEG, PNG und WebP.',
+  document_link_target: 'Bitte genau ein Ziel angeben: eine Buchung, eine Fixkost oder einen Vertrag.',
   file_too_large: 'Die Datei ist zu groß.',
   http_500: 'Im Finanzplaner ist ein Fehler aufgetreten. Bitte noch einmal versuchen.',
   http_502: 'Der Finanzplaner antwortet gerade nicht.',

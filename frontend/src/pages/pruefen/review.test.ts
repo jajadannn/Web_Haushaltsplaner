@@ -68,3 +68,32 @@ describe('sortSuggestions', () => {
     expect(sortSuggestions(s).map((x) => x.id)).toEqual([3, 2, 1])
   })
 })
+
+import { alternativesText, parseRefundMatch, parseSplitTemplate, parseTransferMatch } from './review'
+
+describe('Phase 7 Payloads', () => {
+  it('liest Umbuchungspaar', () => {
+    const t = parseTransferMatch({ transaction_ids: [4, 9], amount: '100.00', from_account: 1, to_account: { id: 2 }, dates: ['2026-01-01'] })
+    expect(t).toMatchObject({ outId: 4, inId: 9, amount: '100.00', fromAccountId: 1, toAccountId: 2 })
+    expect(parseTransferMatch({}).outId).toBeNull()
+  })
+  it('liest Kontonamen und Alternativen in der Form des Backends', () => {
+    const t = parseTransferMatch({ transaction_ids: [4, 9], amount: '500.00', from_account: 'Giro', to_account: 'Tagesgeld' })
+    expect(t).toMatchObject({ fromName: 'Giro', toName: 'Tagesgeld', fromAccountId: null })
+    expect(parseRefundMatch({ refund_id: 1, original_id: 2, alternatives: 2 }).alternativeCount).toBe(2)
+  })
+  it('liest Erstattung und Alternativen', () => {
+    const r = parseRefundMatch({ refund_id: 1, original_id: 2, partial: true, category: 'Kleidung', alternatives: [{}, {}] })
+    expect(r.partial).toBe(true)
+    expect(r.alternativeCount).toBe(2)
+    expect(alternativesText(2)).toBe('2 weitere Einkäufe kämen in Frage')
+    expect(alternativesText(1)).toBe('1 weiterer Einkauf käme in Frage')
+    expect(alternativesText(0)).toBeNull()
+    expect(parseRefundMatch({}).partial).toBe(false)
+  })
+  it('liest Split-Vorlage', () => {
+    const s = parseSplitTemplate({ transaction_id: 3, counterparty: 'REWE', lines: [{ amount: '-10.00', kind: 'normal', category_id: 5 }, { foo: 1 }] })
+    expect(s.lines).toEqual([{ amount: '-10.00', kind: 'normal', categoryId: 5 }])
+    expect(parseSplitTemplate({}).lines).toEqual([])
+  })
+})

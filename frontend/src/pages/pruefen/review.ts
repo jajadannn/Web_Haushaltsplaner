@@ -142,3 +142,90 @@ export function confirmIds(ids: number[], deselected: ReadonlySet<number>): numb
 export function sortSuggestions<T extends { id: number; priority: number }>(list: T[]): T[] {
   return [...list].sort((a, b) => b.priority - a.priority || b.id - a.id)
 }
+
+// --- Phase 7: Umbuchungen, Erstattungen, Split-Vorlagen ---------------------------
+
+export interface TransferMatch {
+  outId: number | null
+  inId: number | null
+  amount: string | null
+  fromAccountId: number | null
+  toAccountId: number | null
+  /** Das Backend liefert die Kontonamen direkt als Text. */
+  fromName: string | null
+  toName: string | null
+  dates: string[]
+}
+
+export function parseTransferMatch(payload: Loose): TransferMatch {
+  const ids = Array.isArray(payload.transaction_ids) ? payload.transaction_ids : []
+  const id = (v: unknown) => num(v)
+  const account = (v: unknown) => num(v) ?? (v && typeof v === 'object' ? num((v as Loose).id) : null)
+  return {
+    outId: id(ids[0]),
+    inId: id(ids[1]),
+    amount: money(payload.amount),
+    fromAccountId: account(payload.from_account),
+    toAccountId: account(payload.to_account),
+    fromName: typeof payload.from_account === 'string' ? payload.from_account : null,
+    toName: typeof payload.to_account === 'string' ? payload.to_account : null,
+    dates: Array.isArray(payload.dates) ? payload.dates.filter((v): v is string => typeof v === 'string') : [],
+  }
+}
+
+export interface RefundMatch {
+  refundId: number | null
+  originalId: number | null
+  amount: string | null
+  originalAmount: string | null
+  categoryId: number | null
+  category: string | null
+  partial: boolean
+  counterparty: string | null
+  /** weitere Einkäufe, die ebenfalls in Frage kämen */
+  alternativeCount: number
+}
+
+export function parseRefundMatch(payload: Loose): RefundMatch {
+  const alt = payload.alternatives
+  return {
+    refundId: num(payload.refund_id),
+    originalId: num(payload.original_id),
+    amount: money(payload.amount),
+    originalAmount: money(payload.original_amount),
+    categoryId: num(payload.category_id),
+    category: str(payload.category),
+    partial: payload.partial === true,
+    counterparty: str(payload.counterparty),
+    alternativeCount: Array.isArray(alt) ? alt.length : num(alt) ?? 0,
+  }
+}
+
+export function alternativesText(count: number): string | null {
+  if (count <= 0) return null
+  return count === 1 ? '1 weiterer Einkauf käme in Frage' : `${count} weitere Einkäufe kämen in Frage`
+}
+
+export interface SplitTemplateLine {
+  amount: string
+  kind: string
+  categoryId: number | null
+}
+
+export interface SplitTemplate {
+  transactionId: number | null
+  counterparty: string | null
+  lines: SplitTemplateLine[]
+}
+
+export function parseSplitTemplate(payload: Loose): SplitTemplate {
+  const raw = Array.isArray(payload.lines) ? (payload.lines as Loose[]) : []
+  return {
+    transactionId: num(payload.transaction_id),
+    counterparty: str(payload.counterparty),
+    lines: raw.flatMap((l) => {
+      const amount = l && typeof l === 'object' ? money(l.amount) : null
+      return amount === null ? [] : [{ amount, kind: str(l.kind) ?? 'normal', categoryId: num(l.category_id) }]
+    }),
+  }
+}

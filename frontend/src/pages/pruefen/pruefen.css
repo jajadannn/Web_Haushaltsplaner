@@ -337,3 +337,4 @@ p.ai-hint {
 .group-items ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
 .group-items li { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 @media (max-width: 700px) { .group-head { grid-template-columns: 1fr; } }
+.split-preview { margin: 0; padding-left: 20px; }

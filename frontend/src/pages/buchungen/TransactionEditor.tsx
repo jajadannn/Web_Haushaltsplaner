@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
+import { openDocumentFile, useDocuments, useLinkDocument } from '../../api/documents'
 import { fieldErrors } from '../../api/messages'
 import { MONEY_AREAS, useApiMutation, useProfileQuery, type Merchant, type Account, type Category, type Transaction } from '../../api/hooks'
 import { categoryPath } from '../../lib/categoryTree'
@@ -10,6 +11,8 @@ import { Button, MoneyField, SelectField, TextField } from '../../ui/controls'
 import { Confirm, useToast } from '../../ui/overlay'
 import { Icon } from '../../ui/Icon'
 import { aliasesFromCounterparty } from '../einstellungen/merchants'
+import { UploadButton } from '../belege/AttachDocument'
+import { documentsForTransaction } from '../belege/documents'
 import { editorMode } from './status'
 import { splitProblem, splitRemainder, SPLIT_PROBLEM_TEXT, toApiSplits, type SplitDraft } from './splits'
 
@@ -67,6 +70,10 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
     }
     return created
   }, ['merchants', 'transactions', 'suggestions'], (m) => toast.ok(`Anbieter „${m.name}“ gemerkt`))
+
+  const documents = useDocuments()
+  const attached = documentsForTransaction(documents.data ?? [], tx.id)
+  const linkDocument = useLinkDocument(() => toast.ok('Beleg angehängt'))
 
   const signed = (value: string) => (sign === 'out' ? negate(value) : value)
 
@@ -222,6 +229,21 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
           </div>
         </fieldset>
       )}
+
+      <div className="tx-editor-docs">
+        {attached.length > 0 && (
+          <ul className="tx-editor-doclist" aria-label="Verknüpfte Belege">
+            {attached.map((d) => (
+              <li key={d.id}>
+                <Icon name="file" size={18} />{' '}
+                <button type="button" className="link-btn" onClick={() => openDocumentFile(d.id).catch(toast.error)}>{d.original_filename}</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <UploadButton kind="receipt" label="Beleg anhängen" variant="ghost"
+          onUploaded={(doc) => linkDocument.mutate({ id: doc.id, target: { transaction_id: tx.id } }, { onError: toast.error })} />
+      </div>
 
       {formError && <p className="field-error" role="alert">{formError}</p>}
 
