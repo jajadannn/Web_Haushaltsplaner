@@ -292,6 +292,9 @@ def _payment_candidates(session: Session, user_id: int, fixed: FixedCost, first:
     )
     if fixed.category_id is not None:
         query = query.where(L.category_id == fixed.category_id)
+    if fixed.account_id is not None:
+        # hinterlegtes Konto: nur Zahlungen von diesem Konto (Abweichungen lassen sich fest verknüpfen)
+        query = query.where(L.account_id == fixed.account_id)
     if fixed.match_text:
         pattern = "%" + fixed.match_text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         query = query.where(
@@ -307,14 +310,16 @@ def _linked_lines(session: Session, user_id: int, first: date):
     """Fest verknüpfte Zahlungen: alle verknüpften Zeilen des Profils und die des Monats je Fixkost."""
     rows = session.execute(
         select(FixedCostPayment.fixed_cost_id, FixedCostPayment.due_month, L.transaction_id, L.split_id,
-               L.amount, L.booking_date, L.excluded_at)
+               L.amount, L.booking_date, L.excluded_at, L.kind)
         .select_from(FixedCostPayment)
         .join(transaction_line, and_(L.transaction_id == FixedCostPayment.transaction_id,
                                      L.split_id.is_not_distinct_from(FixedCostPayment.split_id)))
         .where(FixedCostPayment.user_id == user_id)
     ).all()
     taken = {(r.transaction_id, r.split_id) for r in rows}
-    this_month = {r.fixed_cost_id: r for r in rows if r.due_month == first and r.excluded_at is None}
+    # Eine Verknüpfung zählt nur, solange die Zeile noch eine reguläre Abbuchung ist (Buchung kann sich ändern).
+    this_month = {r.fixed_cost_id: r for r in rows
+                  if r.due_month == first and r.excluded_at is None and r.amount < 0 and r.kind == "regular"}
     return taken, this_month
 
 

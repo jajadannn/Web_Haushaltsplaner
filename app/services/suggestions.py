@@ -10,16 +10,18 @@ außer `reopen` meldet wesentlich neue Evidenz; Vorschläge, die nicht mehr erka
 deren Belege fehlen, werden `stale`.
 """
 
-from collections.abc import Callable
+import hashlib
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
+from pydantic import ValidationError
 from sqlmodel import Session, func, select
 
-from app.errors import Conflict, NotFound
-from app.models import ChangeActor, ChangeLog, Suggestion, SuggestionStatus, User
+from app.errors import Conflict, Invalid, NotFound
+from app.models import ChangeActor, ChangeLog, Suggestion, SuggestionStatus, Transaction, User
 from app.services import changes, settings
 from app.services.common import get_owned
 
@@ -38,6 +40,45 @@ def jsonable(value: Any) -> Any:
     return value
 
 
+# --- Stand der Belegbuchungen ---------------------------------------------------------------------
+# Ein Vorschlag speichert den Stand seiner Buchungen (`evidence["state"]`). Vor jeder Übernahme wird
+# er unter Sperre neu berechnet; weicht er ab, ist der Vorschlag veraltet und wird nicht angewendet.
+
+CORE_TX_FIELDS = ("account_id", "booking_date", "amount", "kind", "transfer_peer_id", "counterparty",
+                  "counterparty_iban", "description")
+
+
+def tx_state(tx: Transaction, extra: Iterable[str] = ()) -> str:
+    values = [repr(getattr(tx, f)) for f in (*CORE_TX_FIELDS, *extra)]
+    values.append(repr(tx.excluded_at is not None))
+    values.append(repr(sorted((str(s.amount), s.kind, s.category_id) for s in tx.splits)))
+    return hashlib.sha256("|".join(values).encode()).hexdigest()[:16]
+
+
+def state_evidence(txs: Iterable[Transaction], extra: Iterable[str] = ()) -> dict[str, Any]:
+    """Stand der Buchungen für `evidence["state"]`; `extra` = zusätzlich relevante Felder."""
+    extra = tuple(extra)
+    return {"fields": list(extra), "tx": {str(t.id): tx_state(t, extra) for t in txs}}
+
+
+def _state_current(session: Session, suggestion: Suggestion) -> bool:
+    state = (suggestion.evidence or {}).get("state")
+    if not state:
+        return True
+    ids = sorted(int(i) for i in state["tx"])
+    current = {
+        t.id: t for t in session.exec(
+            select(Transaction).where(Transaction.id.in_(ids)).order_by(Transaction.id)
+            .with_for_update().execution_options(populate_existing=True)
+        )
+    }
+    return all(
+        int(i) in current and current[int(i)].user_id == suggestion.user_id
+        and tx_state(current[int(i)], state["fields"]) == expected
+        for i, expected in state["tx"].items()
+    )
+
+
 @dataclass
 class Found:
     """Ein erkannter Fall, wie ihn ein Erkennungsdienst liefert."""
@@ -47,6 +88,7 @@ class Found:
     evidence: dict[str, Any]
     reason: str
     priority: int = 0
+    aliases: tuple[str, ...] = ()  # frühere Fingerprints desselben Falls (Entscheidungen bleiben erhalten)
 
 
 @dataclass
@@ -57,6 +99,7 @@ class Handler:
     setting: str | None = None  # Einstellung für die Automatik, z. B. "automation.fixed_cost"
     reopen: Callable[[dict, dict], str | None] = lambda old, new: None
     evidence_valid: Callable[[Session, Suggestion], bool] = lambda session, s: True
+    revertible: bool = True  # False: Übernahme lässt sich nicht automatisch zurücknehmen
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -73,6 +116,8 @@ def register(kind: str, handler: Handler) -> None:
 def sync(session: Session, user: User, kind: str, found: list[Found], generator: str) -> dict[str, int]:
     """Gleicht die aktuellen Funde einer Art mit dem Speicher ab."""
     handler = HANDLERS[kind]
+    if handler.setting is not None and settings.get(session, user.id, handler.setting) == "off":
+        found = []  # Funktion ausgeschaltet: nichts erkennen, offene Vorschläge ausblenden
     existing = {
         s.fingerprint: s
         for s in session.exec(select(Suggestion).where(Suggestion.user_id == user.id, Suggestion.kind == kind))
@@ -80,10 +125,17 @@ def sync(session: Session, user: User, kind: str, found: list[Found], generator:
     now = datetime.now(UTC)
     counts = {"new": 0, "updated": 0, "stale": 0}
     seen = set()
+    fingerprints = {item.fingerprint for item in found}
     for item in found:
         seen.add(item.fingerprint)
         payload, evidence = jsonable(item.payload), jsonable(item.evidence)
         old = existing.get(item.fingerprint)
+        if old is None:
+            alias = next((a for a in item.aliases if a in existing and a not in fingerprints), None)
+            if alias is not None:
+                old = existing.pop(alias)
+                old.fingerprint = item.fingerprint
+                existing[item.fingerprint] = old
         if old is None:
             session.add(Suggestion(
                 user_id=user.id, kind=kind, fingerprint=item.fingerprint, payload=payload, evidence=evidence,
@@ -116,29 +168,43 @@ def sync(session: Session, user: User, kind: str, found: list[Found], generator:
     return counts
 
 
+def run_automation(session: Session, user: User, kind: str) -> None:
+    """Automatik einer Art erneut anwenden (z. B. nachdem die KI-Einschätzung eingetroffen ist)."""
+    _automate(session, user, kind)
+
+
 def _automate(session: Session, user: User, kind: str) -> None:
     handler = HANDLERS[kind]
     if handler.setting is None:
         return
     mode = settings.get(session, user.id, handler.setting)
-    if mode not in ("dry_run", "auto"):
+    if mode in ("off", "suggest"):
+        # Probelauf beendet: vorgemerkte Fälle wieder als normale Vorschläge zeigen
+        for suggestion in session.exec(select(Suggestion).where(
+            Suggestion.user_id == user.id, Suggestion.kind == kind, Suggestion.status == SuggestionStatus.DRY_RUN
+        )):
+            suggestion.status = SuggestionStatus.OPEN if mode == "suggest" else SuggestionStatus.STALE
+        session.flush()
         return
-    for suggestion in session.exec(
-        select(Suggestion).where(
-            Suggestion.user_id == user.id, Suggestion.kind == kind, Suggestion.status == SuggestionStatus.OPEN
-        )
-    ).all():
-        if not handler.is_clear(suggestion):
-            continue
-        if mode == "dry_run":
-            suggestion.status = SuggestionStatus.DRY_RUN
-            continue
+    # Probelauf merkt offene Fälle vor; die Automatik übernimmt offene und vorgemerkte
+    statuses = (SuggestionStatus.OPEN,) if mode == "dry_run" else ACCEPTABLE
+    ids = session.exec(
+        select(Suggestion.id).where(Suggestion.user_id == user.id, Suggestion.kind == kind,
+                                    Suggestion.status.in_(statuses)).order_by(Suggestion.id)
+    ).all()
+    for suggestion_id in ids:
         savepoint = session.begin_nested()
         try:
-            _apply(session, user, suggestion, {}, ChangeActor.AUTO)
-            suggestion.status = SuggestionStatus.AUTO_APPLIED
+            # dieselbe Sperre und Statusprüfung wie bei der manuellen Übernahme
+            suggestion = _lock(session, user, suggestion_id)
+            if suggestion.status in statuses and handler.is_clear(suggestion):
+                if mode == "dry_run":
+                    suggestion.status = SuggestionStatus.DRY_RUN
+                else:
+                    _apply(session, user, suggestion, {}, ChangeActor.AUTO)
+                    suggestion.status = SuggestionStatus.AUTO_APPLIED
             savepoint.commit()
-        except Conflict:
+        except (Conflict, Invalid):
             savepoint.rollback()
     session.flush()
 
@@ -182,11 +248,17 @@ def _lock(session: Session, user: User, suggestion_id: int) -> Suggestion:
 
 def _apply(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str) -> None:
     handler = HANDLERS[suggestion.kind]
-    if not handler.evidence_valid(session, suggestion):
+    if not _state_current(session, suggestion) or not handler.evidence_valid(session, suggestion):
         suggestion.status = SuggestionStatus.STALE
-        raise Conflict("Die Belege dieses Vorschlags haben sich geändert", code="suggestion_stale")
+        raise Conflict("Die Belege dieses Vorschlags haben sich geändert – bitte neu erkennen lassen",
+                       code="suggestion_stale")
     handler.validate(session, user, suggestion)
-    result_type, result_id = handler.apply(session, user, suggestion, overrides, actor)
+    try:
+        result_type, result_id = handler.apply(session, user, suggestion, overrides, actor)
+    except ValidationError as exc:
+        fields = [{"field": ".".join(str(p) for p in e["loc"]), "message": e["msg"]} for e in exc.errors()]
+        raise Invalid("Ungültige Werte für die Übernahme", code="validation_error",
+                      details={"fields": fields}) from exc
     suggestion.result_type, suggestion.result_id = result_type, result_id
     suggestion.decided_at = datetime.now(UTC)
 
@@ -221,6 +293,9 @@ def revert(session: Session, user: User, suggestion_id: int) -> Suggestion:
         select(ChangeLog).where(ChangeLog.suggestion_id == suggestion.id, ChangeLog.reverted_at.is_(None))
         .order_by(ChangeLog.id.desc())
     ).all()
+    if not entries and not HANDLERS[suggestion.kind].revertible:
+        raise Conflict("Diese Übernahme lässt sich nicht automatisch zurücknehmen – bitte von Hand anpassen",
+                       code="not_revertible")
     for entry in entries:
         changes.revert(session, user, entry.id)
     suggestion.status = SuggestionStatus.REVERTED
@@ -250,12 +325,13 @@ def metrics(session: Session, user: User, kind: str | None = None) -> dict[str, 
     out = []
     for (k, generator), counts in sorted(result.items()):
         decided = sum(counts.get(s, 0) for s in ("accepted", "rejected", "auto_applied", "reverted"))
-        accepted = counts.get("accepted", 0) + counts.get("auto_applied", 0)
+        # zurückgenommene Vorschläge waren zuvor übernommen und zählen deshalb als übernommen
+        applied = sum(counts.get(s, 0) for s in ("accepted", "auto_applied", "reverted"))
         out.append({
             "kind": k,
             "generator": generator,
             "counts": counts,
-            "acceptance_rate": round(accepted / decided, 3) if decided else None,
-            "revert_rate": round(counts.get("reverted", 0) / accepted, 3) if accepted else None,
+            "acceptance_rate": round(applied / decided, 3) if decided else None,
+            "revert_rate": round(counts.get("reverted", 0) / applied, 3) if applied else None,
         })
     return {"items": out, "reverted_changes": sum(corrected.values())}

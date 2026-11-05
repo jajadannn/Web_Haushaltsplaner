@@ -19,6 +19,7 @@ from decimal import Decimal
 from statistics import median
 
 from sqlalchemy import and_, exists, not_
+from sqlalchemy.orm import object_session
 from sqlmodel import Session, select
 
 from app.errors import Conflict
@@ -181,6 +182,10 @@ def detect(session: Session, user: User, today: date) -> list[Found]:
             groups.setdefault(key, []).append(line)
 
     found = []
+    evidence_txs = {
+        t.id: t for t in session.exec(select(Transaction).where(
+            Transaction.id.in_({line.transaction_id for lines in groups.values() for line in lines})))
+    }
     for key, lines in groups.items():
         clusters = [c for c in _clusters(lines) if len(c) >= 2]
         for cluster in clusters:
@@ -197,7 +202,9 @@ def detect(session: Session, user: User, today: date) -> list[Found]:
             category = Counter(c.category_id for c in cluster if c.category_id).most_common(1)
             account = Counter(c.account_id for c in cluster).most_common(1)[0][0]
             name = names.get(key) or (cluster[-1].counterparty or cluster[-1].description or "Fixkost")[:100]
-            suffix = f"|~{int(amount)}" if len(clusters) > 1 else ""
+            # Betrag immer im Fingerprint: ein weiterer Vertrag desselben Anbieters ändert die Identität nicht
+            suffix = f"|~{int(amount)}"
+            legacy = (f"{key}|{interval}",) if len(clusters) == 1 else ()
             rhythm = {1: "monatlich", 3: "vierteljährlich", 6: "halbjährlich", 12: "jährlich"}[interval]
             spread = max(amounts) - min(amounts)
             reason = (
@@ -208,6 +215,7 @@ def detect(session: Session, user: User, today: date) -> list[Found]:
                 reason += " – nur ein Jahresabstand beobachtet, bitte prüfen"
             found.append(Found(
                 fingerprint=f"{key}|{interval}{suffix}",
+                aliases=legacy,
                 payload={
                     "name": name,
                     "amount": amount,
@@ -225,6 +233,8 @@ def detect(session: Session, user: User, today: date) -> list[Found]:
                     ],
                     "identical_amount": identical,
                     "group": key,
+                    "state": suggestions.state_evidence(
+                        [evidence_txs[i] for i in sorted({c.transaction_id for c in cluster})]),
                 },
                 reason=reason,
                 priority=2 if interval == 1 else (0 if interval == 12 else 1),
@@ -294,6 +304,8 @@ def _enrich_finish(session: Session, job, answer: dict):
     else:
         suggestion.reason += f" – KI: {answer['begruendung'][:200]}"
     session.flush()
+    # die Automatik hat auf dieses Ergebnis gewartet
+    suggestions.run_automation(session, session.get(User, suggestion.user_id), SuggestionKind.FIXED_COST_NEW)
     return answer
 
 
@@ -316,14 +328,35 @@ def _evidence_valid(session: Session, suggestion: Suggestion) -> bool:
     return True
 
 
+def _evidence_lines(session: Session, suggestion: Suggestion) -> list[Line]:
+    pairs = [(t["id"], t.get("split_id")) for t in suggestion.evidence.get("transactions", [])]
+    if not pairs:
+        return []
+    rows = session.execute(
+        select(L.transaction_id, L.split_id, L.amount, L.booking_date, L.category_id, L.account_id,
+               Transaction.counterparty, Transaction.counterparty_iban, Transaction.description)
+        .select_from(transaction_line.join(Transaction, Transaction.id == L.transaction_id))
+        .where(L.transaction_id.in_([p[0] for p in pairs]))
+    ).all()
+    return [Line(r.transaction_id, r.split_id, -r.amount, r.booking_date, r.category_id, r.account_id,
+                 r.counterparty, r.counterparty_iban, r.description or "")
+            for r in rows if (r.transaction_id, r.split_id) in pairs]
+
+
 def _validate(session: Session, user: User, suggestion: Suggestion) -> None:
-    taken = session.exec(
-        select(FixedCostPayment.id).where(
-            FixedCostPayment.transaction_id.in_([t["id"] for t in suggestion.evidence.get("transactions", [])])
+    # belegt ist eine Zahlung je Buchungszeile (transaction_id, split_id) – wie im Datenmodell
+    pairs = {(t["id"], t.get("split_id")) for t in suggestion.evidence.get("transactions", [])}
+    taken = session.execute(
+        select(FixedCostPayment.transaction_id, FixedCostPayment.split_id).where(
+            FixedCostPayment.transaction_id.in_([p[0] for p in pairs])
         )
-    ).first()
-    if taken is not None:
+    ).all()
+    if any((row.transaction_id, row.split_id) in pairs for row in taken):
         raise Conflict("Die Zahlungen sind inzwischen einer Fixkost zugeordnet", code="suggestion_stale")
+    # inzwischen (z. B. von Hand) angelegte passende Fixkost: kein zweites Mal anlegen
+    fixed_costs = list(session.exec(select(FixedCost).where(FixedCost.user_id == user.id, FixedCost.active)))
+    if _covered(fixed_costs, _evidence_lines(session, suggestion), Decimal(str(suggestion.payload["amount"]))):
+        raise Conflict("Für diese Zahlungen gibt es inzwischen eine Fixkost", code="suggestion_stale")
 
 
 def _apply(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str):
@@ -356,15 +389,28 @@ def _apply(session: Session, user: User, suggestion: Suggestion, overrides: dict
 
 
 def _is_clear(suggestion: Suggestion) -> bool:
-    """Eindeutig: monatlich, mindestens drei identische Zahlungen, feste Gegenpartei, Kategorie."""
+    """Eindeutig: monatlich, mindestens drei identische Zahlungen, feste Gegenpartei, Kategorie –
+    und keine gegenteilige KI-Einschätzung. Ist die KI eingeschaltet, wird ihr Ergebnis abgewartet."""
     p, e = suggestion.payload, suggestion.evidence
-    return (
+    clear = (
         p.get("interval_months") == 1
         and len(e.get("transactions", [])) >= 3
         and e.get("identical_amount") is True
         and str(e.get("group", "")).startswith(("iban:", "alias:"))
         and p.get("category_id") is not None
     )
+    if not clear:
+        return False
+    if "ai" in p:
+        return p["ai"].get("ist_verpflichtung") is True
+    session = object_session(suggestion)
+    return session is None or not _ai_active(session, suggestion.user_id)
+
+
+def _ai_active(session: Session, user_id: int) -> bool:
+    from app.services import settings
+
+    return ai_gateway.enabled() and settings.get(session, user_id, "ai.enabled") is True
 
 
 def _reopen(old: dict, new: dict) -> str | None:

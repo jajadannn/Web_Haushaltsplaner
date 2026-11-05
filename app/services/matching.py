@@ -35,7 +35,7 @@ from app.models import (
     User,
 )
 from app.schemas.transaction import SplitIn
-from app.services import analysis, settings, suggestions
+from app.services import analysis, changes, settings, suggestions
 from app.services.iban import normalize_iban
 from app.services.recurring import normalize_name
 from app.services.suggestions import Found, Handler
@@ -88,12 +88,16 @@ def detect_transfers(session: Session, user: User, today: date) -> list[Found]:
             payload={"transaction_ids": [out.id, match.id], "amount": -out.amount,
                      "from_account": by_id[out.account_id].name, "to_account": target.name,
                      "dates": [out.booking_date, match.booking_date]},
-            evidence={},
+            evidence={"state": suggestions.state_evidence([out, match])},
             reason=f"{-out.amount} € von {by_id[out.account_id].name} an {target.name} – als Umbuchung zwischen "
                    "eigenen Konten zusammenfassen? (Dann zählt sie weder als Ausgabe noch als Einnahme.)",
             priority=2,
         ))
     return found
+
+
+TX_DECISION_FIELDS = ("kind", "category_id", "transfer_peer_id", "review_status", "category_source",
+                      "applied_rule_id")
 
 
 def _transfer_apply(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str):
@@ -102,14 +106,28 @@ def _transfer_apply(session: Session, user: User, suggestion: Suggestion, overri
     b = session.get(Transaction, b_id, with_for_update=True)
     for tx in (a, b):
         if tx is None or tx.user_id != user.id or tx.transfer_peer_id is not None or tx.splits \
-                or _is_loan_payment(session, tx.id):
+                or tx.kind != TransactionKind.REGULAR or tx.excluded_at is not None or _is_loan_payment(session, tx.id):
             raise Conflict("Die Buchungen haben sich geändert", code="suggestion_stale")
+    # ein Umbuchungspaar muss ausgeglichen sein und zwei verschiedene Konten verbinden
+    if a.amount + b.amount != 0 or a.account_id == b.account_id:
+        raise Conflict("Die Buchungen gleichen sich nicht mehr aus", code="suggestion_stale")
+    before = {tx.id: changes.snapshot(tx, TX_DECISION_FIELDS) for tx in (a, b)}
     a.transfer_peer_id, b.transfer_peer_id = b.id, a.id
     for tx in (a, b):
         tx.kind, tx.category_id = TransactionKind.TRANSFER, None
         tx.review_status, tx.category_source, tx.applied_rule_id = ReviewStatus.CONFIRMED, CategorySource.MANUAL, None
     session.flush()
+    for tx in (a, b):
+        changes.record(session, user.id, tx, TX_DECISION_FIELDS, action="update", before=before[tx.id],
+                       suggestion_id=suggestion.id, actor=actor)
     return "transaction", a.id
+
+
+def _no_delete(session: Session, obj) -> None:
+    raise Conflict("Buchungen werden bei einer Rücknahme nicht gelöscht", code="not_revertible")
+
+
+changes.REVERTERS["transaction"] = (Transaction, TX_DECISION_FIELDS, _no_delete)
 
 
 suggestions.register(SuggestionKind.TRANSFER_MATCH, Handler(validate=lambda s, u, x: None, apply=_transfer_apply))
@@ -118,8 +136,25 @@ suggestions.register(SuggestionKind.TRANSFER_MATCH, Handler(validate=lambda s, u
 # --- Erstattungen --------------------------------------------------------------------------------
 
 
+def _refunded(session: Session, user: User) -> dict[int, Decimal]:
+    """Bereits zugeordnete Erstattungen je ursprünglicher Ausgabe."""
+    rows = session.exec(
+        select(RefundLink.original_transaction_id, Transaction.amount)
+        .join(Transaction, Transaction.id == RefundLink.refund_transaction_id)
+        .where(RefundLink.user_id == user.id)
+    ).all()
+    total: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
+    for original_id, amount in rows:
+        total[original_id] += amount
+    return total
+
+
+REFUND_STATE = ("review_status", "category_id")
+
+
 def detect_refunds(session: Session, user: User, today: date) -> list[Found]:
     linked = set(session.exec(select(RefundLink.refund_transaction_id).where(RefundLink.user_id == user.id)).all())
+    refunded = _refunded(session, user)
     categories = {c.id: c for c in session.exec(select(Category).where(Category.user_id == user.id))}
     txs = [t for t in _recent(session, user, today) if t.kind == TransactionKind.REGULAR and not t.splits]
     purchases: dict[str, list[Transaction]] = defaultdict(list)
@@ -136,8 +171,10 @@ def detect_refunds(session: Session, user: User, today: date) -> list[Found]:
         category = categories.get(refund.category_id)
         if category is not None and category.type == "income":
             continue
+        # offen ist nur, was vom Einkauf noch nicht erstattet wurde
         options = [p for p in purchases.get(normalize_name(refund.counterparty or ""), [])
-                   if 0 <= (refund.booking_date - p.booking_date).days <= 90 and refund.amount <= -p.amount]
+                   if 0 <= (refund.booking_date - p.booking_date).days <= 90
+                   and refund.amount <= -p.amount - refunded[p.id]]
         if not options:
             continue
         original = min(options, key=lambda p: (abs(-p.amount - refund.amount), -p.booking_date.toordinal()))
@@ -148,7 +185,7 @@ def detect_refunds(session: Session, user: User, today: date) -> list[Found]:
                      "original_amount": -original.amount, "category_id": original.category_id,
                      "category": categories[original.category_id].name, "partial": partial,
                      "counterparty": refund.counterparty, "alternatives": len(options) - 1},
-            evidence={},
+            evidence={"state": suggestions.state_evidence([refund, original], REFUND_STATE)},
             reason=f"Die Gutschrift über {refund.amount} € von „{refund.counterparty}“ gehört vermutlich zum Einkauf "
                    f"vom {original.booking_date:%d.%m.%Y} ({-original.amount} €)"
                    + (" – Teilerstattung" if partial else "")
@@ -157,19 +194,38 @@ def detect_refunds(session: Session, user: User, today: date) -> list[Found]:
     return found
 
 
+REFUND_FIELDS = ("category_id", "review_status", "category_source", "applied_rule_id")
+
+
 def _refund_apply(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str):
     refund = session.get(Transaction, suggestion.payload["refund_id"], with_for_update=True)
     original_id = overrides.get("original_id", suggestion.payload["original_id"])
-    original = session.get(Transaction, original_id)
+    original = session.get(Transaction, original_id, with_for_update=True)
     if refund is None or original is None or original.user_id != user.id or refund.user_id != user.id:
         raise Conflict("Die Buchungen gibt es nicht mehr", code="suggestion_stale")
+    if refund.review_status == ReviewStatus.CONFIRMED or refund.amount <= 0 or original.amount >= 0 \
+            or original.category_id is None:
+        raise Conflict("Die Gutschrift wurde inzwischen anders eingeordnet", code="suggestion_stale")
     if session.exec(select(RefundLink.id).where(RefundLink.refund_transaction_id == refund.id)).first():
         raise Conflict("Die Gutschrift ist bereits zugeordnet", code="suggestion_stale")
+    if refund.amount > -original.amount - _refunded(session, user)[original.id]:
+        raise Conflict("Zusammen mit bereits zugeordneten Erstattungen überstiege das den Einkauf",
+                       code="refund_exceeds_purchase")
+    before = changes.snapshot(refund, REFUND_FIELDS)
     update_transaction(session, user, refund, {"category_id": original.category_id})
     refund.review_status, refund.category_source = ReviewStatus.CONFIRMED, CategorySource.MANUAL
-    session.add(RefundLink(user_id=user.id, refund_transaction_id=refund.id, original_transaction_id=original.id))
+    link = RefundLink(user_id=user.id, refund_transaction_id=refund.id, original_transaction_id=original.id)
+    session.add(link)
     session.flush()
+    changes.record(session, user.id, link, ("refund_transaction_id", "original_transaction_id"), action="create",
+                   before=None, suggestion_id=suggestion.id, actor=actor)
+    changes.record(session, user.id, refund, REFUND_FIELDS, action="update", before=before,
+                   suggestion_id=suggestion.id, actor=actor)
     return "transaction", refund.id
+
+
+changes.REVERTERS["refund_link"] = (RefundLink, ("refund_transaction_id", "original_transaction_id"),
+                                    lambda session, link: session.delete(link))
 
 
 suggestions.register(SuggestionKind.REFUND_MATCH, Handler(validate=lambda s, u, x: None, apply=_refund_apply))
@@ -214,7 +270,7 @@ def detect_split_templates(session: Session, user: User, today: date) -> list[Fo
             fingerprint=f"split:{t.id}|{hashlib.sha256(repr(shape).encode()).hexdigest()[:16]}",
             payload={"transaction_id": t.id, "counterparty": t.counterparty, "lines": lines,
                      "template_from": example.id},
-            evidence={},
+            evidence={"state": suggestions.state_evidence([t], ("review_status",))},
             reason=f"„{t.counterparty}“ wurde bisher immer so aufgeteilt – diese Buchung genauso aufteilen?",
         ))
     return found
@@ -222,11 +278,12 @@ def detect_split_templates(session: Session, user: User, today: date) -> list[Fo
 
 def _split_apply(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str):
     tx = session.get(Transaction, suggestion.payload["transaction_id"], with_for_update=True)
-    if tx is None or tx.user_id != user.id or tx.splits:
+    if tx is None or tx.user_id != user.id or tx.splits or tx.review_status == ReviewStatus.CONFIRMED:
         raise Conflict("Die Buchung hat sich geändert", code="suggestion_stale")
     splits = [SplitIn(amount=Decimal(line["amount"]), kind=line["kind"], category_id=line["category_id"])
               for line in suggestion.payload["lines"]]
-    update_transaction(session, user, tx, {"splits": splits})
+    # Die Kategorie steht danach in den Teilbuchungen; eine vorläufige Kopfkategorie (Regel/KI) entfällt.
+    update_transaction(session, user, tx, {"splits": splits, "category_id": None})
     tx.review_status = ReviewStatus.CONFIRMED
     session.flush()
     return "transaction", tx.id
@@ -234,7 +291,7 @@ def _split_apply(session: Session, user: User, suggestion: Suggestion, overrides
 
 suggestions.register(SuggestionKind.SPLIT_TEMPLATE, Handler(
     validate=lambda s, u, x: None, apply=_split_apply, setting="automation.split_templates",
-    is_clear=lambda s: True,
+    is_clear=lambda s: True, revertible=False,
 ))
 
 
