@@ -18,6 +18,7 @@ from app.schemas.imports import (
     WatchFolderCreate,
     WatchFolderRead,
 )
+from app.services import import_assist
 from app.services import import_jobs as jobs
 from app.services import import_profiles as profiles
 from app.services.import_commit import OPEN_DECISIONS
@@ -39,6 +40,47 @@ def create_profile(data: ImportProfileCreate, session: SessionDep, user: Current
     profile = profiles.create_profile(session, user, data)
     session.commit()
     return profile
+
+
+def _read_upload(file: UploadFile) -> bytes:
+    limit = get_settings().max_upload_mb * 1024 * 1024
+    content = file.file.read(limit + 1)
+    if len(content) > limit:
+        raise PayloadTooLarge(f"Datei größer als {get_settings().max_upload_mb} MB")
+    if not content:
+        raise AppError("Datei ist leer", code="file_empty")
+    return content
+
+
+@router.post("/import-profiles/draft")
+def draft_profile(
+    session: SessionDep,
+    user: CurrentUser,
+    file: Annotated[UploadFile, File(description="Beispieldatei (CSV)")],
+    ai: bool = False,
+) -> dict:
+    """Aufbau einer CSV-Datei erkennen: Profilentwurf, Vorschau der ersten zehn Zeilen, Zeilenfehler.
+    `safe` = die ganze Datei liest sich fehlerfrei. Mit `ai=true` hilft die KI bei unklaren Spalten."""
+    return import_assist.draft(_read_upload(file), use_ai=ai, session=session)
+
+
+@router.post("/import-profiles/preview")
+def preview_profile(
+    user: CurrentUser,
+    file: Annotated[UploadFile, File()],
+    settings: Annotated[str, Form(description="Profilangaben als JSON (wie column_map, date_format …)")],
+) -> dict:
+    """Vorschau einer Datei mit angepassten Profilangaben, bevor das Profil gespeichert wird."""
+    return import_assist.preview(_read_upload(file), settings)
+
+
+@router.get("/imports/{batch_id}/diagnosis")
+def diagnose_import(batch_id: int, session: SessionDep, user: CurrentUser) -> dict:
+    """Verständliche Erklärung der Importfehler, ggf. mit vorgeschlagener Profilkorrektur."""
+    batch = jobs.get_batch(session, user, batch_id)
+    result = import_assist.diagnose(session, user, batch)
+    session.commit()
+    return result
 
 
 @router.get("/import-profiles/{profile_id}", response_model=ImportProfileRead)

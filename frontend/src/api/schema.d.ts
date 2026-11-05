@@ -605,6 +605,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/import-profiles/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft Profile
+         * @description Aufbau einer CSV-Datei erkennen: Profilentwurf, Vorschau der ersten zehn Zeilen, Zeilenfehler.
+         *     `safe` = die ganze Datei liest sich fehlerfrei. Mit `ai=true` hilft die KI bei unklaren Spalten.
+         */
+        post: operations["draft_profile_import_profiles_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-profiles/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Profile
+         * @description Vorschau einer Datei mit angepassten Profilangaben, bevor das Profil gespeichert wird.
+         */
+        post: operations["preview_profile_import_profiles_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imports/{batch_id}/diagnosis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Diagnose Import
+         * @description Verständliche Erklärung der Importfehler, ggf. mit vorgeschlagener Profilkorrektur.
+         */
+        get: operations["diagnose_import_imports__batch_id__diagnosis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/import-profiles/{profile_id}": {
         parameters: {
             query?: never;
@@ -1854,6 +1915,24 @@ export interface components {
          * @enum {string}
          */
         BatchStatus: "queued" | "processing" | "awaiting_review" | "done" | "failed";
+        /** Body_draft_profile_import_profiles_draft_post */
+        Body_draft_profile_import_profiles_draft_post: {
+            /**
+             * File
+             * @description Beispieldatei (CSV)
+             */
+            file: string;
+        };
+        /** Body_preview_profile_import_profiles_preview_post */
+        Body_preview_profile_import_profiles_preview_post: {
+            /** File */
+            file: string;
+            /**
+             * Settings
+             * @description Profilangaben als JSON (wie column_map, date_format …)
+             */
+            settings: string;
+        };
         /** Body_upload_imports_post */
         Body_upload_imports_post: {
             /**
@@ -5361,6 +5440,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportProfileRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    draft_profile_import_profiles_draft_post: {
+        parameters: {
+            query?: {
+                ai?: boolean;
+            };
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_draft_profile_import_profiles_draft_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_profile_import_profiles_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_profile_import_profiles_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    diagnose_import_imports__batch_id__diagnosis_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
