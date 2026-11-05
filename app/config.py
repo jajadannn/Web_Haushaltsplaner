@@ -28,6 +28,15 @@ class Settings(BaseSettings):
     ai_url: str | None = Field(default=None, validation_alias=AliasChoices("ai_url", "ollama_url"))
     ai_model: str = "gemma4:e2b"
     ai_vision_model: str | None = None  # Bildmodell für Belege/Scans; ohne Angabe ai_model
+    # Zweiter KI-Server (Priorität 2): übernimmt, wenn der erste nicht erreichbar ist
+    ai_url_2: str | None = None
+    ai_model_2: str | None = None  # ohne Angabe wie ai_model
+    ai_vision_model_2: str | None = None  # ohne Angabe ai_model_2
+    # So lange wird ein ausgefallener Server übersprungen, bevor er wieder versucht wird
+    ai_failover_cooldown_seconds: float = 60.0
+    # Kurzer Verbindungstest vor jeder Anfrage: ein ausgeschalteter Server kostet so Sekunden statt des
+    # ganzen ai_timeout_seconds, bevor der nächste übernimmt
+    ai_connect_timeout_seconds: float = 5.0
     document_dir: Path = Path("documents")  # hochgeladene Belege und Verträge
     ai_timeout_seconds: float = 300.0
     # Gleichzeitige Anfragen an den KI-Server (1–4); mehr bremst kleine Server eher aus

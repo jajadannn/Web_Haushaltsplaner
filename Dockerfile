@@ -27,7 +27,8 @@ ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH=/opt/venv/bin:$PATH \
     TZ=Europe/Berlin \
-    IMPORT_DIR=/data/imports
+    IMPORT_DIR=/data/imports \
+    DOCUMENT_DIR=/data/documents
 
 WORKDIR /srv/finanzplaner
 
@@ -42,11 +43,11 @@ COPY --from=frontend /src/frontend/dist ./frontend/dist
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
 RUN useradd --system --uid 1000 --home-dir /srv/finanzplaner finanzplaner \
-    && mkdir -p /data/imports \
-    && chown finanzplaner /data/imports \
+    && mkdir -p /data/imports /data/documents \
+    && chown finanzplaner /data/imports /data/documents \
     && chmod 755 /usr/local/bin/entrypoint.sh
 USER finanzplaner
-VOLUME /data/imports
+VOLUME /data/imports /data/documents
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

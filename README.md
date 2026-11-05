@@ -97,7 +97,7 @@ docker compose logs -f app worker                # Protokolle
 docker compose up -d --build app worker          # nach einem Update neu bauen
 ```
 
-- **Daten:** Datenbank im Volume `pgdata`, Import-Verzeichnis im Volume `imports` (gemeinsam für `app` und `worker`).
+- **Daten:** Datenbank im Volume `pgdata`, Import-Verzeichnis im Volume `imports`, hochgeladene Belege und Verträge im Volume `documents` (jeweils gemeinsam für `app` und `worker`).
 - **Watch-Ordner:** Dateien gelangen über `docker compose cp <datei> worker:/data/imports/inbox/<ordner>/` hinein, oder man ersetzt das Volume `imports` durch einen Ordner auf dem Rechner (der Container läuft als UID 1000).
 - **Sicherung:** `docker compose exec db pg_dump -U postgres -Fc finanzplaner > finanzplaner.dump`.
 - **Zugangsdaten:** Das Datenbank-Passwort `postgres` aus `docker-compose.yml` vor dem ersten Start ändern (in `db` und in `DATABASE_URL`).
@@ -203,6 +203,14 @@ Keine automatischen Überweisungen, Kündigungen oder Löschungen.
 |---|---|
 | `AI_VISION_MODEL` | Bildmodell für Fotos von Belegen (leer = `AI_MODEL`); PDFs mit Textebene brauchen es nicht |
 | `DOCUMENT_DIR` | Ordner für hochgeladene Belege und Verträge (Standard `documents/`, Teil der Sicherung) |
+| `AI_URL_2`, `AI_MODEL_2`, `AI_VISION_MODEL_2` | zweiter KI-Server (Priorität 2) mit eigenem Modell und Bildmodell; leer = aus |
+| `AI_FAILOVER_COOLDOWN_SECONDS` | so lange wird ein ausgefallener Server übersprungen (Standard 60) |
+| `AI_CONNECT_TIMEOUT_SECONDS` | kurzer Verbindungstest vor jeder Anfrage (Standard 5) |
+
+**Zwei KI-Server:** Priorität 1 (`AI_URL`) wird immer zuerst gefragt. Ist sie nicht erreichbar, antwortet mit
+einem Serverfehler oder kennt das Modell nicht, übernimmt Priorität 2 (`AI_URL_2`). Jeder Server kann eine andere
+Schnittstelle haben (Ollama oder OpenAI-kompatibel). Eine Antwort, die nicht ins vorgegebene Format passt, gilt nicht
+als Ausfall. Welche Server erreichbar sind, zeigt `GET /api/review/ai` (Feld `endpoints`).
 
 ## Fachliche Regeln (Kurzfassung)
 - **Saldo** = Anfangssaldo + Buchungen vom Stichtag bis zum Abfragetag. Er wird immer berechnet und nie gespeichert.
