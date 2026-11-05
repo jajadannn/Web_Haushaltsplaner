@@ -65,7 +65,7 @@ npm run build        # Produktionsbuild nach frontend/dist
 **Demo-Daten zum Ausprobieren:** `.venv/bin/python scripts/seed_demo.py` legt die eigene Datenbank `finanzplaner_demo`
 neu an (Profile Fabian und Lea, Konten, Fixkosten, Autokredit, Buchungen). Die echte Datenbank bleibt unberührt.
 API dagegen starten: `DATABASE_URL=postgresql+psycopg://postgres@127.0.0.1:5433/finanzplaner_demo .venv/bin/uvicorn app.main:app --port 8000`.
-Durchklick-Tests im Browser (brauchen die Demo-API und `npm run dev`): `node e2e/paket1.mjs`, `paket2.mjs`, `paket3.mjs`.
+Durchklick-Tests im Browser (brauchen die Demo-API und `npm run dev`): `node e2e/paket1.mjs`, `paket2.mjs`, `paket3.mjs`, `paket4.mjs` (KI-Funktionen, läuft ohne KI-Server).
 
 ## Im Heimnetz betreiben
 

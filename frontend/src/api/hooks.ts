@@ -39,9 +39,14 @@ export type Area =
   | 'accounts' | 'institutions' | 'categories' | 'transactions' | 'budget' | 'fixed-costs'
   | 'loans' | 'rules' | 'review' | 'imports' | 'import-profiles' | 'watch-folders' | 'reports'
   | 'suggestions' | 'changes' | 'settings' | 'merchants' | 'expected-incomes' | 'forecast' | 'documents'
+  /** Betragsverlauf und Zahlungen einer einzelnen Fixkost – eigener Bereich, damit das Löschen der
+   * Fixkost (Bereich fixed-costs) die Details der gerade gelöschten nicht noch einmal anfragt. */
+  | 'fixed-cost-detail'
 
 /** Buchungen verändern Salden, Spielraum, Prüfliste, Berichte und Kredite. */
-export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans', 'forecast', 'suggestions']
+export const MONEY_AREAS: Area[] = [
+  'transactions', 'accounts', 'budget', 'review', 'reports', 'loans', 'forecast', 'suggestions', 'fixed-cost-detail',
+]
 
 export function useProfileKey() {
   const { profile } = useProfile()
@@ -142,7 +147,7 @@ export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folde
 /** Annehmen/Ablehnen/Rücknahme verändern Fixkosten, Spielraum, Verlauf und die Vorschlagsliste. */
 export const SUGGESTION_AREAS: Area[] = [
   'suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules', 'transactions', 'imports', 'import-profiles', 'merchants',
-  'expected-incomes', 'forecast', 'documents',
+  'expected-incomes', 'forecast', 'documents', 'fixed-cost-detail',
 ]
 
 export const useSuggestions = (query: Query) => useProfileQuery<Suggestion[]>('suggestions', '/suggestions', query)
@@ -155,11 +160,11 @@ export interface SuggestionMetrics {
 export const useSuggestionMetrics = () => useProfileQuery<SuggestionMetrics>('suggestions', '/suggestions/metrics')
 export const useChanges = (query: Query) => useProfileQuery<Change[]>('changes', '/changes', query)
 export const useFixedCostPayments = (fixedCostId: number | undefined) =>
-  useProfileQuery<FixedCostPayment[]>('fixed-costs', `/fixed-costs/${fixedCostId}/payments`, undefined, {
+  useProfileQuery<FixedCostPayment[]>('fixed-cost-detail', `/fixed-costs/${fixedCostId}/payments`, undefined, {
     enabled: fixedCostId !== undefined,
   })
 export const useFixedCostAmounts = (fixedCostId: number | undefined) =>
-  useProfileQuery<Schemas['FixedCostAmountRead'][]>('fixed-costs', `/fixed-costs/${fixedCostId}/amounts`, undefined, {
+  useProfileQuery<Schemas['FixedCostAmountRead'][]>('fixed-cost-detail', `/fixed-costs/${fixedCostId}/amounts`, undefined, {
     enabled: fixedCostId !== undefined,
   })
 
