@@ -1,12 +1,15 @@
 """Regressionstests zu docs/PRUEFBERICHT_KI_2026-11-05.md – je Befund der dort beschriebene Nachweis."""
 
 import os
-from datetime import date
-from decimal import Decimal
 import subprocess
 import tarfile
+from datetime import date
+from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
+from app import clock
 from app.config import get_settings
 
 PROJECT = Path(__file__).resolve().parents[2]
@@ -61,10 +64,6 @@ def test_n38_restore_ueberschreibt_belege_nicht_ohne_yes(tmp_path):
 
 
 # --- Gemeinsame Helfer für die API-Befunde -------------------------------------------------------
-
-import pytest  # noqa: E402
-
-from app import clock  # noqa: E402
 
 HEUTE = date(2026, 11, 20)
 IBAN_A, IBAN_B = "DE89370400440532013000", "DE02120300000000202051"
