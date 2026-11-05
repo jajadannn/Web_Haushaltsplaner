@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Schemas } from '../../api/client'
 import {
-  MONEY_AREAS, useAccounts, useAiStatus, useApiMutation, useCategories, useReview, useRules, useTransactions,
+  MONEY_AREAS, useAccounts, useAiStatus, useApiMutation, useCategories, useReview, useRules, useSuggestionSummary, useTransactions,
   type Category, type Transaction,
 } from '../../api/hooks'
 import { fullDate, shortDate } from '../../lib/dates'
@@ -12,6 +12,8 @@ import { EmptyState, ErrorBox, Loading, Money, Notice, PageHeader } from '../../
 import { Icon } from '../../ui/Icon'
 import { useToast } from '../../ui/overlay'
 import { useFormErrors } from '../../ui/useFormErrors'
+import { GroupedView } from './GroupedView'
+import { SuggestionsPanel } from './SuggestionsPanel'
 import './pruefen.css'
 
 /**
@@ -24,6 +26,8 @@ import './pruefen.css'
 
 type ReviewItem = Schemas['ReviewItem']
 type Status = 'needs_review' | 'auto_categorized'
+type Order = 'date' | 'priority'
+type View = 'list' | 'grouped'
 const TRANSFER = 'transfer'
 const PAGE = 100
 
@@ -47,10 +51,13 @@ function useFrequentCategories(categories: Category[]) {
 export function ReviewPage() {
   const toast = useToast()
   const [status, setStatus] = useState<Status>('needs_review')
+  const [order, setOrder] = useState<Order>('date')
+  const [view, setView] = useState<View>('list')
   const ai = useAiStatus()
+  const suggestionCount = useSuggestionSummary().data?.fixed_cost_new ?? 0
   const aiWorking = Boolean(ai.data?.enabled && ai.data.reachable && ai.data.pending > 0)
   // Solange die KI arbeitet, erscheinen ihre Vorschläge ohne Neuladen der Seite
-  const review = useReview({ status, limit: PAGE }, { refetchInterval: aiWorking ? 15_000 : false })
+  const review = useReview({ status, limit: PAGE, order }, { refetchInterval: aiWorking ? 15_000 : false })
   const categories = useCategories({ active: true })
   const accounts = useAccounts({ include_archived: true })
   const rules = useRules()
@@ -60,6 +67,7 @@ export function ReviewPage() {
 
   // gewählte Kategorie je Buchung ('' = keine, 'transfer' = Umbuchung)
   const [choice, setChoice] = useState<Record<number, string>>({})
+  const grouped = view === 'grouped' && status === 'needs_review'
   const [marked, setMarked] = useState<Set<number>>(new Set())
   const [bulkCategory, setBulkCategory] = useState('')
   const [ruleFor, setRuleFor] = useState<Transaction | null>(null)
@@ -133,20 +141,39 @@ export function ReviewPage() {
           ? total === 1 ? '1 Buchung braucht eine Kategorie' : `${total} Buchungen brauchen eine Kategorie`
           : `${total} automatisch zugeordnete Buchungen zum Bestätigen`}
       </p>
+      {suggestionCount > 0 && (
+        <Notice tone="info" icon="info" action={<Link to="/einstellungen/fixkosten" className="link">Ansehen</Link>}>
+          {suggestionCount === 1 ? '1 Vorschlag' : `${suggestionCount} Vorschläge`} für neue Fixkosten
+        </Notice>
+      )}
       <AiNotice status={ai.data} canRetry={status === 'needs_review' && items.some((i) => i.transaction.ai_note)}
         retrying={aiRetry.isPending}
         onRetry={() => aiRetry.mutate(undefined, {
           onSuccess: (r) => toast.ok(r.queued === 1 ? '1 Buchung wird erneut geprüft' : `${r.queued} Buchungen werden erneut geprüft`),
           onError: toast.error,
         })} />
+      <SuggestionsPanel />
       <Segmented<Status> label="Ansicht" value={status} onChange={(s) => { setStatus(s); setMarked(new Set()) }} options={[
         { value: 'needs_review', label: 'Ohne Kategorie' },
         { value: 'auto_categorized', label: 'Automatisch zugeordnet' },
       ]} />
+      <div className="review-modes">
+        <Segmented<Order> label="Sortierung" value={order} onChange={setOrder} options={[
+          { value: 'date', label: 'Nach Datum' },
+          { value: 'priority', label: 'Nach Klärungsbedarf' },
+        ]} />
+        {status === 'needs_review' && (
+          <Segmented<View> label="Darstellung" value={view} onChange={(v) => { setView(v); setMarked(new Set()) }} options={[
+            { value: 'list', label: 'Liste' },
+            { value: 'grouped', label: 'Gruppiert' },
+          ]} />
+        )}
+      </div>
 
-      {review.isLoading && <Loading />}
-      {review.isError && <ErrorBox error={review.error} onRetry={() => review.refetch()} />}
-      {review.isSuccess && items.length === 0 && (
+      {grouped && <GroupedView categories={categories.data ?? []} />}
+      {!grouped && review.isLoading && <Loading />}
+      {!grouped && review.isError && <ErrorBox error={review.error} onRetry={() => review.refetch()} />}
+      {!grouped && review.isSuccess && items.length === 0 && (
         <div className="tile">
           <EmptyState icon="check" title="Alles geprüft">
             {status === 'needs_review' ? 'Keine Buchung wartet auf eine Kategorie.' : 'Keine automatisch zugeordnete Buchung wartet auf Bestätigung.'}
@@ -154,7 +181,7 @@ export function ReviewPage() {
         </div>
       )}
 
-      {items.length > 0 && (
+      {!grouped && items.length > 0 && (
         <div className="review-layout">
           <div className="tile review-table-tile">
             <table className="review-table">
@@ -185,6 +212,7 @@ export function ReviewPage() {
                       <td className="col-date">{shortDate(t.booking_date)}</td>
                       <td className="col-what">
                         <strong>{t.counterparty || t.description}</strong>
+                        {order === 'priority' && item.priority_reason && <span className="priority-reason">{item.priority_reason}</span>}
                         <span>{t.counterparty && t.description !== t.counterparty ? `${t.description} · ` : ''}{accountName(t.account_id)}</span>
                       </td>
                       <td className="num col-amount"><Money value={t.amount} signed /></td>

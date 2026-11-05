@@ -495,3 +495,119 @@
   background: rgb(0 0 0 / 0.45);
   cursor: default;
 }
+
+/* Erkannte Fixkosten */
+.detected {
+  margin-top: 28px;
+}
+
+.detected-row {
+  display: block;
+  padding: 14px 18px;
+}
+
+.detected-card {
+  display: grid;
+  gap: 6px;
+}
+
+.detected-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 20px;
+}
+
+.detected-note {
+  margin: 0;
+  color: var(--focus);
+  font-weight: 600;
+}
+
+.detected-reason {
+  margin: 0;
+}
+
+.detected-evidence ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detected-evidence li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detected-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Zahlungen einer Fixkost */
+.fc-payments {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--card-line);
+}
+
+.fc-payments-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fc-payments-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Metriken */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 17px;
+}
+
+.metrics-table th,
+.metrics-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--card-line);
+  text-align: right;
+}
+
+.metrics-table th:first-child {
+  text-align: left;
+}
+
+/* Anbieter: Merkmale und Verträge im Formular */
+.merchant-block { border: 1px solid var(--line, rgba(128,128,128,.3)); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+.merchant-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.merchant-items li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Importassistent */
+.settings-draft { display: grid; gap: 12px; margin-top: 16px; }
+.settings-draft h3, .settings-draft h4 { margin: 0; }
+.draft-file { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.draft-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.draft-column.is-uncertain { outline: 2px solid var(--due, #c77d00); outline-offset: 4px; border-radius: 8px; }
+.is-uncertain input { border-color: var(--due, #c77d00); }
+.draft-preview { overflow-x: auto; }
+.draft-preview table { width: 100%; border-collapse: collapse; }
+.draft-preview th, .draft-preview td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border, #ddd); }
+.draft-preview .num { text-align: right; }

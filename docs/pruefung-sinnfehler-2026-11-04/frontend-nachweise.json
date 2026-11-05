@@ -1,0 +1,32 @@
+{
+  "progress": {
+    "actual": 0.10588235294117647,
+    "expected": 0.24,
+    "aria_percent": 11
+  },
+  "quarterly": [
+    {
+      "key": "c:quartalsbeitrag",
+      "latest": {
+        "id": 2,
+        "booking_date": "2026-10-15",
+        "amount": "-90.00",
+        "counterparty": "Quartalsbeitrag",
+        "description": "Quartal 4",
+        "category_id": 1
+      },
+      "name": "Quartalsbeitrag",
+      "amount": "90.00",
+      "dueDay": 15,
+      "matchText": "Quartalsbeitrag",
+      "months": 2,
+      "count": 2,
+      "monthly": true
+    }
+  ],
+  "unreviewed_filter": {
+    "date_from": "2026-11-01",
+    "date_to": "2026-11-30",
+    "review_status": "needs_review"
+  }
+}

@@ -1,10 +1,10 @@
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import MatchField, MatchType
-from app.schemas.common import Name, PatchModel, ReadModel
+from app.schemas.common import Money, Name, PatchModel, ReadModel
 from app.schemas.transaction import TransactionRead
 
 Pattern = Annotated[str, Field(min_length=2, max_length=200)]
@@ -90,6 +90,19 @@ class LoanSuggestion(BaseModel):
 class ReviewItem(BaseModel):
     transaction: TransactionRead
     suggested_loan: LoanSuggestion | None = None
+    priority_reason: str | None = None  # nur bei order=priority: warum die Buchung so weit oben steht
+
+
+class ReviewGroup(BaseModel):
+    """Ähnliche offene Buchungen (gleiche Gegenpartei, gleiche Richtung) zum gemeinsamen Prüfen."""
+
+    key: str
+    label: str
+    direction: Literal["in", "out"]
+    count: int
+    total: Money
+    transaction_ids: list[int]
+    category_ids: list[int]  # bereits vorgeschlagene Kategorien (z. B. per Regel/KI)
 
 
 class ReviewPage(BaseModel):

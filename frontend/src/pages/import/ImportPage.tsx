@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import {
-  MONEY_AREAS, useAccounts, useApiMutation, useImportProfiles, useProfileQuery,
+  MONEY_AREAS, SUGGESTION_AREAS, useAccounts, useApiMutation, useImportProfiles, useProfileQuery,
   type ImportBatch, type ImportRow,
 } from '../../api/hooks'
 import { fullDate, shortDate, standLabel } from '../../lib/dates'
@@ -24,6 +24,10 @@ import './import.css'
 const IMPORT_AREAS = [...MONEY_AREAS, 'imports'] as const
 const PAGE = 30
 const MAX_LIMIT = 200
+interface Diagnosis {
+  items: { code: string; message: string; explanation: string }[]
+  fix: { changes: unknown; suggestion_id: number } | null
+}
 const BUSY: ImportBatch['status'][] = ['queued', 'processing']
 
 const STATUS: Record<ImportBatch['status'], { label: string; tone: string; icon: 'clock' | 'check' | 'alert' | 'refresh' }> = {
@@ -260,6 +264,14 @@ function BatchDetail({ batch }: { batch: ImportBatch }) {
   const commit = useApiMutation(() => api.post<ImportBatch>(`/imports/${batch.id}/commit`), [...IMPORT_AREAS])
   const retry = useApiMutation((accountId: string) => api.post(`/imports/${batch.id}/retry`, accountId ? { account_id: Number(accountId) } : {}), [...IMPORT_AREAS])
   const [retryAccount, setRetryAccount] = useState('')
+  const diagnosis = useProfileQuery<Diagnosis>('imports', `/imports/${batch.id}/diagnosis`, undefined, {
+    enabled: batch.status === 'failed',
+  })
+  // Profil korrigieren (Vorschlag übernehmen) und danach den Import erneut verarbeiten
+  const fix = useApiMutation(async (suggestionId: number) => {
+    await api.post(`/suggestions/${suggestionId}/accept`)
+    return api.post(`/imports/${batch.id}/retry`, {})
+  }, [...IMPORT_AREAS, ...SUGGESTION_AREAS])
 
   const act = (body: Record<string, unknown>, ok: string) =>
     resolve.mutate(body, { onSuccess: () => toast.ok(ok), onError: toast.error })
@@ -272,6 +284,24 @@ function BatchDetail({ batch }: { batch: ImportBatch }) {
           {batch.errors.slice(0, 20).map((e, i) => <li key={i}>{errorText(e)}</li>)}
           {batch.errors.length > 20 && <li>… und {batch.errors.length - 20} weitere</li>}
         </ul>
+        {diagnosis.isLoading && <Loading />}
+        {diagnosis.data && diagnosis.data.items.length > 0 && (
+          <ul className="batch-diagnosis" aria-label="Was schiefgelaufen ist">
+            {diagnosis.data.items.map((d) => (
+              <li key={d.code}><strong>{d.explanation || d.message}</strong>{d.explanation && d.message ? <span className="muted"> ({d.message})</span> : null}</li>
+            ))}
+          </ul>
+        )}
+        {diagnosis.data?.fix && (
+          <div className="batch-actions">
+            <Button variant="primary" icon="refresh" busy={fix.isPending}
+              onClick={() => fix.mutate(diagnosis.data!.fix!.suggestion_id, {
+                onSuccess: () => toast.ok('Profil korrigiert – Import wird erneut verarbeitet'), onError: toast.error,
+              })}>
+              Profil korrigieren und erneut versuchen
+            </Button>
+          </div>
+        )}
         <p className="muted">Profil in den Einstellungen anpassen oder ein Konto festlegen, dann erneut versuchen.</p>
         <div className="batch-actions">
           <SelectField label="Konto (optional)" value={retryAccount} onChange={setRetryAccount} placeholder="wie bisher"

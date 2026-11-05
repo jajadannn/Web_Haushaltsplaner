@@ -287,3 +287,5 @@
     animation: none;
   }
 }
+
+.batch-diagnosis { margin: 8px 0; padding-left: 20px; display: grid; gap: 4px; }

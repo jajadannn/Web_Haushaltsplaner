@@ -1,0 +1,561 @@
+{
+  "cancel_after_skip": {
+    "before": [
+      {
+        "seq": 1,
+        "due_date": "2026-01-31",
+        "planned_installment": "100.00",
+        "planned_interest": "0.00",
+        "planned_principal": "100.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "900.00",
+        "status": "paid",
+        "overdue": false,
+        "payment_id": 1
+      },
+      {
+        "seq": 2,
+        "due_date": "2026-02-28",
+        "planned_installment": "100.00",
+        "planned_interest": "0.00",
+        "planned_principal": "100.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "800.00",
+        "status": "skipped",
+        "overdue": false,
+        "payment_id": null
+      },
+      {
+        "seq": 3,
+        "due_date": "2026-03-31",
+        "planned_installment": "100.00",
+        "planned_interest": "0.00",
+        "planned_principal": "100.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "800.00",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      }
+    ],
+    "after": [
+      {
+        "seq": 2,
+        "due_date": "2026-02-28",
+        "planned_installment": "100.00",
+        "planned_interest": "0.00",
+        "planned_principal": "100.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "800.00",
+        "status": "skipped",
+        "overdue": false,
+        "payment_id": null
+      },
+      {
+        "seq": 3,
+        "due_date": "2026-03-31",
+        "planned_installment": "100.00",
+        "planned_interest": "0.00",
+        "planned_principal": "100.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "900.00",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 4,
+        "due_date": "2026-04-30",
+        "planned_installment": "100.00",
+        "planned_interest": "0.00",
+        "planned_principal": "100.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "800.00",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      }
+    ],
+    "loan": {
+      "id": 1,
+      "name": "Kredit",
+      "account_id": 2,
+      "institution_id": null,
+      "loan_type": "annuity",
+      "status": "active",
+      "lender_name": "Bank",
+      "lender_iban": null,
+      "payment_reference": null,
+      "payment_account_id": 1,
+      "annual_interest_rate": "0.0000",
+      "first_due_date": "2026-01-31",
+      "payment_day": 31,
+      "term_months": null,
+      "installment_amount": "100.00",
+      "fixed_principal": null,
+      "extra_amount": "0.00",
+      "principal_original": null,
+      "start_date": null,
+      "fixed_rate_until": null,
+      "final_due_date": "2026-12-31",
+      "remaining_debt": "1000.00",
+      "next_due_date": "2026-03-31",
+      "next_installment": "100.00",
+      "open_installments": 10,
+      "overdue_installments": 8,
+      "created_at": "2026-11-04T17:44:34.311794+01:00"
+    }
+  },
+  "delete_charge_after_payoff": {
+    "before": {
+      "id": 2,
+      "name": "Kredit",
+      "account_id": 4,
+      "institution_id": null,
+      "loan_type": "private",
+      "status": "paid_off",
+      "lender_name": "Bank",
+      "lender_iban": null,
+      "payment_reference": null,
+      "payment_account_id": 3,
+      "annual_interest_rate": "0.0000",
+      "first_due_date": "2026-01-31",
+      "payment_day": 31,
+      "term_months": null,
+      "installment_amount": null,
+      "fixed_principal": null,
+      "extra_amount": "0.00",
+      "principal_original": null,
+      "start_date": null,
+      "fixed_rate_until": null,
+      "final_due_date": null,
+      "remaining_debt": "0.00",
+      "next_due_date": null,
+      "next_installment": null,
+      "open_installments": 0,
+      "overdue_installments": 0,
+      "created_at": "2026-11-04T17:44:34.681802+01:00"
+    },
+    "after": {
+      "id": 2,
+      "name": "Kredit",
+      "account_id": 4,
+      "institution_id": null,
+      "loan_type": "private",
+      "status": "paid_off",
+      "lender_name": "Bank",
+      "lender_iban": null,
+      "payment_reference": null,
+      "payment_account_id": 3,
+      "annual_interest_rate": "0.0000",
+      "first_due_date": "2026-01-31",
+      "payment_day": 31,
+      "term_months": null,
+      "installment_amount": null,
+      "fixed_principal": null,
+      "extra_amount": "0.00",
+      "principal_original": null,
+      "start_date": null,
+      "fixed_rate_until": null,
+      "final_due_date": null,
+      "remaining_debt": "-100.00",
+      "next_due_date": null,
+      "next_installment": null,
+      "open_installments": 0,
+      "overdue_installments": 0,
+      "created_at": "2026-11-04T17:44:34.681802+01:00"
+    }
+  },
+  "historical_loan_report": {
+    "loans": [
+      {
+        "loan_id": 3,
+        "name": "Kredit",
+        "status": "active",
+        "remaining_debt": "900.00",
+        "next_installment": "100.00",
+        "remaining_by_month": [
+          {
+            "month_end": "2026-01-31",
+            "remaining_debt": "1000.00"
+          }
+        ],
+        "interest_paid_by_year": []
+      }
+    ],
+    "monthly_burden": "100.00"
+  },
+  "capitalized_interest_label": {
+    "report": {
+      "loans": [
+        {
+          "loan_id": 4,
+          "name": "Kredit",
+          "status": "active",
+          "remaining_debt": "1020.00",
+          "next_installment": null,
+          "remaining_by_month": [
+            {
+              "month_end": "2026-01-31",
+              "remaining_debt": "1020.00"
+            }
+          ],
+          "interest_paid_by_year": [
+            {
+              "year": 2026,
+              "interest": "20.00"
+            }
+          ]
+        }
+      ],
+      "monthly_burden": "0.00"
+    },
+    "year_summary": {
+      "year": 2026,
+      "payments": 0,
+      "interest_paid": "0",
+      "principal_paid": "0",
+      "extra_paid": "0",
+      "interest_charged": "20.00",
+      "fees_charged": "0.00",
+      "remaining_debt_end_of_year": "1020.00"
+    }
+  },
+  "progress": {
+    "loan": {
+      "id": 5,
+      "name": "Kredit",
+      "account_id": 10,
+      "institution_id": null,
+      "loan_type": "annuity",
+      "status": "active",
+      "lender_name": "Bank",
+      "lender_iban": null,
+      "payment_reference": null,
+      "payment_account_id": 9,
+      "annual_interest_rate": "12.0000",
+      "first_due_date": "2026-01-31",
+      "payment_day": 31,
+      "term_months": null,
+      "installment_amount": "100.00",
+      "fixed_principal": null,
+      "extra_amount": "0.00",
+      "principal_original": null,
+      "start_date": null,
+      "fixed_rate_until": null,
+      "final_due_date": "2026-09-30",
+      "remaining_debt": "760.00",
+      "next_due_date": "2026-02-28",
+      "next_installment": "100.00",
+      "open_installments": 8,
+      "overdue_installments": 8,
+      "created_at": "2026-11-04T17:44:35.501130+01:00"
+    },
+    "schedule": [
+      {
+        "seq": 1,
+        "due_date": "2026-01-31",
+        "planned_installment": "100.00",
+        "planned_interest": "10.00",
+        "planned_principal": "90.00",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "910.00",
+        "status": "paid",
+        "overdue": false,
+        "payment_id": 4
+      },
+      {
+        "seq": 2,
+        "due_date": "2026-02-28",
+        "planned_installment": "100.00",
+        "planned_interest": "7.60",
+        "planned_principal": "92.40",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "667.60",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 3,
+        "due_date": "2026-03-31",
+        "planned_installment": "100.00",
+        "planned_interest": "6.68",
+        "planned_principal": "93.32",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "574.28",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 4,
+        "due_date": "2026-04-30",
+        "planned_installment": "100.00",
+        "planned_interest": "5.74",
+        "planned_principal": "94.26",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "480.02",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 5,
+        "due_date": "2026-05-31",
+        "planned_installment": "100.00",
+        "planned_interest": "4.80",
+        "planned_principal": "95.20",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "384.82",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 6,
+        "due_date": "2026-06-30",
+        "planned_installment": "100.00",
+        "planned_interest": "3.85",
+        "planned_principal": "96.15",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "288.67",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 7,
+        "due_date": "2026-07-31",
+        "planned_installment": "100.00",
+        "planned_interest": "2.89",
+        "planned_principal": "97.11",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "191.56",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 8,
+        "due_date": "2026-08-31",
+        "planned_installment": "100.00",
+        "planned_interest": "1.92",
+        "planned_principal": "98.08",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "93.48",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      },
+      {
+        "seq": 9,
+        "due_date": "2026-09-30",
+        "planned_installment": "94.41",
+        "planned_interest": "0.93",
+        "planned_principal": "93.48",
+        "planned_extra": "0.00",
+        "planned_remaining_after": "0.00",
+        "status": "planned",
+        "overdue": true,
+        "payment_id": null
+      }
+    ],
+    "payment": {
+      "id": 4,
+      "loan_id": 5,
+      "payment_transaction_id": 9,
+      "loan_transaction_id": 10,
+      "booking_date": "2026-01-31",
+      "interest": "10.00",
+      "principal": "240.00",
+      "extra": "0.00",
+      "schedule_seq": 1
+    },
+    "expected_progress": 0.24
+  },
+  "installment_rename_extends_term": {
+    "before": {
+      "id": 6,
+      "name": "Kredit",
+      "account_id": 12,
+      "institution_id": null,
+      "loan_type": "installment",
+      "status": "active",
+      "lender_name": "Bank",
+      "lender_iban": null,
+      "payment_reference": null,
+      "payment_account_id": 11,
+      "annual_interest_rate": "0.0000",
+      "first_due_date": "2026-01-31",
+      "payment_day": 31,
+      "term_months": 10,
+      "installment_amount": null,
+      "fixed_principal": "100.00",
+      "extra_amount": "0.00",
+      "principal_original": null,
+      "start_date": null,
+      "fixed_rate_until": null,
+      "final_due_date": "2026-10-31",
+      "remaining_debt": "900.00",
+      "next_due_date": "2026-02-28",
+      "next_installment": "100.00",
+      "open_installments": 9,
+      "overdue_installments": 9,
+      "created_at": "2026-11-04T17:44:35.785634+01:00"
+    },
+    "after": {
+      "id": 6,
+      "name": "Neuer Name",
+      "account_id": 12,
+      "institution_id": null,
+      "loan_type": "installment",
+      "status": "active",
+      "lender_name": "Bank",
+      "lender_iban": null,
+      "payment_reference": null,
+      "payment_account_id": 11,
+      "annual_interest_rate": "0.0000",
+      "first_due_date": "2026-01-31",
+      "payment_day": 31,
+      "term_months": 10,
+      "installment_amount": null,
+      "fixed_principal": "90.00",
+      "extra_amount": "0.00",
+      "principal_original": null,
+      "start_date": null,
+      "fixed_rate_until": null,
+      "final_due_date": "2026-11-30",
+      "remaining_debt": "900.00",
+      "next_due_date": "2026-02-28",
+      "next_installment": "90.00",
+      "open_installments": 10,
+      "overdue_installments": 9,
+      "created_at": "2026-11-04T17:44:35.785634+01:00"
+    }
+  },
+  "payment_in_following_month": {
+    "february": {
+      "month": "2026-02-01",
+      "as_of": "2026-11-04",
+      "income": "1000.00",
+      "uncategorized_in": "0.00",
+      "fixed_total": "100.00",
+      "fixed_paid": "100.00",
+      "variable_spent": "0.00",
+      "available": "900.00",
+      "days_left": 0,
+      "available_per_day": null,
+      "items": [
+        {
+          "kind": "loan",
+          "ref_id": 7,
+          "name": "Kredit",
+          "amount": "100.00",
+          "due_date": "2026-02-28",
+          "status": "paid",
+          "paid_amount": "100.00",
+          "paid_on": "2026-03-01"
+        }
+      ]
+    },
+    "march": {
+      "month": "2026-03-01",
+      "as_of": "2026-11-04",
+      "income": "1000.00",
+      "uncategorized_in": "0.00",
+      "fixed_total": "100.00",
+      "fixed_paid": "0.00",
+      "variable_spent": "0.00",
+      "available": "900.00",
+      "days_left": 0,
+      "available_per_day": null,
+      "items": [
+        {
+          "kind": "loan",
+          "ref_id": 7,
+          "name": "Kredit",
+          "amount": "100.00",
+          "due_date": "2026-03-28",
+          "status": "overdue",
+          "paid_amount": null,
+          "paid_on": null
+        }
+      ]
+    }
+  },
+  "private_charge_interest_interval": {
+    "payment": {
+      "id": 7,
+      "loan_id": 8,
+      "payment_transaction_id": 18,
+      "loan_transaction_id": 19,
+      "booking_date": "2026-01-11",
+      "interest": "20.00",
+      "principal": "80.00",
+      "extra": "0.00",
+      "schedule_seq": null
+    },
+    "expected_interest": "15.00",
+    "calculation": "1000 * .365 * 5/365 + 2000 * .365 * 5/365 = 15"
+  },
+  "future_charge_allows_early_overpayment": {
+    "loans": [
+      {
+        "loan_id": 9,
+        "name": "Kredit",
+        "status": "paid_off",
+        "remaining_debt": "0.00",
+        "next_installment": null,
+        "remaining_by_month": [
+          {
+            "month_end": "2026-02-28",
+            "remaining_debt": "-100.00"
+          }
+        ],
+        "interest_paid_by_year": [
+          {
+            "year": 2026,
+            "interest": "0.00"
+          }
+        ]
+      }
+    ],
+    "monthly_burden": "0.00"
+  },
+  "controls": {
+    "net_worth": "4930.00",
+    "expenses": "70.00",
+    "net": "-70.00",
+    "transfer_delete_net_worth": "4930.00",
+    "split_net_worth": "4830.00",
+    "split_expenses": "170.00"
+  },
+  "unreviewed_rule_suggestion": {
+    "transaction": {
+      "id": 28,
+      "account_id": 21,
+      "booking_date": "2026-11-03",
+      "value_date": null,
+      "amount": "-15.00",
+      "description": "Prüfbuchung",
+      "counterparty": null,
+      "counterparty_iban": null,
+      "kind": "regular",
+      "category_id": 654,
+      "review_status": "auto_categorized",
+      "category_source": "rule",
+      "applied_rule_id": 1,
+      "source": "manual",
+      "transfer_peer_id": null,
+      "excluded_at": null,
+      "excluded_reason": null,
+      "ai_note": null,
+      "created_at": "2026-11-04T17:44:37.122759+01:00",
+      "updated_at": "2026-11-04T17:44:37.168452+01:00",
+      "splits": []
+    },
+    "filtered_total": 0,
+    "review_total": 1
+  }
+}

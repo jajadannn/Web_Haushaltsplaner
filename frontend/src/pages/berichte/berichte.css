@@ -644,3 +644,18 @@
     flex: none;
   }
 }
+
+/* Fragen und Monatsvergleich */
+.ai-card { display: grid; gap: 14px; }
+.ai-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; }
+.ai-answer { display: grid; gap: 8px; padding: 14px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--focus) 8%, transparent); }
+.ai-answer-text { margin: 0; font-size: 20px; }
+.ai-refs { margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cmp-numbers { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+.cmp-numbers p { margin: 0; }
+.cmp-block h3 { margin: 0 0 6px; font-size: 18px; }
+.cmp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cmp-list li { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; justify-content: space-between; }
+.cmp-worse { color: var(--overdue); }
+.cmp-better { color: var(--paid, #1a7f37); }
+@media (max-width: 700px) { .ai-ask { grid-template-columns: 1fr; } }

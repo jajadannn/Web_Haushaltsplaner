@@ -1,7 +1,11 @@
-from fastapi import APIRouter
+from typing import Annotated, Any
 
-from app.deps import SessionDep
+from fastapi import APIRouter, Body
+
+from app.deps import CurrentUser, SessionDep
+from app.errors import Forbidden
 from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.services import settings as settings_service
 from app.services import users as service
 
 router = APIRouter(prefix="/users", tags=["Profile"])
@@ -31,3 +35,25 @@ def update_user(user_id: int, data: UserUpdate, session: SessionDep):
     user = service.update_user(session, service.get_user(session, user_id), data.changes())
     session.commit()
     return user
+
+
+def _own(user_id: int, user) -> None:
+    if user.id != user_id:
+        raise Forbidden("Einstellungen nur für das gewählte Profil", code="other_profile")
+
+
+@router.get("/{user_id}/settings")
+def get_settings(user_id: int, session: SessionDep, user: CurrentUser) -> dict[str, Any]:
+    """Einstellungen des Profils (Automatik, KI, Vorschau) mit Vorgaben."""
+    _own(user_id, user)
+    return settings_service.all_settings(session, user.id)
+
+
+@router.patch("/{user_id}/settings")
+def update_settings(
+    user_id: int, session: SessionDep, user: CurrentUser, changes: Annotated[dict[str, Any], Body()]
+) -> dict[str, Any]:
+    _own(user_id, user)
+    result = settings_service.update(session, user, changes)
+    session.commit()
+    return result

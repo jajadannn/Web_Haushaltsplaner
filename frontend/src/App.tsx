@@ -16,6 +16,7 @@ const LoansPage = lazy(() => import('./pages/kredite/LoansPage').then((m) => ({ 
 const ImportPage = lazy(() => import('./pages/import/ImportPage').then((m) => ({ default: m.ImportPage })))
 const ReviewPage = lazy(() => import('./pages/pruefen/ReviewPage').then((m) => ({ default: m.ReviewPage })))
 const ReportsPage = lazy(() => import('./pages/berichte/ReportsPage').then((m) => ({ default: m.ReportsPage })))
+const DocumentsPage = lazy(() => import('./pages/belege/DocumentsPage').then((m) => ({ default: m.DocumentsPage })))
 const StartPage = lazy(() => import('./pages/start/StartPage').then((m) => ({ default: m.StartPage })))
 
 export function App() {
@@ -31,6 +32,7 @@ export function App() {
                 <Route index element={<StartPage />} />
                 <Route path="/buchungen" element={<TransactionsPage />} />
                 <Route path="/import" element={<ImportPage />} />
+                <Route path="/belege" element={<DocumentsPage />} />
                 <Route path="/pruefen" element={<ReviewPage />} />
                 <Route path="/kredite" element={<LoansPage />} />
                 <Route path="/kredite/:id" element={<LoansPage />} />

@@ -360,6 +360,10 @@ def commit(session: Session, batch: ImportBatch) -> list[int]:
     # (viele Bankexporte listen die neuesten Umsätze zuerst)
     for row, tx in sorted(result.created, key=lambda item: (item[1].booking_date, item[0].row_no)):
         match_imported_payment(session, user, row, tx)
+    # Auswertungen (Fixkosten, Erstattungen, …) nur vormerken – der Worker führt sie aus
+    from app.services.analysis import mark_due
+
+    mark_due(session, user.id)
     session.flush()
     return []
 

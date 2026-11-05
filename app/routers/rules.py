@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response
 
@@ -12,6 +12,7 @@ from app.schemas.rule import (
     BulkConfirm,
     ConfirmAllResult,
     ReviewConfirm,
+    ReviewGroup,
     ReviewPage,
     RuleCreate,
     RulePreview,
@@ -97,9 +98,20 @@ def list_review(
     status: ReviewStatus | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    order: Literal["date", "priority"] = "date",
 ):
-    """Ungeklärte und automatisch kategorisierte Buchungen, inkl. vorgeschlagener Kreditraten."""
+    """Ungeklärte und automatisch kategorisierte Buchungen, inkl. vorgeschlagener Kreditraten.
+
+    `order=priority`: nach Klärungsbedarf (mögliche Kreditraten, große Beträge, Gruppen) mit Begründung."""
+    if order == "priority":
+        return review.list_review_by_priority(session, user, status, limit, offset)
     return review.list_review(session, user, status, limit, offset)
+
+
+@router.get("/review/groups", response_model=list[ReviewGroup], tags=["Prüfliste"])
+def review_groups(session: SessionDep, user: CurrentUser):
+    """Ähnliche offene Buchungen (gleiche Gegenpartei) – gemeinsam über bulk-confirm bestätigen."""
+    return review.review_groups(session, user)
 
 
 @router.post("/review/bulk-confirm", tags=["Prüfliste"])

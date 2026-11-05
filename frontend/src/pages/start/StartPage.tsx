@@ -6,7 +6,8 @@ import { formatEuro, isNegative } from '../../lib/money'
 import { Button } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading, Notice, Tile } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
-import { Available, Breakdown, FixedList, LoanSummary, RecentList } from './parts'
+import { Available, Breakdown, FixedList, LoanSummary, RecentList, ReserveHints } from './parts'
+import { ForecastTile, PaymentHints } from './ForecastTile'
 import './start.css'
 
 const MONTH_NAMES = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
@@ -90,17 +91,21 @@ export function StartPage() {
         </Notice>
       )}
 
+      {isCurrent && <PaymentHints />}
+      {isCurrent && <ForecastTile />}
+
       <div className={`start-grid${activeLoans.length ? '' : ' no-loans'}`}>
         <Tile title={`Fixkosten ${monthName}`}>
           {budget.isLoading && <Loading />}
           {budget.data && (budget.data.items.length ? (
             <FixedList items={budget.data.items} loanCount={loanItems} />
-          ) : (
+          ) : budget.data.reserves.length > 0 ? null : (
             <EmptyState icon="calendar" title="Keine Fixkosten eingetragen"
               action={<Link className="btn btn-secondary" to="/einstellungen/fixkosten">Fixkosten anlegen</Link>}>
               Miete, Strom, Handy und Abos einmal eintragen – dann rechnet der Spielraum sie automatisch ein.
             </EmptyState>
           ))}
+          {budget.data && <ReserveHints reserves={budget.data.reserves} />}
         </Tile>
 
         <Tile title="Letzte Ausgaben" action={<Link to="/buchungen" className="link">Alle</Link>}>

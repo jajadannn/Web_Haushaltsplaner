@@ -6,6 +6,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useProfile } from '../app/ProfileContext'
 import { nextOffset, PAGE_SIZE } from '../pages/buchungen/paging'
+import type { Forecast, MonthComparison } from './ai'
 import { api, type Query, type Schemas } from './client'
 
 export type User = Schemas['UserRead']
@@ -27,14 +28,25 @@ export type ImportProfile = Schemas['ImportProfileRead']
 export type WatchFolder = Schemas['WatchFolderRead']
 export type ScheduleEntry = Schemas['ScheduleEntryRead']
 export type LoanPayment = Schemas['LoanPaymentRead']
+export type Merchant = Schemas['MerchantRead']
+export type Suggestion = Schemas['SuggestionRead']
+export type Change = Schemas['ChangeRead']
+export type FixedCostPayment = Schemas['FixedCostPaymentRead']
+export type MonthReserve = Schemas['MonthReserve']
 
 /** Bereiche des Caches – eine Änderung invalidiert alle Bereiche, die sie berühren kann. */
 export type Area =
   | 'accounts' | 'institutions' | 'categories' | 'transactions' | 'budget' | 'fixed-costs'
   | 'loans' | 'rules' | 'review' | 'imports' | 'import-profiles' | 'watch-folders' | 'reports'
+  | 'suggestions' | 'changes' | 'settings' | 'merchants' | 'expected-incomes' | 'forecast' | 'documents'
+  /** Betragsverlauf und Zahlungen einer einzelnen Fixkost – eigener Bereich, damit das Löschen der
+   * Fixkost (Bereich fixed-costs) die Details der gerade gelöschten nicht noch einmal anfragt. */
+  | 'fixed-cost-detail'
 
 /** Buchungen verändern Salden, Spielraum, Prüfliste, Berichte und Kredite. */
-export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans']
+export const MONEY_AREAS: Area[] = [
+  'transactions', 'accounts', 'budget', 'review', 'reports', 'loans', 'forecast', 'suggestions', 'fixed-cost-detail',
+]
 
 export function useProfileKey() {
   const { profile } = useProfile()
@@ -125,7 +137,50 @@ export const useAiStatus = () =>
   useProfileQuery<Schemas['AiStatus']>('review', '/review/ai', undefined, {
     refetchInterval: (data) => (data?.enabled && data.pending > 0 ? 10_000 : false),
   })
+/** Gruppierte Prüfliste (z. B. „Rewe · 4 Buchungen“) mit den enthaltenen Buchungs-IDs. */
+export const useReviewGroups = () => useProfileQuery<Schemas['ReviewGroup'][]>('review', '/review/groups')
 export const useImportProfiles = () => useProfileQuery<ImportProfile[]>('import-profiles', '/import-profiles')
 export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folders', '/watch-folders')
+
+// --- Vorschläge, Verlauf, Automatik --------------------------------------------
+
+/** Annehmen/Ablehnen/Rücknahme verändern Fixkosten, Spielraum, Verlauf und die Vorschlagsliste. */
+export const SUGGESTION_AREAS: Area[] = [
+  'suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules', 'transactions', 'imports', 'import-profiles', 'merchants',
+  'expected-incomes', 'forecast', 'documents', 'fixed-cost-detail',
+]
+
+export const useSuggestions = (query: Query) => useProfileQuery<Suggestion[]>('suggestions', '/suggestions', query)
+export const useSuggestionSummary = () =>
+  useProfileQuery<Record<string, number>>('suggestions', '/suggestions/summary')
+export interface SuggestionMetrics {
+  items: { kind: string; generator: string; counts: Record<string, number>; acceptance_rate: number | null; revert_rate: number | null }[]
+  reverted_changes: number
+}
+export const useSuggestionMetrics = () => useProfileQuery<SuggestionMetrics>('suggestions', '/suggestions/metrics')
+export const useChanges = (query: Query) => useProfileQuery<Change[]>('changes', '/changes', query)
+export const useFixedCostPayments = (fixedCostId: number | undefined) =>
+  useProfileQuery<FixedCostPayment[]>('fixed-cost-detail', `/fixed-costs/${fixedCostId}/payments`, undefined, {
+    enabled: fixedCostId !== undefined,
+  })
+export const useFixedCostAmounts = (fixedCostId: number | undefined) =>
+  useProfileQuery<Schemas['FixedCostAmountRead'][]>('fixed-cost-detail', `/fixed-costs/${fixedCostId}/amounts`, undefined, {
+    enabled: fixedCostId !== undefined,
+  })
+
+// --- Erwartete Einnahmen, Vorschau, Monatsvergleich ----------------------------
+
+export type ExpectedIncome = Schemas['ExpectedIncomeRead']
+export const useExpectedIncomes = () => useProfileQuery<ExpectedIncome[]>('expected-incomes', '/expected-incomes')
+/** Kontovorschau bis zum Datum `until` (YYYY-MM-DD); ohne Konto wird nichts geladen. */
+export const useForecast = (accountId: number | null, until: string) =>
+  useProfileQuery<Forecast>('forecast', `/accounts/${accountId ?? 0}/forecast`, { until }, { enabled: accountId !== null })
+export const useMonthComparison = (month: string) =>
+  useProfileQuery<MonthComparison>('reports', '/reports/month-comparison', { month })
+
+export function useProfileSettings() {
+  const { profile } = useProfile()
+  return useProfileQuery<Record<string, unknown>>('settings', `/users/${profile?.id ?? 0}/settings`)
+}
 
 export { useProfileQuery }

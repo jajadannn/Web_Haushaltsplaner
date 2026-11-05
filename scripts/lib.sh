@@ -65,6 +65,8 @@ konfiguration_laden() {
   DATABASE_URL=${DATABASE_URL:-$(env_aus_datei DATABASE_URL)}
   IMPORT_DIR=${IMPORT_DIR:-$(env_aus_datei IMPORT_DIR)}
   IMPORT_DIR=${IMPORT_DIR:-imports}
+  DOCUMENT_DIR=${DOCUMENT_DIR:-$(env_aus_datei DOCUMENT_DIR)}
+  DOCUMENT_DIR=${DOCUMENT_DIR:-documents}
   if [ -z "${PG_BIN+x}" ]; then   # nicht gesetzt: lokale Werkzeuge nehmen; "PG_BIN=" erzwingt PATH
     if [ -x .pg/bin/pg_dump ]; then PG_BIN=.pg/bin; else PG_BIN=""; fi
   fi

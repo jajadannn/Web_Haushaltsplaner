@@ -16,6 +16,7 @@ const NAV: NavItem[] = [
   { to: '/', label: 'Übersicht', icon: 'home', end: true, mobile: true },
   { to: '/buchungen', label: 'Buchungen', icon: 'list', mobile: true },
   { to: '/import', label: 'Import', icon: 'import' },
+  { to: '/belege', label: 'Belege & Verträge', icon: 'file' },
   { to: '/pruefen', label: 'Prüfen', icon: 'check', mobile: true },
   { to: '/kredite', label: 'Kredite', icon: 'coins', mobile: true },
   { to: '/berichte', label: 'Berichte', icon: 'chart' },

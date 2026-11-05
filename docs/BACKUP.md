@@ -7,7 +7,7 @@
 | Datei | Inhalt |
 |---|---|
 | `finanzplaner_<ts>.dump` | komplette PostgreSQL-Datenbank (`pg_dump -Fc`): Profile, Banken, Konten, Buchungen und Splits, Kredite, Kategorien, Regeln, Importprofile, Watch-Ordner, Importläufe samt Importentscheidungen, `alembic_version` |
-| `imports_<ts>.tar.gz` | Original-Kontoauszüge aus `IMPORT_DIR` (Standard `imports/`): `inbox/`, `processing/`, `failed/`, `archive/` |
+| `imports_<ts>.tar.gz` | Original-Kontoauszüge aus `IMPORT_DIR` (Standard `imports/`): `inbox/`, `processing/`, `failed/`, `archive/` – dazu hochgeladene Belege und Verträge aus `DOCUMENT_DIR` (Standard `documents/`) als Ordner `documents/` |
 | `finanzplaner_<ts>.sha256` | SHA-256-Prüfsummen über beide Dateien |
 
 **Nicht** gesichert: `.env` (Zugangsdaten, selbst aufbewahren) und der Code (Git, `uv.lock`).
@@ -23,7 +23,7 @@ scripts/backup.sh /mnt/nas/finanzen  # anderer Zielordner
 
 **API und Worker dürfen weiterlaufen.** Beide verschieben Import-Dateien (`inbox/` → `processing/` → `archive/`) samt Datenbank-Update unter einer gemeinsamen Sperre (`IMPORT_DIR/.files.lock`). `backup.sh` hält diese Sperre exklusiv, bis Dump und Dateiarchiv fertig sind; Verschiebungen warten so lange. Wird die Sperre nicht innerhalb von `BACKUP_LOCK_TIMEOUT` Sekunden (Standard 60) frei, bricht die Sicherung ab.
 
-Die Skripte lesen `DATABASE_URL` und `IMPORT_DIR` aus `.env`; Umgebungsvariablen und Argumente haben Vorrang. Das Passwort aus `DATABASE_URL` wird nie ausgegeben.
+Die Skripte lesen `DATABASE_URL`, `IMPORT_DIR` und `DOCUMENT_DIR` aus `.env`; Umgebungsvariablen und Argumente haben Vorrang. Das Passwort aus `DATABASE_URL` wird nie ausgegeben.
 
 | Variable | Bedeutung | Standard |
 |---|---|---|

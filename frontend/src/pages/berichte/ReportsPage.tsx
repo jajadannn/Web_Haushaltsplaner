@@ -12,6 +12,7 @@ import { Button, Segmented } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
 import { useToast } from '../../ui/overlay'
+import { AskCard, MonthCompareCard } from './AiCards'
 import { PairedBars, ShareBar } from './charts'
 import './berichte.css'
 
@@ -93,6 +94,9 @@ export function ReportsPage() {
           </div>
         </div>
       </header>
+
+      <AskCard />
+      <MonthCompareCard key={to} month={to} />
 
       {summary.isError && <ErrorBox error={summary.error} onRetry={() => summary.refetch()} />}
       <div className="kpis">

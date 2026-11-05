@@ -285,3 +285,44 @@
     font-size: 22px;
   }
 }
+
+/* Rücklagen: dezente Hinweise, kein Abzug vom Spielraum */
+.reserve-hints {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  color: var(--ink-muted);
+  font-size: 16px;
+}
+
+.linked-mark {
+  color: var(--ink-muted);
+}
+
+/* Kontovorschau und Zahlungshinweise */
+.forecast-start { margin: 0 0 8px; font-size: 20px; }
+.forecast-balance { font-weight: 800; font-size: 24px; }
+.forecast-events, .hint-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.forecast-event {
+  display: grid;
+  grid-template-columns: 4.5ch minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+}
+.forecast-event.is-lowest { background: color-mix(in srgb, var(--overdue) 12%, transparent); outline: 1px solid var(--overdue); }
+.forecast-name { display: grid; min-width: 0; }
+.forecast-after { font-size: 16px; white-space: nowrap; }
+.forecast-low-flag { grid-column: 2 / -1; color: var(--overdue); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.forecast-summary { margin: 12px 0 0; }
+.forecast-summary.is-negative { color: var(--overdue); }
+.hint-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+@media (max-width: 700px) {
+  .forecast-event { grid-template-columns: 4.5ch minmax(0, 1fr) auto; }
+  .forecast-after { grid-column: 2 / -1; }
+  .hint-row { grid-template-columns: auto minmax(0, 1fr); }
+  .hint-row .btn { grid-column: 1 / -1; }
+}

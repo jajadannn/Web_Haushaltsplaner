@@ -14,6 +14,11 @@ describe('messageFor', () => {
   it('http_500 ignoriert Servertext', () => {
     expect(messageFor('http_500', 'x')).toBe(GENERIC_500)
   })
+  it('neue Codes haben einen deutschen Ersatztext', () => {
+    for (const code of ['suggestion_not_open', 'suggestion_stale', 'changed_since', 'payment_already_linked', 'due_month_already_paid', 'payment_not_linkable']) {
+      expect(messageFor(code)).not.toBe('Das hat nicht geklappt.')
+    }
+  })
   it('unbekannter Code ohne Text', () => {
     expect(messageFor('whatever')).toBe('Das hat nicht geklappt.')
   })
@@ -40,5 +45,14 @@ describe('fieldErrors', () => {
   })
   it('ignoriert Nicht-Arrays', () => {
     expect(fieldErrors(null)).toEqual({})
+  })
+})
+
+describe('KI- und Vorschau-Codes', () => {
+  it('haben eigene Texte', () => {
+    for (const code of ['ai_unavailable', 'ai_invalid_answer', 'ask_invalid_parameters', 'forecast_until_past',
+      'forecast_too_long', 'income_account_type', 'income_category_type', 'month_in_future']) {
+      expect(messageFor(code)).not.toBe('Das hat nicht geklappt.')
+    }
   })
 })

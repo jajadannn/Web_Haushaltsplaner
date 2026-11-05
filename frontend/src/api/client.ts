@@ -126,3 +126,21 @@ export async function download(path: string, fallbackName: string, query?: Query
   link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+
+/** Datei (z. B. Beleg) als Blob laden – der Profil-Header lässt sich an einem Link nicht setzen. */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {}
+  if (currentProfileId !== null) headers['X-User-Id'] = String(currentProfileId)
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, { headers })
+  } catch {
+    throw new ApiError(0, 'network', messageFor('network'))
+  }
+  if (!response.ok) {
+    const error = (await response.json().catch(() => null))?.error
+    const code: string = error?.code ?? `http_${response.status}`
+    throw new ApiError(response.status, code, messageFor(code, error?.message, error?.details))
+  }
+  return response.blob()
+}

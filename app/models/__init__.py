@@ -1,7 +1,29 @@
 from app.models.account import Account, AccountType
+from app.models.assist import (
+    AiCache,
+    AiJob,
+    AiJobStatus,
+    AliasMatch,
+    AnalysisState,
+    ChangeActor,
+    ChangeLog,
+    Contract,
+    Document,
+    DocumentKind,
+    DocumentLink,
+    DocumentStatus,
+    Merchant,
+    MerchantAlias,
+    MerchantKind,
+    ProfileSetting,
+    RefundLink,
+    Suggestion,
+    SuggestionKind,
+    SuggestionStatus,
+)
 from app.models.base import metadata
 from app.models.category import Category, CategoryType
-from app.models.fixed_cost import FixedCost
+from app.models.fixed_cost import ExpectedIncome, FixedCost, FixedCostAmount, FixedCostPayment
 from app.models.imports import ImportBatch, ImportProfile, ImportRow, TransactionImportLink, WatchFolder
 from app.models.institution import Institution
 from app.models.loan import Loan, LoanPayment, LoanScheduleEntry, LoanStatus, LoanType, ScheduleStatus
@@ -18,6 +40,29 @@ from app.models.transaction import (
 from app.models.user import User
 
 __all__ = [
+    "AiCache",
+    "AiJob",
+    "AiJobStatus",
+    "AliasMatch",
+    "Contract",
+    "Document",
+    "DocumentKind",
+    "DocumentLink",
+    "DocumentStatus",
+    "RefundLink",
+    "Merchant",
+    "MerchantAlias",
+    "MerchantKind",
+    "AnalysisState",
+    "ChangeActor",
+    "ChangeLog",
+    "ExpectedIncome",
+    "FixedCostAmount",
+    "FixedCostPayment",
+    "ProfileSetting",
+    "Suggestion",
+    "SuggestionKind",
+    "SuggestionStatus",
     "Account",
     "AccountType",
     "Category",
