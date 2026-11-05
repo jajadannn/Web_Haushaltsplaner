@@ -131,13 +131,17 @@ export const useAiStatus = () =>
   useProfileQuery<Schemas['AiStatus']>('review', '/review/ai', undefined, {
     refetchInterval: (data) => (data?.enabled && data.pending > 0 ? 10_000 : false),
   })
+/** Gruppierte Prüfliste (z. B. „Rewe · 4 Buchungen“) mit den enthaltenen Buchungs-IDs. */
+export const useReviewGroups = () => useProfileQuery<Schemas['ReviewGroup'][]>('review', '/review/groups')
 export const useImportProfiles = () => useProfileQuery<ImportProfile[]>('import-profiles', '/import-profiles')
 export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folders', '/watch-folders')
 
 // --- Vorschläge, Verlauf, Automatik --------------------------------------------
 
 /** Annehmen/Ablehnen/Rücknahme verändern Fixkosten, Spielraum, Verlauf und die Vorschlagsliste. */
-export const SUGGESTION_AREAS: Area[] = ['suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules']
+export const SUGGESTION_AREAS: Area[] = [
+  'suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules', 'transactions', 'imports', 'import-profiles', 'merchants',
+]
 
 export const useSuggestions = (query: Query) => useProfileQuery<Suggestion[]>('suggestions', '/suggestions', query)
 export const useSuggestionSummary = () =>
@@ -150,6 +154,10 @@ export const useSuggestionMetrics = () => useProfileQuery<SuggestionMetrics>('su
 export const useChanges = (query: Query) => useProfileQuery<Change[]>('changes', '/changes', query)
 export const useFixedCostPayments = (fixedCostId: number | undefined) =>
   useProfileQuery<FixedCostPayment[]>('fixed-costs', `/fixed-costs/${fixedCostId}/payments`, undefined, {
+    enabled: fixedCostId !== undefined,
+  })
+export const useFixedCostAmounts = (fixedCostId: number | undefined) =>
+  useProfileQuery<Schemas['FixedCostAmountRead'][]>('fixed-costs', `/fixed-costs/${fixedCostId}/amounts`, undefined, {
     enabled: fixedCostId !== undefined,
   })
 export function useProfileSettings() {

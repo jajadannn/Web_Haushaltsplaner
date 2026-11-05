@@ -27,6 +27,8 @@ const GENERIC: Record<string, string> = {
   contract_mismatch: 'Dieser Vertrag gehört zu einem anderen Anbieter.',
   setting_unknown: 'Diese Einstellung gibt es nicht.',
   setting_invalid: 'Dieser Wert ist für die Einstellung nicht erlaubt.',
+  answer_required: 'Bitte zuerst eine Antwort wählen.',
+  preview_settings_invalid: 'Diese Einstellungen lassen sich nicht auf die Datei anwenden. Bitte Spalten, Trennzeichen oder Formate prüfen.',
   file_too_large: 'Die Datei ist zu groß.',
   http_500: 'Im Finanzplaner ist ein Fehler aufgetreten. Bitte noch einmal versuchen.',
   http_502: 'Der Finanzplaner antwortet gerade nicht.',

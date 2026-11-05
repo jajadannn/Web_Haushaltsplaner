@@ -10,6 +10,7 @@ import { Icon } from '../../ui/Icon'
 import { iconForName } from '../../lib/icons'
 import { useFormErrors } from '../../ui/useFormErrors'
 import { DetectedFixedCosts } from './DetectedFixedCosts'
+import { FixedCostAmounts } from './FixedCostAmounts'
 import { FixedCostPayments } from './FixedCostPayments'
 import { INTERVAL_OPTIONS, intervalLabel } from './suggestions'
 import { FormActions, MasterDetail, Switch } from './MasterDetail'
@@ -183,6 +184,7 @@ function FixedCostForm({ item, categories, accounts, done }: {
       <Checkbox label="aktiv" checked={active} onChange={setActive} hint="Pausierte Fixkosten zählen nicht im Spielraum." />
       {form.formError && <p className="field-error" role="alert">{form.formError}</p>}
       <FormActions busy={save.isPending} onDelete={item ? () => setConfirmDelete(true) : undefined} saveLabel={item ? 'Speichern' : 'Anlegen'} />
+      {item && <FixedCostAmounts fixedCostId={item.id} />}
       {item && <FixedCostPayments fixedCostId={item.id} />}
       {item && (
         <Confirm

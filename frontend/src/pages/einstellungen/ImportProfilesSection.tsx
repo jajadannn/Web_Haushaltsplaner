@@ -10,6 +10,7 @@ import { EmptyState, ErrorBox, Loading } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
 import { useFormErrors } from '../../ui/useFormErrors'
 import { FormActions, MasterDetail } from './MasterDetail'
+import { ProfileDraftWizard } from './ProfileDraftWizard'
 
 const AREAS = ['import-profiles', 'watch-folders'] as const
 
@@ -70,6 +71,7 @@ export function ImportProfilesSection() {
         )}
         renderForm={(item, done) => <ProfileForm key={item?.id ?? 'neu'} item={item} done={done} />}
       />
+      <ProfileDraftWizard />
       <WatchFolders profiles={list.data ?? []} />
     </>
   )

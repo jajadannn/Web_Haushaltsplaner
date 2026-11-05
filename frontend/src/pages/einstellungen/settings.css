@@ -599,3 +599,15 @@
 .merchant-block { border: 1px solid var(--line, rgba(128,128,128,.3)); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
 .merchant-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .merchant-items li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+/* Importassistent */
+.settings-draft { display: grid; gap: 12px; margin-top: 16px; }
+.settings-draft h3, .settings-draft h4 { margin: 0; }
+.draft-file { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.draft-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.draft-column.is-uncertain { outline: 2px solid var(--due, #c77d00); outline-offset: 4px; border-radius: 8px; }
+.is-uncertain input { border-color: var(--due, #c77d00); }
+.draft-preview { overflow-x: auto; }
+.draft-preview table { width: 100%; border-collapse: collapse; }
+.draft-preview th, .draft-preview td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border, #ddd); }
+.draft-preview .num { text-align: right; }
