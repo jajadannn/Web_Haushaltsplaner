@@ -895,8 +895,30 @@ export interface paths {
         /**
          * List Review
          * @description Ungeklärte und automatisch kategorisierte Buchungen, inkl. vorgeschlagener Kreditraten.
+         *
+         *     `order=priority`: nach Klärungsbedarf (mögliche Kreditraten, große Beträge, Gruppen) mit Begründung.
          */
         get: operations["list_review_review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/review/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Review Groups
+         * @description Ähnliche offene Buchungen (gleiche Gegenpartei) – gemeinsam über bulk-confirm bestätigen.
+         */
+        get: operations["review_groups_review_groups_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1218,6 +1240,30 @@ export interface paths {
         head?: never;
         /** Update Fixed Cost */
         patch: operations["update_fixed_cost_fixed_costs__fixed_cost_id__patch"];
+        trace?: never;
+    };
+    "/fixed-costs/{fixed_cost_id}/amounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Fixed Cost Amounts
+         * @description Betragsverlauf (leer, solange der Betrag nie ab einem Monat geändert wurde).
+         */
+        get: operations["list_fixed_cost_amounts_fixed_costs__fixed_cost_id__amounts_get"];
+        put?: never;
+        /**
+         * Set Fixed Cost Amount
+         * @description Neuer Betrag ab einem Monat – frühere Monatspläne bleiben unverändert.
+         */
+        post: operations["set_fixed_cost_amount_fixed_costs__fixed_cost_id__amounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/fixed-costs/{fixed_cost_id}/payments": {
@@ -2042,6 +2088,31 @@ export interface components {
             notice_period: string | null;
             /** Term End */
             term_end: string | null;
+        };
+        /**
+         * FixedCostAmountCreate
+         * @description Neuer Betrag ab einem Monat (frühere Monate behalten ihren Betrag).
+         */
+        FixedCostAmountCreate: {
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Amount */
+            amount: number | string;
+        };
+        /** FixedCostAmountRead */
+        FixedCostAmountRead: {
+            /** Id */
+            id: number;
+            /**
+             * Valid From
+             * Format: date
+             */
+            valid_from: string;
+            /** Amount */
+            amount: string;
         };
         /** FixedCostCreate */
         FixedCostCreate: {
@@ -2913,10 +2984,35 @@ export interface components {
              */
             as_transfer: boolean;
         };
+        /**
+         * ReviewGroup
+         * @description Ähnliche offene Buchungen (gleiche Gegenpartei, gleiche Richtung) zum gemeinsamen Prüfen.
+         */
+        ReviewGroup: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "in" | "out";
+            /** Count */
+            count: number;
+            /** Total */
+            total: string;
+            /** Transaction Ids */
+            transaction_ids: number[];
+            /** Category Ids */
+            category_ids: number[];
+        };
         /** ReviewItem */
         ReviewItem: {
             transaction: components["schemas"]["TransactionRead"];
             suggested_loan?: components["schemas"]["LoanSuggestion"] | null;
+            /** Priority Reason */
+            priority_reason?: string | null;
         };
         /** ReviewPage */
         ReviewPage: {
@@ -6014,6 +6110,7 @@ export interface operations {
                 status?: components["schemas"]["ReviewStatus"] | null;
                 limit?: number;
                 offset?: number;
+                order?: "date" | "priority";
             };
             header?: {
                 /** @description ID des gewählten Profils */
@@ -6031,6 +6128,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReviewPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_groups_review_groups_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewGroup"][];
                 };
             };
             /** @description Validation Error */
@@ -6702,6 +6831,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FixedCostRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_fixed_cost_amounts_fixed_costs__fixed_cost_id__amounts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                fixed_cost_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixedCostAmountRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_fixed_cost_amount_fixed_costs__fixed_cost_id__amounts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                fixed_cost_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FixedCostAmountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixedCostAmountRead"];
                 };
             };
             /** @description Validation Error */

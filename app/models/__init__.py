@@ -18,7 +18,7 @@ from app.models.assist import (
 )
 from app.models.base import metadata
 from app.models.category import Category, CategoryType
-from app.models.fixed_cost import FixedCost, FixedCostPayment
+from app.models.fixed_cost import FixedCost, FixedCostAmount, FixedCostPayment
 from app.models.imports import ImportBatch, ImportProfile, ImportRow, TransactionImportLink, WatchFolder
 from app.models.institution import Institution
 from app.models.loan import Loan, LoanPayment, LoanScheduleEntry, LoanStatus, LoanType, ScheduleStatus
@@ -46,6 +46,7 @@ __all__ = [
     "AnalysisState",
     "ChangeActor",
     "ChangeLog",
+    "FixedCostAmount",
     "FixedCostPayment",
     "ProfileSetting",
     "Suggestion",

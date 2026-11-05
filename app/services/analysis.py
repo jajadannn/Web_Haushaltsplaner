@@ -80,6 +80,7 @@ def _load_detectors() -> None:
     from app.services import recurring
 
     register("fixed_costs", recurring.refresh)
+    from app.services import upkeep  # noqa: F401 – registriert Betragsänderungen und Regelvorschläge
 
 
 _load_detectors()

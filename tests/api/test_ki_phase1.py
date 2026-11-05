@@ -132,7 +132,7 @@ def historie(client, headers, giro):
 
 def test_erkennung_schlaegt_monatliche_und_quartalsfixkosten_vor(client, headers, historie):
     result = refresh(client, headers)
-    assert result["new"] == 2
+    assert result["by_detector"]["fixed_costs"]["new"] == 2
     found = {s["payload"]["name"]: s for s in suggestions(client, headers, status="open")}
     assert set(found) == {"Netzanbieter GmbH", "Versicherung AG"}
     internet = found["Netzanbieter GmbH"]
@@ -147,7 +147,7 @@ def test_ablehnung_bleibt_bestehen(client, headers, historie):
     refresh(client, headers)
     internet = next(s for s in suggestions(client, headers) if s["payload"]["name"] == "Netzanbieter GmbH")
     assert client.post(f"/suggestions/{internet['id']}/reject", headers=headers).status_code == 200
-    assert refresh(client, headers)["new"] == 0
+    assert refresh(client, headers)["by_detector"]["fixed_costs"]["new"] == 0
     statuses = {s["payload"]["name"]: s["status"] for s in suggestions(client, headers)}
     assert statuses["Netzanbieter GmbH"] == "rejected"
 
@@ -191,7 +191,7 @@ def test_vorschlaege_sind_profilgetrennt(client, headers, historie, other_user):
 
 def test_zusammenfassung_zaehlt_offene_vorschlaege(client, headers, historie):
     refresh(client, headers)
-    assert client.get("/suggestions/summary", headers=headers).json() == {"fixed_cost_new": 2}
+    assert client.get("/suggestions/summary", headers=headers).json()["fixed_cost_new"] == 2
 
 
 # --- Einstellungen je Profil ---------------------------------------------------------------------

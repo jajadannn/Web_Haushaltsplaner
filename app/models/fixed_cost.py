@@ -68,3 +68,20 @@ class FixedCostPayment(SQLModel, table=True):
     due_month: date
     source: str = Field(default="manual", max_length=20)
     created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class FixedCostAmount(SQLModel, table=True):
+    """Betrag einer Fixkost ab einem Monat – Preisänderungen ohne frühere Monate umzuschreiben."""
+
+    __tablename__ = "fixed_cost_amount"
+    __table_args__ = (
+        UniqueConstraint("fixed_cost_id", "valid_from"),
+        CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint("EXTRACT(DAY FROM valid_from) = 1", name="valid_from_month_start"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    fixed_cost_id: int = Field(foreign_key="fixed_cost.id", ondelete="CASCADE")
+    valid_from: date
+    amount: Decimal = Field(sa_type=Numeric(12, 2))
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())

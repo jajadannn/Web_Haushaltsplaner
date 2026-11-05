@@ -66,6 +66,20 @@ class FixedCostRead(ReadModel):
     updated_at: datetime
 
 
+class FixedCostAmountCreate(BaseModel):
+    """Neuer Betrag ab einem Monat (frühere Monate behalten ihren Betrag)."""
+
+    model_config = ConfigDict(extra="forbid")
+    valid_from: date
+    amount: PositiveMoney
+
+
+class FixedCostAmountRead(ReadModel):
+    id: int
+    valid_from: date
+    amount: Money
+
+
 class FixedCostPaymentCreate(BaseModel):
     """Zahlung (Buchung oder eine ihrer Split-Zeilen) fest einer Fälligkeit zuordnen."""
 

@@ -4,6 +4,8 @@ Bestätigen betrifft nur die Kategorisierung – es bedeutet NICHT, dass die Buc
 einem Kontoauszug abgestimmt wurde.
 """
 
+from decimal import Decimal
+
 from sqlmodel import Session, func, select
 
 from app.errors import AppError, Invalid
@@ -33,6 +35,81 @@ def review_query(user: User, status: str | None):
     if status is None:
         return query.where(Transaction.review_status.in_([ReviewStatus.NEEDS_REVIEW, ReviewStatus.AUTO_CATEGORIZED]))
     return query.where(Transaction.review_status == status)
+
+
+# --- 10/22: Gruppieren und nach Klärungsbedarf ordnen --------------------------------------------
+
+LARGE_AMOUNT = 100
+
+
+def _group_key(tx: Transaction) -> str | None:
+    from app.services.recurring import normalize_name
+
+    name = normalize_name(tx.counterparty or "")
+    return f"{name}|{'in' if tx.amount > 0 else 'out'}" if len(name) >= 2 else None
+
+
+def _groupable(session: Session, tx: Transaction, loan_ids: set[int]) -> bool:
+    return not tx.splits and tx.kind == TransactionKind.REGULAR and tx.id not in loan_ids
+
+
+def review_groups(session: Session, user: User, min_size: int = 2) -> list[dict]:
+    """Offene Buchungen nach Gegenpartei und Richtung; Kreditraten und Aufteilungen ausgenommen."""
+    txs = list(session.exec(review_query(user, None).order_by(Transaction.booking_date, Transaction.id)))
+    loan_ids = set(_loan_suggestions(session, [t.id for t in txs]))
+    groups: dict[str, list[Transaction]] = {}
+    for tx in txs:
+        key = _group_key(tx)
+        if key and _groupable(session, tx, loan_ids):
+            groups.setdefault(key, []).append(tx)
+    result = []
+    for key, items in groups.items():
+        if len(items) < min_size:
+            continue
+        result.append({
+            "key": key,
+            "label": items[-1].counterparty,
+            "direction": key.rsplit("|", 1)[1],
+            "count": len(items),
+            "total": sum((t.amount for t in items), Decimal("0.00")),
+            "transaction_ids": [t.id for t in items],
+            "category_ids": sorted({t.category_id for t in items if t.category_id is not None}),
+        })
+    return sorted(result, key=lambda g: (-g["count"], g["label"].casefold()))
+
+
+def _priority(tx: Transaction, loan: dict | None, group_size: int) -> tuple[tuple, str]:
+    """Sortierschlüssel und Begründung: Konflikte, dann große Beträge, dann Gruppen, dann Rest."""
+    amount = abs(tx.amount)
+    if loan is not None:
+        return (0, -amount), "Mögliche Kreditrate – zuerst klären, damit Restschuld und Plan stimmen"
+    if amount >= LARGE_AMOUNT:
+        return (1, -amount), f"Großer Betrag ({amount:.2f} €) – wirkt stark auf Budget und Berichte"
+    if group_size >= 3:
+        return (2, -group_size, -amount), f"Eine von {group_size} ähnlichen Buchungen – gemeinsam bestätigen"
+    return (3, -amount), "Einzelbuchung mit kleinem Betrag"
+
+
+def list_review_by_priority(session: Session, user: User, status: str | None, limit: int, offset: int) -> dict:
+    txs = list(session.exec(review_query(user, status)))
+    loans = _loan_suggestions(session, [t.id for t in txs])
+    sizes: dict[str, int] = {}
+    for tx in txs:
+        key = _group_key(tx)
+        if key:
+            sizes[key] = sizes.get(key, 0) + 1
+    ranked = sorted(
+        ((tx, *_priority(tx, loans.get(tx.id), sizes.get(_group_key(tx) or "", 1))) for tx in txs),
+        key=lambda item: (item[1], item[0].booking_date.toordinal() * -1, -item[0].id),
+    )
+    page = ranked[offset:offset + limit]
+    return {
+        "items": [{"transaction": tx, "suggested_loan": loans.get(tx.id), "priority_reason": reason}
+                  for tx, _, reason in page],
+        "total": len(txs),
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 def list_review(session: Session, user: User, status: str | None, limit: int, offset: int) -> dict:

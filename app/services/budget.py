@@ -29,6 +29,7 @@ from app.models import (
     AccountType,
     Category,
     FixedCost,
+    FixedCostAmount,
     FixedCostPayment,
     Loan,
     LoanPayment,
@@ -39,7 +40,7 @@ from app.models import (
     User,
     transaction_line,
 )
-from app.schemas.budget import FixedCostCreate, FixedCostPaymentCreate
+from app.schemas.budget import FixedCostAmountCreate, FixedCostCreate, FixedCostPaymentCreate
 from app.services.common import apply_changes, flush_or_conflict, get_owned
 from app.services.loans.core import open_entries, remaining_debt
 
@@ -105,6 +106,49 @@ def update_fixed_cost(session: Session, user: User, fixed: FixedCost, changes: d
 def delete_fixed_cost(session: Session, fixed: FixedCost) -> None:
     session.delete(fixed)
     session.flush()
+
+
+# --- Beträge mit Gültigkeit ------------------------------------------------------------
+
+
+def list_amounts(session: Session, fixed: FixedCost) -> list[FixedCostAmount]:
+    return list(session.exec(
+        select(FixedCostAmount).where(FixedCostAmount.fixed_cost_id == fixed.id).order_by(FixedCostAmount.valid_from)
+    ))
+
+
+def set_amount_from(session: Session, fixed: FixedCost, data: FixedCostAmountCreate) -> FixedCostAmount:
+    """Betrag ab dem Monat von `valid_from`; der bisherige Betrag gilt davor weiter."""
+    month = month_start(data.valid_from)
+    history = list_amounts(session, fixed)
+    if not history:
+        base = month_start(fixed.start_date) if fixed.start_date else date(2000, 1, 1)
+        if base < month:
+            session.add(FixedCostAmount(fixed_cost_id=fixed.id, valid_from=base, amount=fixed.amount))
+    existing = next((a for a in history if a.valid_from == month), None)
+    if existing is None:
+        existing = FixedCostAmount(fixed_cost_id=fixed.id, valid_from=month, amount=data.amount)
+        session.add(existing)
+    else:
+        existing.amount = data.amount
+    if all(a.valid_from <= month for a in history):
+        fixed.amount = data.amount  # aktueller Betrag
+    session.flush()
+    return existing
+
+
+def amount_for(fixed: FixedCost, first: date, history: dict[int, list[FixedCostAmount]]) -> Decimal:
+    entries = [a for a in history.get(fixed.id, []) if a.valid_from <= first]
+    return entries[-1].amount if entries else fixed.amount
+
+
+def _amount_history(session: Session, fixed_ids: list[int]) -> dict[int, list[FixedCostAmount]]:
+    history: dict[int, list[FixedCostAmount]] = {}
+    if fixed_ids:
+        for a in session.exec(select(FixedCostAmount).where(FixedCostAmount.fixed_cost_id.in_(fixed_ids))
+                              .order_by(FixedCostAmount.valid_from)):
+            history.setdefault(a.fixed_cost_id, []).append(a)
+    return history
 
 
 # --- Feste Zahlungsverknüpfung ----------------------------------------------------
@@ -283,12 +327,14 @@ def _fixed_items(session: Session, user_id: int, first: date, last: date, today:
     items, paid_actual, reserves = [], ZERO, []
     consumed, linked = _linked_lines(session, user_id, first)
     active = _active_fixed_costs(session, user_id, first, last)
+    history = _amount_history(session, [f.id for f in active])
     for fixed in active:
         if not is_due_in_month(fixed, first):
             reserves.append({
                 "fixed_cost_id": fixed.id,
                 "name": fixed.name,
-                "monthly_reserve": (fixed.amount / fixed.interval_months).quantize(Decimal("0.01")),
+                "monthly_reserve": (amount_for(fixed, first, history) / fixed.interval_months).quantize(
+                    Decimal("0.01")),
                 "next_due_date": due_in_month(next_due_month(fixed, first), fixed.due_day),
             })
     for fixed in (f for f in active if is_due_in_month(f, first)):
@@ -309,7 +355,7 @@ def _fixed_items(session: Session, user_id: int, first: date, last: date, today:
             "kind": "fixed",
             "ref_id": fixed.id,
             "name": fixed.name,
-            "amount": fixed.amount,
+            "amount": amount_for(fixed, first, history),
             "due_date": due,
             "status": _status(due, match is not None, today),
             "paid_amount": -match.amount if match is not None else None,

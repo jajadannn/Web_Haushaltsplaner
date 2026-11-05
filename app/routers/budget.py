@@ -6,6 +6,8 @@ from app import clock
 from app.deps import CurrentUser, SessionDep
 from app.schemas.budget import (
     BudgetMonth,
+    FixedCostAmountCreate,
+    FixedCostAmountRead,
     FixedCostCreate,
     FixedCostPaymentCreate,
     FixedCostPaymentRead,
@@ -50,6 +52,21 @@ def delete_fixed_cost(fixed_cost_id: int, session: SessionDep, user: CurrentUser
     service.delete_fixed_cost(session, service.get_fixed_cost(session, user, fixed_cost_id))
     session.commit()
     return Response(status_code=204)
+
+
+@router.get("/fixed-costs/{fixed_cost_id}/amounts", response_model=list[FixedCostAmountRead], tags=["Fixkosten"])
+def list_fixed_cost_amounts(fixed_cost_id: int, session: SessionDep, user: CurrentUser):
+    """Betragsverlauf (leer, solange der Betrag nie ab einem Monat geändert wurde)."""
+    return service.list_amounts(session, service.get_fixed_cost(session, user, fixed_cost_id))
+
+
+@router.post("/fixed-costs/{fixed_cost_id}/amounts", response_model=FixedCostAmountRead, status_code=201,
+             tags=["Fixkosten"])
+def set_fixed_cost_amount(fixed_cost_id: int, data: FixedCostAmountCreate, session: SessionDep, user: CurrentUser):
+    """Neuer Betrag ab einem Monat – frühere Monatspläne bleiben unverändert."""
+    entry = service.set_amount_from(session, service.get_fixed_cost(session, user, fixed_cost_id), data)
+    session.commit()
+    return entry
 
 
 @router.get("/fixed-costs/{fixed_cost_id}/payments", response_model=list[FixedCostPaymentRead], tags=["Fixkosten"])
