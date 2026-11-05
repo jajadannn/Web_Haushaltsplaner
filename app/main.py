@@ -14,6 +14,7 @@ from app.routers import (
     loans,
     reports,
     rules,
+    suggestions,
     transactions,
     users,
 )
@@ -43,7 +44,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_error_handlers(app)
-    for module in (users, institutions, accounts, categories, transactions, loans, imports, rules, reports, budget):
+    routers = (users, institutions, accounts, categories, transactions, loans, imports, rules, reports, budget,
+               suggestions)
+    for module in routers:
         app.include_router(module.router)
 
     @app.get("/health", tags=["System"])

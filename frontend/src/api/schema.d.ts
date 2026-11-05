@@ -46,6 +46,27 @@ export interface paths {
         patch: operations["update_user_users__user_id__patch"];
         trace?: never;
     };
+    "/users/{user_id}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Settings
+         * @description Einstellungen des Profils (Automatik, KI, Vorschau) mit Vorgaben.
+         */
+        get: operations["get_settings_users__user_id__settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Settings */
+        patch: operations["update_settings_users__user_id__settings_patch"];
+        trace?: never;
+    };
     "/institutions": {
         parameters: {
             query?: never;
@@ -1199,6 +1220,47 @@ export interface paths {
         patch: operations["update_fixed_cost_fixed_costs__fixed_cost_id__patch"];
         trace?: never;
     };
+    "/fixed-costs/{fixed_cost_id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Fixed Cost Payments
+         * @description Fest zugeordnete Zahlungen einer Fixkost.
+         */
+        get: operations["list_fixed_cost_payments_fixed_costs__fixed_cost_id__payments_get"];
+        put?: never;
+        /**
+         * Link Fixed Cost Payment
+         * @description Zahlung fest einer Fälligkeit zuordnen (Vorrang vor Kategorie/Suchtext, nie doppelt).
+         */
+        post: operations["link_fixed_cost_payment_fixed_costs__fixed_cost_id__payments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fixed-costs/{fixed_cost_id}/payments/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Unlink Fixed Cost Payment */
+        delete: operations["unlink_fixed_cost_payment_fixed_costs__fixed_cost_id__payments__link_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/budget/month": {
         parameters: {
             query?: never;
@@ -1236,6 +1298,183 @@ export interface paths {
         get: operations["wall_wall_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Suggestions
+         * @description Erkannte Vorschläge (Fixkosten, Regeln, Erstattungen …) mit Belegen und Begründung.
+         */
+        get: operations["list_suggestions_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggestion Summary
+         * @description Anzahl offener Vorschläge je Art.
+         */
+        get: operations["suggestion_summary_suggestions_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggestion Metrics
+         * @description Qualität der Vorschläge je Art und Erzeuger (Annahme-, Rücknahmequote).
+         */
+        get: operations["suggestion_metrics_suggestions_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Suggestions
+         * @description Alle Erkennungen für das Profil sofort ausführen (sonst automatisch nach jedem Import).
+         */
+        post: operations["refresh_suggestions_suggestions_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions/{suggestion_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Suggestion
+         * @description Übernehmen, optional mit geänderten Werten (z. B. Name oder Betrag).
+         */
+        post: operations["accept_suggestion_suggestions__suggestion_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions/{suggestion_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Suggestion
+         * @description Ablehnen – derselbe Fall wird nicht erneut vorgeschlagen, solange nichts Wesentliches neu ist.
+         */
+        post: operations["reject_suggestion_suggestions__suggestion_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/suggestions/{suggestion_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Suggestion
+         * @description Übernahme zurücknehmen – nur wenn seitdem nichts manuell geändert wurde.
+         */
+        post: operations["revert_suggestion_suggestions__suggestion_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Changes
+         * @description Änderungsverlauf aus übernommenen und automatisch angewendeten Vorschlägen.
+         */
+        get: operations["list_changes_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changes/{change_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revert Change */
+        post: operations["revert_change_changes__change_id__revert_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1470,6 +1709,11 @@ export interface components {
             available_per_day: string | null;
             /** Items */
             items: components["schemas"]["MonthItem"][];
+            /**
+             * Reserves
+             * @default []
+             */
+            reserves: components["schemas"]["MonthReserve"][];
         };
         /** BulkConfirm */
         BulkConfirm: {
@@ -1594,6 +1838,36 @@ export interface components {
             /** Active */
             active?: boolean | null;
         };
+        /** ChangeRead */
+        ChangeRead: {
+            /** Id */
+            id: number;
+            /** Object Type */
+            object_type: string;
+            /** Object Id */
+            object_id: number;
+            /** Action */
+            action: string;
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            } | null;
+            /** After */
+            after: {
+                [key: string]: unknown;
+            } | null;
+            /** Suggestion Id */
+            suggestion_id: number | null;
+            /** Actor */
+            actor: string;
+            /** Reverted At */
+            reverted_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ConfirmAllResult */
         ConfirmAllResult: {
             /** Confirmed */
@@ -1622,6 +1896,49 @@ export interface components {
              * @default true
              */
             active: boolean;
+            /**
+             * Interval Months
+             * @default 1
+             * @enum {integer}
+             */
+            interval_months: 1 | 3 | 6 | 12;
+            /** First Due Date */
+            first_due_date?: string | null;
+            /** Account Id */
+            account_id?: number | null;
+        };
+        /**
+         * FixedCostPaymentCreate
+         * @description Zahlung (Buchung oder eine ihrer Split-Zeilen) fest einer Fälligkeit zuordnen.
+         */
+        FixedCostPaymentCreate: {
+            /** Transaction Id */
+            transaction_id: number;
+            /** Split Id */
+            split_id?: number | null;
+            /**
+             * Due Month
+             * Format: date
+             */
+            due_month: string;
+        };
+        /** FixedCostPaymentRead */
+        FixedCostPaymentRead: {
+            /** Id */
+            id: number;
+            /** Fixed Cost Id */
+            fixed_cost_id: number;
+            /** Transaction Id */
+            transaction_id: number;
+            /** Split Id */
+            split_id: number | null;
+            /**
+             * Due Month
+             * Format: date
+             */
+            due_month: string;
+            /** Source */
+            source: string;
         };
         /** FixedCostRead */
         FixedCostRead: {
@@ -1643,6 +1960,12 @@ export interface components {
             end_date: string | null;
             /** Active */
             active: boolean;
+            /** Interval Months */
+            interval_months: number;
+            /** First Due Date */
+            first_due_date: string | null;
+            /** Account Id */
+            account_id: number | null;
             /**
              * Created At
              * Format: date-time
@@ -1672,6 +1995,12 @@ export interface components {
             end_date?: string | null;
             /** Active */
             active?: boolean | null;
+            /** Interval Months */
+            interval_months?: (1 | 3 | 6 | 12) | null;
+            /** First Due Date */
+            first_due_date?: string | null;
+            /** Account Id */
+            account_id?: number | null;
         };
         /** Flows */
         Flows: {
@@ -2318,6 +2647,43 @@ export interface components {
             paid_amount: string | null;
             /** Paid On */
             paid_on: string | null;
+            /**
+             * Linked
+             * @default false
+             */
+            linked: boolean;
+        };
+        /**
+         * MonthReserve
+         * @description Nicht-monatliche Fixkost, die in diesem Monat nicht fällig ist: empfohlene Rücklage (kein Abzug).
+         */
+        MonthReserve: {
+            /** Fixed Cost Id */
+            fixed_cost_id: number;
+            /** Name */
+            name: string;
+            /** Monthly Reserve */
+            monthly_reserve: string;
+            /**
+             * Next Due Date
+             * Format: date
+             */
+            next_due_date: string;
+        };
+        /** RefreshResult */
+        RefreshResult: {
+            /** New */
+            new: number;
+            /** Updated */
+            updated: number;
+            /** Stale */
+            stale: number;
+            /** By Detector */
+            by_detector: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
         };
         /** RemainingAt */
         RemainingAt: {
@@ -2556,6 +2922,49 @@ export interface components {
             kind: components["schemas"]["TransactionKind"];
             /** Category Id */
             category_id: number | null;
+        };
+        /** SuggestionRead */
+        SuggestionRead: {
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Evidence */
+            evidence: {
+                [key: string]: unknown;
+            };
+            /** Reason */
+            reason: string;
+            /** Generator */
+            generator: string;
+            /** Priority */
+            priority: number;
+            /** Data As Of */
+            data_as_of: string | null;
+            /** Result Type */
+            result_type: string | null;
+            /** Result Id */
+            result_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Decided At */
+            decided_at: string | null;
         };
         /** SummaryReport */
         SummaryReport: {
@@ -3054,6 +3463,84 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_users__user_id__settings_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_settings_users__user_id__settings_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -6026,6 +6513,111 @@ export interface operations {
             };
         };
     };
+    list_fixed_cost_payments_fixed_costs__fixed_cost_id__payments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                fixed_cost_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixedCostPaymentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_fixed_cost_payment_fixed_costs__fixed_cost_id__payments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                fixed_cost_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FixedCostPaymentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixedCostPaymentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_fixed_cost_payment_fixed_costs__fixed_cost_id__payments__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                fixed_cost_id: number;
+                link_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     month_budget_budget_month_get: {
         parameters: {
             query?: {
@@ -6076,6 +6668,322 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WallView"];
+                };
+            };
+        };
+    };
+    list_suggestions_suggestions_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+                status?: string | null;
+            };
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggestion_summary_suggestions_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggestion_metrics_suggestions_metrics_get: {
+        parameters: {
+            query?: {
+                kind?: string | null;
+            };
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_suggestions_suggestions_refresh_post: {
+        parameters: {
+            query?: {
+                detector?: string | null;
+            };
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_suggestion_suggestions__suggestion_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                } | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_suggestion_suggestions__suggestion_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_suggestion_suggestions__suggestion_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_changes_changes_get: {
+        parameters: {
+            query?: {
+                actor?: string | null;
+                limit?: number;
+            };
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_change_changes__change_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                change_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

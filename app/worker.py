@@ -24,7 +24,7 @@ from watchdog.observers import Observer
 from app.config import get_settings
 from app.db import engine
 from app.models.imports import BatchSource, ImportProfile
-from app.services import ai_review
+from app.services import ai_review, analysis
 from app.services.import_jobs import (
     archive_pending,
     create_batch,
@@ -183,6 +183,11 @@ def run() -> None:
                 requeue_stale(session)  # abgebrochene Verarbeitungen (Sperre frei) erneut einreihen
                 process_queue(session)
                 archive_pending(session)
+                try:  # Auswertungen nach Importen (Fixkosten, Erstattungen …), ein Profil je Durchlauf
+                    analysis.run_due(session)
+                except Exception:
+                    session.rollback()
+                    log.exception("Auswertung nach Import fehlgeschlagen")
     except KeyboardInterrupt:
         log.info("Import-Worker wird beendet")
     finally:

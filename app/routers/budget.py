@@ -4,7 +4,15 @@ from fastapi import APIRouter, Response
 
 from app import clock
 from app.deps import CurrentUser, SessionDep
-from app.schemas.budget import BudgetMonth, FixedCostCreate, FixedCostRead, FixedCostUpdate, WallView
+from app.schemas.budget import (
+    BudgetMonth,
+    FixedCostCreate,
+    FixedCostPaymentCreate,
+    FixedCostPaymentRead,
+    FixedCostRead,
+    FixedCostUpdate,
+    WallView,
+)
 from app.services import budget as service
 
 router = APIRouter()
@@ -40,6 +48,29 @@ def update_fixed_cost(fixed_cost_id: int, data: FixedCostUpdate, session: Sessio
 @router.delete("/fixed-costs/{fixed_cost_id}", status_code=204, tags=["Fixkosten"])
 def delete_fixed_cost(fixed_cost_id: int, session: SessionDep, user: CurrentUser):
     service.delete_fixed_cost(session, service.get_fixed_cost(session, user, fixed_cost_id))
+    session.commit()
+    return Response(status_code=204)
+
+
+@router.get("/fixed-costs/{fixed_cost_id}/payments", response_model=list[FixedCostPaymentRead], tags=["Fixkosten"])
+def list_fixed_cost_payments(fixed_cost_id: int, session: SessionDep, user: CurrentUser):
+    """Fest zugeordnete Zahlungen einer Fixkost."""
+    fixed = service.get_fixed_cost(session, user, fixed_cost_id)
+    return service.list_payments(session, fixed)
+
+
+@router.post("/fixed-costs/{fixed_cost_id}/payments", response_model=FixedCostPaymentRead, status_code=201,
+             tags=["Fixkosten"])
+def link_fixed_cost_payment(fixed_cost_id: int, data: FixedCostPaymentCreate, session: SessionDep, user: CurrentUser):
+    """Zahlung fest einer Fälligkeit zuordnen (Vorrang vor Kategorie/Suchtext, nie doppelt)."""
+    link = service.link_payment(session, user, service.get_fixed_cost(session, user, fixed_cost_id), data)
+    session.commit()
+    return link
+
+
+@router.delete("/fixed-costs/{fixed_cost_id}/payments/{link_id}", status_code=204, tags=["Fixkosten"])
+def unlink_fixed_cost_payment(fixed_cost_id: int, link_id: int, session: SessionDep, user: CurrentUser):
+    service.unlink_payment(session, service.get_fixed_cost(session, user, fixed_cost_id), link_id)
     session.commit()
     return Response(status_code=204)
 

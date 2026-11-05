@@ -23,11 +23,13 @@ from decimal import Decimal
 from sqlalchemy import and_, exists, not_, or_
 from sqlmodel import Session, func, select
 
-from app.errors import Invalid
+from app.errors import Conflict, Invalid
 from app.models import (
     Account,
+    AccountType,
     Category,
     FixedCost,
+    FixedCostPayment,
     Loan,
     LoanPayment,
     LoanScheduleEntry,
@@ -37,7 +39,7 @@ from app.models import (
     User,
     transaction_line,
 )
-from app.schemas.budget import FixedCostCreate
+from app.schemas.budget import FixedCostCreate, FixedCostPaymentCreate
 from app.services.common import apply_changes, flush_or_conflict, get_owned
 from app.services.loans.core import open_entries, remaining_debt
 
@@ -57,6 +59,14 @@ def _check_category(session: Session, user: User, category_id: int | None) -> No
         raise Invalid("Fixkosten brauchen eine Ausgaben-Kategorie", code="fixed_cost_category_type")
 
 
+def _check_account(session: Session, user: User, account_id: int | None) -> None:
+    if account_id is None:
+        return
+    account = get_owned(session, Account, account_id, user.id, "Konto")
+    if account.type == AccountType.LOAN:
+        raise Invalid("Fixkosten werden nicht von einem Kreditkonto bezahlt", code="fixed_cost_account_type")
+
+
 def list_fixed_costs(session: Session, user: User) -> list[FixedCost]:
     query = select(FixedCost).where(FixedCost.user_id == user.id)
     return list(session.exec(query.order_by(FixedCost.due_day, func.lower(FixedCost.name))))
@@ -68,6 +78,7 @@ def get_fixed_cost(session: Session, user: User, fixed_cost_id: int) -> FixedCos
 
 def create_fixed_cost(session: Session, user: User, data: FixedCostCreate) -> FixedCost:
     _check_category(session, user, data.category_id)
+    _check_account(session, user, data.account_id)
     fixed = FixedCost(user_id=user.id, **data.model_dump())
     session.add(fixed)
     flush_or_conflict(session, _UNIQUE)
@@ -77,6 +88,11 @@ def create_fixed_cost(session: Session, user: User, data: FixedCostCreate) -> Fi
 def update_fixed_cost(session: Session, user: User, fixed: FixedCost, changes: dict) -> FixedCost:
     if changes.get("category_id") is not None:
         _check_category(session, user, changes["category_id"])
+    if changes.get("account_id") is not None:
+        _check_account(session, user, changes["account_id"])
+    interval = changes.get("interval_months", fixed.interval_months)
+    if interval != 1 and changes.get("first_due_date", fixed.first_due_date) is None:
+        raise Invalid("first_due_date angeben, wenn die Fixkost nicht monatlich ist", code="first_due_date_required")
     start = changes.get("start_date", fixed.start_date)
     end = changes.get("end_date", fixed.end_date)
     if start and end and end < start:
@@ -88,6 +104,71 @@ def update_fixed_cost(session: Session, user: User, fixed: FixedCost, changes: d
 
 def delete_fixed_cost(session: Session, fixed: FixedCost) -> None:
     session.delete(fixed)
+    session.flush()
+
+
+# --- Feste Zahlungsverknüpfung ----------------------------------------------------
+
+
+def _linkable_line(session: Session, user: User, transaction_id: int, split_id: int | None):
+    """Die Buchungszeile, falls sie als Fixkostenzahlung in Frage kommt (Abfluss, regulär, kein Kredit)."""
+    get_owned(session, Transaction, transaction_id, user.id, "Buchung")
+    line = session.execute(
+        select(L.amount, L.booking_date, L.kind, L.excluded_at, L.source)
+        .where(L.transaction_id == transaction_id, L.split_id.is_not_distinct_from(split_id))
+    ).first()
+    if line is None:
+        raise Invalid("Buchungszeile nicht gefunden – bei aufgeteilten Buchungen split_id angeben",
+                      code="payment_line_missing")
+    loan_payment = session.exec(
+        select(LoanPayment.id).where(LoanPayment.payment_transaction_id == transaction_id)
+    ).first()
+    if (line.amount >= 0 or line.kind != "regular" or line.excluded_at is not None
+            or line.source == TransactionSource.LOAN or loan_payment is not None):
+        raise Invalid("Nur reguläre Abbuchungen ohne Kreditbezug lassen sich zuordnen", code="payment_not_linkable")
+    return line
+
+
+def link_payment(
+    session: Session, user: User, fixed: FixedCost, data: FixedCostPaymentCreate, source: str = "manual"
+) -> FixedCostPayment:
+    _linkable_line(session, user, data.transaction_id, data.split_id)
+    taken = session.exec(
+        select(FixedCostPayment).where(
+            FixedCostPayment.transaction_id == data.transaction_id,
+            FixedCostPayment.split_id.is_not_distinct_from(data.split_id),
+        )
+    ).first()
+    if taken is not None:
+        raise Conflict("Diese Zahlung ist bereits einer Fixkost zugeordnet", code="payment_already_linked",
+                       details={"fixed_cost_id": taken.fixed_cost_id})
+    month = month_start(data.due_month)
+    if session.exec(
+        select(FixedCostPayment.id).where(
+            FixedCostPayment.fixed_cost_id == fixed.id, FixedCostPayment.due_month == month
+        )
+    ).first():
+        raise Conflict("Für diese Fälligkeit ist bereits eine Zahlung zugeordnet", code="due_month_already_paid")
+    link = FixedCostPayment(user_id=user.id, fixed_cost_id=fixed.id, transaction_id=data.transaction_id,
+                            split_id=data.split_id, due_month=month, source=source)
+    session.add(link)
+    session.flush()
+    return link
+
+
+def list_payments(session: Session, fixed: FixedCost) -> list[FixedCostPayment]:
+    return list(session.exec(
+        select(FixedCostPayment).where(FixedCostPayment.fixed_cost_id == fixed.id).order_by(FixedCostPayment.due_month)
+    ))
+
+
+def unlink_payment(session: Session, fixed: FixedCost, link_id: int) -> None:
+    link = session.get(FixedCostPayment, link_id)
+    if link is None or link.fixed_cost_id != fixed.id:
+        from app.errors import NotFound
+
+        raise NotFound(f"Zuordnung {link_id} nicht gefunden")
+    session.delete(link)
     session.flush()
 
 
@@ -110,6 +191,25 @@ def _status(due: date, paid: bool, today: date) -> str:
     if paid:
         return "paid"
     return "overdue" if due < today else "open"
+
+
+def months_between(a: date, b: date) -> int:
+    return (b.year - a.year) * 12 + b.month - a.month
+
+
+def is_due_in_month(fixed: FixedCost, first: date) -> bool:
+    if fixed.interval_months == 1 or fixed.first_due_date is None:
+        return True
+    diff = months_between(fixed.first_due_date, first)
+    return diff >= 0 and diff % fixed.interval_months == 0
+
+
+def next_due_month(fixed: FixedCost, first: date) -> date:
+    """Erster Fälligkeitsmonat ab `first` (einschließlich)."""
+    diff = months_between(fixed.first_due_date, first)
+    step = 0 if diff <= 0 else -(-diff // fixed.interval_months) * fixed.interval_months
+    total = fixed.first_due_date.year * 12 + fixed.first_due_date.month - 1 + max(step, 0)
+    return date(total // 12, total % 12 + 1, 1)
 
 
 def _active_fixed_costs(session: Session, user_id: int, first: date, last: date) -> list[FixedCost]:
@@ -159,20 +259,51 @@ def _payment_candidates(session: Session, user_id: int, fixed: FixedCost, first:
     return list(session.execute(query))
 
 
+def _linked_lines(session: Session, user_id: int, first: date):
+    """Fest verknüpfte Zahlungen: alle verknüpften Zeilen des Profils und die des Monats je Fixkost."""
+    rows = session.execute(
+        select(FixedCostPayment.fixed_cost_id, FixedCostPayment.due_month, L.transaction_id, L.split_id,
+               L.amount, L.booking_date, L.excluded_at)
+        .select_from(FixedCostPayment)
+        .join(transaction_line, and_(L.transaction_id == FixedCostPayment.transaction_id,
+                                     L.split_id.is_not_distinct_from(FixedCostPayment.split_id)))
+        .where(FixedCostPayment.user_id == user_id)
+    ).all()
+    taken = {(r.transaction_id, r.split_id) for r in rows}
+    this_month = {r.fixed_cost_id: r for r in rows if r.due_month == first and r.excluded_at is None}
+    return taken, this_month
+
+
 def _fixed_items(session: Session, user_id: int, first: date, last: date, today: date):
     """Fixkosten des Monats mit erkannter Zahlung; jede Buchungszeile zählt nur für eine Fixkost.
 
-    Zweiter Wert: Summe der zugeordneten Zahlungen (alle im Monat gebucht)."""
-    items, consumed, paid_actual = [], set(), ZERO
-    for fixed in _active_fixed_costs(session, user_id, first, last):
-        match = next(
-            (c for c in _payment_candidates(session, user_id, fixed, first, last)
-             if (c.transaction_id, c.split_id) not in consumed),
-            None,
-        )
+    Fest verknüpfte Zahlungen haben Vorrang; sonst wird über Kategorie/Suchtext erkannt.
+    Zweiter Wert: Summe der Zahlungen, die im Monat gebucht sind. Dritter Wert: Rücklagen
+    nicht-monatlicher Fixkosten, die in diesem Monat nicht fällig sind (nur zur Anzeige)."""
+    items, paid_actual, reserves = [], ZERO, []
+    consumed, linked = _linked_lines(session, user_id, first)
+    active = _active_fixed_costs(session, user_id, first, last)
+    for fixed in active:
+        if not is_due_in_month(fixed, first):
+            reserves.append({
+                "fixed_cost_id": fixed.id,
+                "name": fixed.name,
+                "monthly_reserve": (fixed.amount / fixed.interval_months).quantize(Decimal("0.01")),
+                "next_due_date": due_in_month(next_due_month(fixed, first), fixed.due_day),
+            })
+    for fixed in (f for f in active if is_due_in_month(f, first)):
+        match = linked.get(fixed.id)
+        is_linked = match is not None
+        if match is None:
+            match = next(
+                (c for c in _payment_candidates(session, user_id, fixed, first, last)
+                 if (c.transaction_id, c.split_id) not in consumed),
+                None,
+            )
         if match is not None:
             consumed.add((match.transaction_id, match.split_id))
-            paid_actual += -match.amount
+            if first <= match.booking_date <= last:
+                paid_actual += -match.amount
         due = due_in_month(first, fixed.due_day)
         items.append({
             "kind": "fixed",
@@ -183,8 +314,9 @@ def _fixed_items(session: Session, user_id: int, first: date, last: date, today:
             "status": _status(due, match is not None, today),
             "paid_amount": -match.amount if match is not None else None,
             "paid_on": match.booking_date if match is not None else None,
+            "linked": is_linked,
         })
-    return items, paid_actual
+    return items, paid_actual, reserves
 
 
 def _loan_items(session: Session, user_id: int, first: date, last: date, today: date):
@@ -254,7 +386,7 @@ def _flows(session: Session, user_id: int, first: date, last: date) -> tuple[Dec
 def month_budget(session: Session, user_id: int, month: date, today: date) -> dict:
     first = month_start(month)
     last = month_end(first)
-    fixed_items, fixed_paid_actual = _fixed_items(session, user_id, first, last, today)
+    fixed_items, fixed_paid_actual, reserves = _fixed_items(session, user_id, first, last, today)
     loan_items = _loan_items(session, user_id, first, last, today)
     items = sorted(fixed_items + loan_items, key=lambda i: (i["due_date"], i["kind"], i["name"]))
 
@@ -291,6 +423,7 @@ def month_budget(session: Session, user_id: int, month: date, today: date) -> di
         "days_left": days_left,
         "available_per_day": per_day,
         "items": items,
+        "reserves": reserves,
     }
 
 
