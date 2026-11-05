@@ -1,14 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
 import { api, ApiError } from '../api/client'
+import type { ParsedEntry } from '../api/ai'
+import { draftFromParsed, type EntryDraft } from './entryParse'
+import { listen, speechAvailable } from './speech'
 import { fieldErrors } from '../api/messages'
 import { MONEY_AREAS, useAccounts, useApiMutation, useCategories, useTransactions, type Account, type Category } from '../api/hooks'
 import { categoryPath } from '../lib/categoryTree'
-import { todayISO } from '../lib/dates'
+import { fullDate, todayISO } from '../lib/dates'
 import { formatEuro } from '../lib/money'
 import { negate } from '../lib/moneyInput'
 import { Button, ChipGroup, MoneyField, Segmented, SelectField, TextField } from '../ui/controls'
-import { EmptyState } from '../ui/blocks'
+import { EmptyState, Notice } from '../ui/blocks'
 import { Dialog, useToast } from '../ui/overlay'
 
 /**
@@ -113,6 +118,15 @@ function AddEntryDialog({ initialMode, onClose }: { initialMode: Mode; onClose: 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
 
+  // „Beschreiben …“: natürliche Eingabe füllt den Entwurf, gespeichert wird nur über „Speichern“
+  const [describe, setDescribe] = useState('')
+  const [listening, setListening] = useState(false)
+  const [duplicate, setDuplicate] = useState<EntryDraft['duplicate']>(null)
+  const [parseNote, setParseNote] = useState<string | null>(null)
+  const pendingCategory = useRef<number | null | undefined>(undefined)
+  const stopListening = useRef<(() => void) | null>(null)
+  const parse = useMutation({ mutationFn: (text: string) => api.post<ParsedEntry>('/entries/parse', { text }) })
+
   const typed = categories.filter((c) => c.type === (mode === 'income' ? 'income' : 'expense') && !c.system_key)
 
   // Vorbelegung, sobald Konten und Kategorien geladen sind
@@ -125,6 +139,11 @@ function AddEntryDialog({ initialMode, onClose }: { initialMode: Mode; onClose: 
 
   useEffect(() => {
     if (mode === 'transfer') return
+    if (pendingCategory.current !== undefined) {
+      setCategoryId(pendingCategory.current)
+      pendingCategory.current = undefined
+      return
+    }
     const remembered = mode === 'income' ? last.income : last.expense
     setCategoryId(typed.some((c) => c.id === remembered) ? remembered! : null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -171,6 +190,46 @@ function AddEntryDialog({ initialMode, onClose }: { initialMode: Mode; onClose: 
       category_id: categoryId,
     })
   }, MONEY_AREAS)
+
+  function runParse() {
+    const text = describe.trim()
+    if (!text) return
+    setParseNote(null)
+    parse.mutate(text, {
+      onSuccess: (result) => {
+        const d = draftFromParsed(result)
+        const nextMode = d.mode ?? (mode === 'transfer' ? 'expense' : mode)
+        const wanted = d.categoryId !== null && categories.some((c) => c.id === d.categoryId && c.type === (nextMode === 'income' ? 'income' : 'expense'))
+          ? d.categoryId : null
+        if (nextMode !== mode) {
+          pendingCategory.current = wanted
+          setMode(nextMode)
+        } else if (wanted !== null) setCategoryId(wanted)
+        if (d.amount !== null) setAmount(d.amount)
+        if (d.date) setDate(d.date)
+        if (d.accountId && accounts.some((a) => String(a.id) === d.accountId)) setAccountId(d.accountId)
+        if (d.text) setText(d.text)
+        const missing: Record<string, string> = {}
+        if (d.missing.includes('amount')) missing.amount = 'Fehlt noch – bitte ergänzen'
+        if (d.missing.includes('date')) missing.booking_date = 'Fehlt noch – bitte ergänzen'
+        if (d.missing.includes('account')) missing.account_id = 'Fehlt noch – bitte wählen'
+        setErrors(missing)
+        setFormError(null)
+        setDuplicate(d.duplicate)
+        setParseNote(d.missing.length ? 'Bitte die markierten Angaben ergänzen, dann speichern.' : 'Bitte prüfen und speichern.')
+      },
+    })
+  }
+
+  function toggleListening() {
+    if (listening) {
+      stopListening.current?.()
+      return
+    }
+    setListening(true)
+    stopListening.current = listen(setDescribe, () => { setListening(false); stopListening.current = null })
+    if (!stopListening.current) setListening(false)
+  }
 
   function submit() {
     setErrors({})
@@ -236,6 +295,34 @@ function AddEntryDialog({ initialMode, onClose }: { initialMode: Mode; onClose: 
             submit()
           }}
         >
+          <div className="entry-describe">
+            <TextField
+              label="Beschreiben …"
+              value={describe}
+              onChange={setDescribe}
+              placeholder="z. B. gestern 23,50 bei Rewe getankt"
+              maxLength={500}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); runParse() } }}
+            />
+            {speechAvailable() && (
+              <Button icon="sparkle" aria-pressed={listening} onClick={toggleListening}>{listening ? 'Stopp' : 'Sprechen'}</Button>
+            )}
+            <Button icon="sparkle" busy={parse.isPending} disabled={!describe.trim()} onClick={runParse}>Ausfüllen</Button>
+          </div>
+          {parse.isError && (
+            <p className="field-error" role="alert">
+              {parse.error instanceof ApiError && parse.error.code === 'ai_unavailable'
+                ? 'Keine lokale KI eingerichtet – bitte die Felder von Hand ausfüllen.' : parse.error.message}
+            </p>
+          )}
+          {parseNote && !parse.isError && <p className="muted" role="status">{parseNote}</p>}
+          {duplicate && (
+            <Notice tone="due" icon="alert">
+              Ähnliche Buchung gibt es schon: {duplicate.counterparty || duplicate.description || 'Buchung'} am {fullDate(duplicate.booking_date)}
+              {' · '}{formatEuro(duplicate.amount)}{' – '}
+              <Link to={`/buchungen?id=${duplicate.id}`} onClick={onClose}>ansehen</Link>
+            </Notice>
+          )}
           <Segmented<Mode>
             label="Art"
             value={mode}

@@ -6,6 +6,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useProfile } from '../app/ProfileContext'
 import { nextOffset, PAGE_SIZE } from '../pages/buchungen/paging'
+import type { Forecast, MonthComparison } from './ai'
 import { api, type Query, type Schemas } from './client'
 
 export type User = Schemas['UserRead']
@@ -37,10 +38,10 @@ export type MonthReserve = Schemas['MonthReserve']
 export type Area =
   | 'accounts' | 'institutions' | 'categories' | 'transactions' | 'budget' | 'fixed-costs'
   | 'loans' | 'rules' | 'review' | 'imports' | 'import-profiles' | 'watch-folders' | 'reports'
-  | 'suggestions' | 'changes' | 'settings' | 'merchants'
+  | 'suggestions' | 'changes' | 'settings' | 'merchants' | 'expected-incomes' | 'forecast'
 
 /** Buchungen verändern Salden, Spielraum, Prüfliste, Berichte und Kredite. */
-export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans']
+export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans', 'forecast', 'suggestions']
 
 export function useProfileKey() {
   const { profile } = useProfile()
@@ -141,6 +142,7 @@ export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folde
 /** Annehmen/Ablehnen/Rücknahme verändern Fixkosten, Spielraum, Verlauf und die Vorschlagsliste. */
 export const SUGGESTION_AREAS: Area[] = [
   'suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules', 'transactions', 'imports', 'import-profiles', 'merchants',
+  'expected-incomes', 'forecast',
 ]
 
 export const useSuggestions = (query: Query) => useProfileQuery<Suggestion[]>('suggestions', '/suggestions', query)
@@ -160,6 +162,17 @@ export const useFixedCostAmounts = (fixedCostId: number | undefined) =>
   useProfileQuery<Schemas['FixedCostAmountRead'][]>('fixed-costs', `/fixed-costs/${fixedCostId}/amounts`, undefined, {
     enabled: fixedCostId !== undefined,
   })
+
+// --- Erwartete Einnahmen, Vorschau, Monatsvergleich ----------------------------
+
+export type ExpectedIncome = Schemas['ExpectedIncomeRead']
+export const useExpectedIncomes = () => useProfileQuery<ExpectedIncome[]>('expected-incomes', '/expected-incomes')
+/** Kontovorschau bis zum Datum `until` (YYYY-MM-DD); ohne Konto wird nichts geladen. */
+export const useForecast = (accountId: number | null, until: string) =>
+  useProfileQuery<Forecast>('forecast', `/accounts/${accountId ?? 0}/forecast`, { until }, { enabled: accountId !== null })
+export const useMonthComparison = (month: string) =>
+  useProfileQuery<MonthComparison>('reports', '/reports/month-comparison', { month })
+
 export function useProfileSettings() {
   const { profile } = useProfile()
   return useProfileQuery<Record<string, unknown>>('settings', `/users/${profile?.id ?? 0}/settings`)

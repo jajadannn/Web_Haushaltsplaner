@@ -7,6 +7,7 @@ import { Button } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading, Notice, Tile } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
 import { Available, Breakdown, FixedList, LoanSummary, RecentList, ReserveHints } from './parts'
+import { ForecastTile, PaymentHints } from './ForecastTile'
 import './start.css'
 
 const MONTH_NAMES = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
@@ -89,6 +90,9 @@ export function StartPage() {
           {formatEuro(budget.data.uncategorized_in)}
         </Notice>
       )}
+
+      {isCurrent && <PaymentHints />}
+      {isCurrent && <ForecastTile />}
 
       <div className={`start-grid${activeLoans.length ? '' : ' no-loans'}`}>
         <Tile title={`Fixkosten ${monthName}`}>

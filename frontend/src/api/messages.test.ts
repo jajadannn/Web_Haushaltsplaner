@@ -47,3 +47,12 @@ describe('fieldErrors', () => {
     expect(fieldErrors(null)).toEqual({})
   })
 })
+
+describe('KI- und Vorschau-Codes', () => {
+  it('haben eigene Texte', () => {
+    for (const code of ['ai_unavailable', 'ai_invalid_answer', 'ask_invalid_parameters', 'forecast_until_past',
+      'forecast_too_long', 'income_account_type', 'income_category_type', 'month_in_future']) {
+      expect(messageFor(code)).not.toBe('Das hat nicht geklappt.')
+    }
+  })
+})

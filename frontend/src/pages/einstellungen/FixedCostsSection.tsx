@@ -21,7 +21,7 @@ import { FormActions, MasterDetail, Switch } from './MasterDetail'
  *   + Formular rechts mit useFormErrors, useApiMutation, Confirm vor dem Löschen.
  */
 
-const AREAS = ['fixed-costs', 'budget'] as const
+const AREAS = ['fixed-costs', 'budget', 'forecast'] as const
 
 function subline(item: FixedCost, categories: Category[]): string {
   const parts = [categories.find((c) => c.id === item.category_id)?.name ?? 'ohne Kategorie']

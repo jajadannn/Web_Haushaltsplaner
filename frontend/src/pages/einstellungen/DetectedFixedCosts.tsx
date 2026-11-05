@@ -13,7 +13,7 @@ import { useToast } from '../../ui/overlay'
 import { useFormErrors } from '../../ui/useFormErrors'
 import { parseAiHint } from './merchants'
 import {
-  INTERVAL_OPTIONS, intervalLabel, parseEvidence, parseFixedCostPayload, sortSuggestions, statusNote,
+  INTERVAL_OPTIONS, intervalLabel, parseAnnualCost, parseEvidence, parseFixedCostPayload, sortSuggestions, statusNote,
   type FixedCostPayload,
 } from './suggestions'
 
@@ -23,6 +23,7 @@ const SHOWN = ['open', 'dry_run', 'auto_applied']
 export function DetectedFixedCosts() {
   const toast = useToast()
   const list = useSuggestions({ kind: 'fixed_cost_new' })
+  const annualList = useSuggestions({ kind: 'annual_cost' })
   const categories = useCategories({ type: 'expense' })
   const accounts = useAccounts()
   const [editing, setEditing] = useState<number | null>(null)
@@ -34,7 +35,8 @@ export function DetectedFixedCosts() {
   const reject = useApiMutation((id: number) => api.post(`/suggestions/${id}/reject`), SUGGESTION_AREAS)
   const revert = useApiMutation((id: number) => api.post(`/suggestions/${id}/revert`), SUGGESTION_AREAS)
 
-  const shown = sortSuggestions((list.data ?? []).filter((s) => SHOWN.includes(s.status)))
+  const annualIds = new Set((annualList.data ?? []).map((s) => s.id))
+  const shown = sortSuggestions([...(list.data ?? []), ...(annualList.data ?? [])].filter((s) => SHOWN.includes(s.status)))
 
   return (
     <section className="settings-section detected" aria-labelledby="detected-title">
@@ -52,7 +54,7 @@ export function DetectedFixedCosts() {
         })}>Jetzt prüfen</Button>
       </header>
       <div className="tile">
-        {list.isLoading && <Loading />}
+        {(list.isLoading || annualList.isLoading) && <Loading />}
         {list.isError && <ErrorBox error={list.error} onRetry={() => list.refetch()} />}
         {list.isSuccess && shown.length === 0 && (
           <EmptyState icon="search" title="Keine Vorschläge">
@@ -74,7 +76,7 @@ export function DetectedFixedCosts() {
                 />
               ) : (
                 <SuggestionCard
-                  suggestion={s} busy={accept.isPending || reject.isPending || revert.isPending}
+                  suggestion={s} annual={annualIds.has(s.id)} busy={accept.isPending || reject.isPending || revert.isPending}
                   onAccept={() => accept.mutate({ id: s.id }, { onSuccess: () => toast.ok('Fixkost angelegt'), onError: toast.error })}
                   onEdit={() => setEditing(s.id)}
                   onReject={() => reject.mutate(s.id, { onSuccess: () => toast.ok('Vorschlag abgelehnt'), onError: toast.error })}
@@ -89,8 +91,9 @@ export function DetectedFixedCosts() {
   )
 }
 
-function SuggestionCard({ suggestion: s, busy, onAccept, onEdit, onReject, onRevert }: {
+function SuggestionCard({ suggestion: s, annual, busy, onAccept, onEdit, onReject, onRevert }: {
   suggestion: Suggestion
+  annual: boolean
   busy: boolean
   onAccept: () => void
   onEdit: () => void
@@ -98,18 +101,20 @@ function SuggestionCard({ suggestion: s, busy, onAccept, onEdit, onReject, onRev
   onRevert: () => void
 }) {
   const p = parseFixedCostPayload(s.payload)
+  const expectedDate = annual ? parseAnnualCost(s.payload).expectedDate : null
   const evidence = parseEvidence(s.evidence)
   const note = statusNote(s.status)
   const ai = parseAiHint(s.payload)
   return (
     <div className="detected-card">
       <div className="detected-top">
-        <strong>{p.name || 'Fixkost'}</strong>
+        <strong>{p.name || 'Fixkost'}{annual && <span className="chip small"> Jahresposten prüfen</span>}</strong>
         <span className="money">{p.amount ? formatEuro(p.amount) : '–'}</span>
       </div>
       <p className="muted">
         {intervalLabel(p.intervalMonths)} · am {p.dueDay}.
         {p.firstDueDate && ` · erste Fälligkeit ${fullDate(p.firstDueDate)}`}
+        {expectedDate && ` · nächste Zahlung erwartet ${fullDate(expectedDate)}`}
       </p>
       {ai && (
         <p className="muted" role="note">

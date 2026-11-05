@@ -72,3 +72,79 @@ export function statusNote(status: string): string | null {
   if (status === 'auto_applied') return 'automatisch angelegt'
   return null
 }
+
+const money = (v: unknown): string | null => (typeof v === 'number' ? String(v) : str(v))
+
+export interface IncomeSeriesPayload {
+  name: string
+  amount: string | null
+  amountMin: string | null
+  amountMax: string | null
+  intervalMonths: number
+  dueDay: number
+  firstDueDate: string | null
+  accountId: number | null
+  categoryId: number | null
+  matchText: string | null
+}
+
+/** Vorschlag „erwartete Einnahme“ (Gehalt, Rente, Miete …). */
+export function parseIncomeSeries(payload: Loose): IncomeSeriesPayload {
+  return {
+    name: str(payload.name) ?? '',
+    amount: money(payload.amount),
+    amountMin: money(payload.amount_min),
+    amountMax: money(payload.amount_max),
+    intervalMonths: num(payload.interval_months) ?? 1,
+    dueDay: num(payload.due_day) ?? 1,
+    firstDueDate: str(payload.first_due_date),
+    accountId: num(payload.account_id),
+    categoryId: num(payload.category_id),
+    matchText: str(payload.match_text),
+  }
+}
+
+export interface AnnualCostPayload extends FixedCostPayload {
+  expectedDate: string | null
+}
+
+/** Vorschlag „Jahresposten prüfen“ – wird wie eine Fixkost angelegt. */
+export function parseAnnualCost(payload: Loose): AnnualCostPayload {
+  return { ...parseFixedCostPayload(payload), intervalMonths: 12, expectedDate: str(payload.expected_date) }
+}
+
+export interface UnusualPayload {
+  type: 'duplicate' | 'high'
+  name: string
+  month: string | null
+  amount: string | null
+  paidAmount: string | null
+}
+
+export function parseUnusual(payload: Loose): UnusualPayload {
+  return {
+    type: payload.type === 'duplicate' ? 'duplicate' : 'high',
+    name: str(payload.name) ?? 'Zahlung',
+    month: str(payload.month),
+    amount: money(payload.amount),
+    paidAmount: money(payload.paid_amount),
+  }
+}
+
+export interface MissingPaymentPayload {
+  fixedCostId: number | null
+  name: string
+  amount: string | null
+  dueDate: string | null
+  month: string | null
+}
+
+export function parseMissingPayment(payload: Loose): MissingPaymentPayload {
+  return {
+    fixedCostId: num(payload.fixed_cost_id),
+    name: str(payload.name) ?? 'Fixkost',
+    amount: money(payload.amount),
+    dueDate: str(payload.due_date),
+    month: str(payload.month),
+  }
+}
