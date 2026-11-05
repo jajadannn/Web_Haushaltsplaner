@@ -413,8 +413,8 @@ def work_queue(
 
 
 def start_in_background(engine: Engine) -> threading.Event | None:
-    """Startet den KI-Thread, falls AI_URL gesetzt ist; liefert das Stopp-Signal."""
-    if not get_settings().ai_url:
+    """Startet den KI-Thread, falls ein KI-Server eingerichtet ist; liefert das Stopp-Signal."""
+    if not ai_gateway.enabled():
         log.info("Lokale KI aus (AI_URL nicht gesetzt)")
         return None
     stop = threading.Event()

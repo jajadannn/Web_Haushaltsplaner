@@ -97,7 +97,7 @@ docker compose logs -f app worker                # Protokolle
 docker compose up -d --build app worker          # nach einem Update neu bauen
 ```
 
-- **Daten:** Datenbank im Volume `pgdata`, Import-Verzeichnis im Volume `imports` (gemeinsam für `app` und `worker`).
+- **Daten:** Datenbank im Volume `pgdata`, Import-Verzeichnis im Volume `imports`, hochgeladene Belege und Verträge im Volume `documents` (jeweils gemeinsam für `app` und `worker`).
 - **Watch-Ordner:** Dateien gelangen über `docker compose cp <datei> worker:/data/imports/inbox/<ordner>/` hinein, oder man ersetzt das Volume `imports` durch einen Ordner auf dem Rechner (der Container läuft als UID 1000).
 - **Sicherung:** `docker compose exec db pg_dump -U postgres -Fc finanzplaner > finanzplaner.dump`.
 - **Zugangsdaten:** Das Datenbank-Passwort `postgres` aus `docker-compose.yml` vor dem ersten Start ändern (in `db` und in `DATABASE_URL`).

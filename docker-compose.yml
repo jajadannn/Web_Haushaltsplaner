@@ -27,14 +27,24 @@ services:
     environment: &app-env
       DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/finanzplaner
       TIMEZONE: Europe/Berlin
-      # Lokale KI für die Prüfliste – Werte aus einer .env neben dieser Datei, leer = aus
+      # Lokale KI – Werte aus einer .env neben dieser Datei, leer = aus
       AI_URL: ${AI_URL:-}
       AI_MODEL: ${AI_MODEL:-gemma4:e2b}
+      AI_VISION_MODEL: ${AI_VISION_MODEL:-}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-300}
+      AI_PARALLEL: ${AI_PARALLEL:-4}
+      # Zweiter KI-Server (Priorität 2), übernimmt bei Ausfall des ersten; leer = aus
+      AI_URL_2: ${AI_URL_2:-}
+      AI_MODEL_2: ${AI_MODEL_2:-}
+      AI_VISION_MODEL_2: ${AI_VISION_MODEL_2:-}
+      AI_FAILOVER_COOLDOWN_SECONDS: ${AI_FAILOVER_COOLDOWN_SECONDS:-60}
+      AI_CONNECT_TIMEOUT_SECONDS: ${AI_CONNECT_TIMEOUT_SECONDS:-5}
     ports:
       # Im Heimnetz erreichbar: http://<rechner>:8000/ und /wand
       - "8000:8000"
     volumes:
       - imports:/data/imports
+      - documents:/data/documents
     depends_on:
       db:
         condition: service_healthy
@@ -49,6 +59,7 @@ services:
     environment: *app-env
     volumes:
       - imports:/data/imports
+      - documents:/data/documents
     depends_on:
       app:
         condition: service_healthy
@@ -56,3 +67,4 @@ services:
 volumes:
   pgdata:
   imports:
+  documents:

@@ -2,7 +2,6 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response
 
-from app.config import get_settings
 from app.deps import CurrentUser, SessionDep
 from app.models import ReviewStatus
 from app.schemas.rule import (
@@ -133,13 +132,12 @@ def confirm_all(session: SessionDep, user: CurrentUser):
 @router.get("/review/ai", response_model=AiStatus, tags=["Prüfliste"])
 def ai_status(session: SessionDep, user: CurrentUser):
     """Ob die lokale KI eingerichtet und erreichbar ist und wie viele Buchungen sie noch prüft."""
-    settings = get_settings()
-    enabled = bool(settings.ai_url)
-    endpoints = ai_gateway.status() if enabled else []
+    endpoints = ai_gateway.status()  # jeder Server genau einmal geprüft
+    enabled = bool(endpoints)
     return AiStatus(
         enabled=enabled,
-        model=settings.ai_model if enabled else None,
-        reachable=ai_review.reachable() if enabled else None,
+        model=endpoints[0]["model"] if enabled else None,
+        reachable=any(e["reachable"] for e in endpoints) if enabled else None,
         pending=ai_review.pending_count(session, user),
         endpoints=endpoints,
     )

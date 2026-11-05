@@ -82,24 +82,21 @@ def enabled() -> bool:
     return bool(endpoints())
 
 
-# Ausfallzustand je Server-Adresse: bis wann er übersprungen wird; zuletzt genutzte Priorität
+# Ausfallzustand je Server-Adresse: bis wann er übersprungen wird
 _down: dict[str, float] = {}
-_last: dict[str, int | None] = {"priority": None}
 _current: ContextVar[str | None] = ContextVar("ai_endpoint", default=None)
+# Server, der die letzte Anfrage in diesem Kontext beantwortet hat (threadsicher, für den Zwischenspeicher)
+_answered: ContextVar[Endpoint | None] = ContextVar("ai_answered", default=None)
 
 
 def _now() -> float:
     return time.monotonic()
 
 
-def reset_health() -> None:
-    _down.clear()
-    _last["priority"] = None
-
-
-def last_endpoint() -> int | None:
-    """Priorität des Servers, der die letzte Anfrage beantwortet hat."""
-    return _last["priority"]
+def usable_endpoints() -> list[Endpoint]:
+    """Eingerichtete Server, die gerade nicht in der Abkühlzeit sind – in Prioritätsreihenfolge."""
+    now = _now()
+    return [e for e in endpoints() if _down.get(e.url, 0.0) <= now]
 
 
 def _http(url: str, body: dict | None, timeout: float) -> dict:
@@ -117,12 +114,12 @@ def _post(path: str, body: dict | None, timeout: float) -> dict:
 
 def _connectable(url: str) -> bool:
     """Lässt sich eine TCP-Verbindung zum Server aufbauen? (kurzes Zeitlimit)"""
-    parts = urllib.parse.urlsplit(url)
-    port = parts.port or (443 if parts.scheme == "https" else 80)
     try:
+        parts = urllib.parse.urlsplit(url)
+        port = parts.port or (443 if parts.scheme == "https" else 80)  # ValueError bei vertipptem Port
         socket.create_connection((parts.hostname, port), timeout=get_settings().ai_connect_timeout_seconds).close()
         return True
-    except OSError:  # auch TimeoutError, ConnectionRefusedError, Namensauflösung
+    except (OSError, ValueError):  # auch TimeoutError, ConnectionRefusedError, Namensauflösung, Adressfehler
         return False
 
 
@@ -136,6 +133,7 @@ def check(endpoint: Endpoint) -> bool:
 
 
 def status() -> list[dict]:
+    """Alle eingerichteten Server mit Erreichbarkeit – jeder genau einmal geprüft."""
     return [{"priority": e.priority, "url": e.url, "model": e.model, "vision_model": e.vision_model,
              "reachable": check(e)} for e in endpoints()]
 
@@ -204,19 +202,15 @@ def _call(endpoint: Endpoint, messages: list[dict], schema: dict, model: str, po
         raise AiUnavailable(str(exc)) from exc
 
 
-def complete(
+def _complete(
     messages: Messages, schema: dict, *, model: str | None = None, post: Post | None = None, vision: bool = False
-) -> str:
-    """Eine Chat-Anfrage mit erzwungenem JSON-Schema; liefert den Antworttext.
-
-    `messages` darf eine Funktion der Schnittstelle („openai“/„ollama“) sein, wenn das Format je Server
-    verschieden ist (Bilder). Fällt ein Server aus, wird der nächste in Prioritätsreihenfolge gefragt.
-    """
-    available = endpoints()
-    if not available:
+) -> tuple[str, Endpoint]:
+    if not endpoints():
         raise AiUnavailable("Keine KI eingerichtet (AI_URL)")
-    now = _now()
-    usable = [e for e in available if _down.get(e.url, 0.0) <= now] or available
+    usable = usable_endpoints()
+    if not usable:  # alle in der Abkühlzeit: nicht erneut warten, später wieder versuchen
+        wait = max(0.0, min(_down.values()) - _now())
+        raise AiUnavailable(f"Alle KI-Server sind nicht erreichbar – nächster Versuch in {wait:.0f} s")
     errors = []
     for endpoint in usable:
         chosen = model or (endpoint.vision_model if vision else endpoint.model)
@@ -233,9 +227,22 @@ def complete(
         finally:
             _current.reset(token)
         _down.pop(endpoint.url, None)
-        _last["priority"] = endpoint.priority
-        return result
+        return result, endpoint
     raise AiUnavailable("; ".join(errors))
+
+
+def complete(
+    messages: Messages, schema: dict, *, model: str | None = None, post: Post | None = None, vision: bool = False
+) -> str:
+    """Eine Chat-Anfrage mit erzwungenem JSON-Schema; liefert den Antworttext.
+
+    `messages` darf eine Funktion der Schnittstelle („openai“/„ollama“) sein, wenn das Format je Server
+    verschieden ist (Bilder). Fällt ein Server aus, wird der nächste in Prioritätsreihenfolge gefragt;
+    sind alle in der Abkühlzeit, wird sofort abgebrochen.
+    """
+    content, endpoint = _complete(messages, schema, model=model, post=post, vision=vision)
+    _answered.set(endpoint)
+    return content
 
 
 def data_block(data: Any) -> str:
@@ -261,22 +268,28 @@ def validate(content: str, schema: dict) -> dict:
     return answer
 
 
-def _cache_key(task: str, data: Any, schema: dict, model: str) -> str:
-    raw = json.dumps([task, data, schema, model], ensure_ascii=False, default=str, sort_keys=True)
+def _cache_key(task: str, data: Any, schema: dict, endpoint: Endpoint) -> str:
+    raw = json.dumps([task, data, schema, endpoint.url, endpoint.model], ensure_ascii=False, default=str,
+                     sort_keys=True)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def ask(task: str, data: Any, schema: dict, *, session: Session | None = None) -> dict:
-    """Strukturierte Antwort zu `data`; mit `session` zwischengespeichert."""
-    model = get_settings().ai_model
-    key = _cache_key(task, data, schema, model)
-    if session is not None:
-        cached = session.get(AiCache, key)
+    """Strukturierte Antwort zu `data`; mit `session` zwischengespeichert.
+
+    Der Speicher gilt je Server und Modell. Nachgesehen wird nur für den Server, der jetzt gefragt würde –
+    ist Priorität 1 wieder da, kommen keine gespeicherten Antworten von Priorität 2.
+    """
+    usable = usable_endpoints()
+    if session is not None and usable:
+        cached = session.get(AiCache, _cache_key(task, data, schema, usable[0]))
         if cached is not None:
             return cached.result
+    _answered.set(None)
     answer = validate(complete(build(task, data), schema), schema)
+    endpoint = _answered.get() or (usable or endpoints())[0]
     if session is not None:
-        session.merge(AiCache(key=key, result=answer))
+        session.merge(AiCache(key=_cache_key(task, data, schema, endpoint), result=answer))
         session.flush()
     return answer
 
