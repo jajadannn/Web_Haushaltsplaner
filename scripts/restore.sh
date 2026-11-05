@@ -138,7 +138,7 @@ if [ -n "$IMPORT_TAR" ]; then
   TAR_LISTE=$(tar -tf "$IMPORT_TAR") || fehler "Das Import-Archiv ist nicht lesbar: $IMPORT_TAR"
   # Erwartet wird ein Archiv von backup.sh: nur inbox/, processing/, failed/, archive/ (ohne "./" davor),
   # keine absoluten Pfade und kein "..".
-  FREMD=$(printf '%s\n' "$TAR_LISTE" | grep -v -E '^(inbox|processing|failed|archive)(/|$)' || true)
+  FREMD=$(printf '%s\n' "$TAR_LISTE" | grep -v -E '^(inbox|processing|failed|archive|documents)(/|$)' || true)
   UNSICHER=$(printf '%s\n' "$TAR_LISTE" | grep -E '^/|(^|/)\.\.(/|$)' || true)
   if [ -n "$FREMD" ] || [ -n "$UNSICHER" ]; then
     fehler "Das Import-Archiv stammt nicht von backup.sh (unerwarteter Pfad: '$(printf '%s\n%s\n' "$FREMD" "$UNSICHER" | grep -v '^$' | head -n 1)'). Es wurde nichts verändert."
@@ -222,6 +222,11 @@ if [ -n "$IMPORT_TAR" ]; then
     info "Entpacke $TAR_ANZAHL Import-Datei(en) nach '$IMPORT_DIR' ..."
     # Jeder Ordner wird einzeln entpackt (-C <ordner> --strip-components=1). So funktioniert es auch, wenn
     # z. B. archive/ im Ziel ein Symlink auf eine andere Platte ist (tar ersetzt ihn dann nicht).
+    if grep -q -E "^documents(/|\$)" <<<"$TAR_LISTE"; then
+      info "Entpacke Belege nach '$DOCUMENT_DIR' ..."
+      { mkdir -p "$DOCUMENT_DIR" && tar -xf "$IMPORT_TAR" -C "$DOCUMENT_DIR" --strip-components=1 --no-same-owner documents; } \
+        || fehler "Entpacken der Belege nach '$DOCUMENT_DIR' ist fehlgeschlagen. Die Datenbank wurde bereits wiederhergestellt; das Archiv erneut entpacken."
+    fi
     for d in inbox processing failed archive; do
       if grep -q -E "^$d(/|\$)" <<<"$TAR_LISTE"; then
         { mkdir -p "$IMPORT_DIR/$d" && tar -xf "$IMPORT_TAR" -C "$IMPORT_DIR/$d" --strip-components=1 --no-same-owner "$d"; } \

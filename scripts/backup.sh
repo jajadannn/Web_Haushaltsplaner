@@ -11,6 +11,7 @@
 # Konfiguration (Umgebungsvariable vor .env vor Standard):
 #   DATABASE_URL  postgresql+psycopg://user[:pass]@host:port/db   (wie in .env)
 #   IMPORT_DIR    Import-Ordner mit inbox/ processing/ archive/ failed/   (Standard: imports)
+#   DOCUMENT_DIR  hochgeladene Belege und Verträge, im Archiv als documents/  (Standard: documents)
 #   PG_BIN        Ordner mit pg_dump/psql/...   (Standard: .pg/bin, falls vorhanden, sonst PATH)
 # Relative Werte von DATABASE_URL/IMPORT_DIR/PG_BIN gelten ab der Projektwurzel, ein relativer
 # ZIELORDNER ab dem aktuellen Ordner. Das Passwort aus DATABASE_URL wird nie ausgegeben.
@@ -136,7 +137,12 @@ else
   # -h: Symlinks werden aufgelöst. Sonst würde ein per Symlink eingebundener Ordner (z. B. archive/ auf
   # einer anderen Platte) nur als Verweis ins Archiv kommen und die Originale fehlten still.
   tar_rc=0
-  tar -czhf "$TMP/$TAR_NAME" -C "$IMPORT_DIR" "${UNTERORDNER[@]}" || tar_rc=$?
+  # Belege und Verträge (DOCUMENT_DIR) kommen als Ordner "documents/" mit ins Archiv
+  BELEGE=()
+  if [ -d "$DOCUMENT_DIR" ]; then
+    BELEGE=(-C "$(dirname "$DOCUMENT_DIR")" --transform "s,^$(basename "$DOCUMENT_DIR"),documents," "$(basename "$DOCUMENT_DIR")")
+  fi
+  tar -czhf "$TMP/$TAR_NAME" -C "$IMPORT_DIR" "${UNTERORDNER[@]}" "${BELEGE[@]}" || tar_rc=$?
   tar_gnu=0
   case $(tar --version 2>/dev/null || true) in *"GNU tar"*) tar_gnu=1 ;; esac
   if [ "$tar_rc" -eq 1 ] && [ "$tar_gnu" -eq 1 ]; then

@@ -10,6 +10,7 @@ from app.routers import (
     assistant,
     budget,
     categories,
+    documents,
     imports,
     institutions,
     loans,
@@ -48,7 +49,7 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
     routers = (users, institutions, accounts, categories, transactions, loans, imports, rules, reports, budget,
-               suggestions, merchants, outlook, assistant)
+               suggestions, merchants, outlook, assistant, documents)
     for module in routers:
         app.include_router(module.router)
 

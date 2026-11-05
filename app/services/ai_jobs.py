@@ -32,10 +32,18 @@ BACKOFF_SECONDS = 60.0
 
 
 @dataclass
+class Image:
+    """Bild für das Bildmodell (z. B. Foto eines Belegs) statt Textdaten."""
+
+    content: bytes
+    mime: str
+    data: Any = None
+
+
+@dataclass
 class Task:
-    prepare: Callable[[Session, AiJob], tuple[str, Any, dict] | None]
+    prepare: Callable[[Session, AiJob], tuple[str, Any, dict] | None]  # Daten oder Image
     finish: Callable[[Session, AiJob, dict], dict | None]
-    vision: bool = False  # prepare liefert dann (Aufgabe, (bytes, mime, daten), Schema)
 
 
 TASKS: dict[str, Task] = {}
@@ -102,9 +110,8 @@ def run_one(session: Session) -> bool | None:
             return True
         what, data, schema = prepared
         session.commit()  # keine offene Transaktion, während die KI rechnet
-        if task.vision:
-            image, mime, extra = data
-            answer = ai_gateway.ask_vision(what, image, mime, schema, data=extra)
+        if isinstance(data, Image):
+            answer = ai_gateway.ask_vision(what, data.content, data.mime, schema, data=data.data)
         else:
             answer = ai_gateway.ask(what, data, schema, session=session)
         job = session.get(AiJob, job.id, populate_existing=True)

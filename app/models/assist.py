@@ -213,3 +213,63 @@ class Contract(SQLModel, table=True):
     notice_period: str | None = Field(default=None, max_length=100)  # aus Dokumenten (Idee 15)
     term_end: str | None = Field(default=None, max_length=40)
     created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class RefundLink(SQLModel, table=True):
+    """Erstattung ↔ ursprüngliche Ausgabe (Idee 06); eine Erstattung gehört zu höchstens einer Ausgabe."""
+
+    __tablename__ = "refund_link"
+    __table_args__ = (UniqueConstraint("refund_transaction_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_user.id", ondelete="CASCADE")
+    refund_transaction_id: int = Field(foreign_key="transaction.id", ondelete="CASCADE")
+    original_transaction_id: int = Field(foreign_key="transaction.id", ondelete="CASCADE")
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class DocumentKind(StrEnum):
+    RECEIPT = "receipt"
+    INVOICE = "invoice"
+    CONTRACT = "contract"
+
+
+class DocumentStatus(StrEnum):
+    PENDING = "pending"
+    EXTRACTED = "extracted"
+    FAILED = "failed"
+
+
+class Document(SQLModel, table=True):
+    """Hochgeladener Beleg, Rechnung oder Vertrag (Ideen 14/15). Die Datei liegt unter DOCUMENT_DIR."""
+
+    __tablename__ = "document"
+    __table_args__ = (
+        UniqueConstraint("user_id", "sha256"),
+        enum_check("kind", DocumentKind),
+        enum_check("status", DocumentStatus),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_user.id", ondelete="CASCADE")
+    kind: str = Field(sa_column=enum_column(20))
+    original_filename: str = Field(max_length=255)
+    stored_path: str = Field(max_length=500)  # relativ zu DOCUMENT_DIR
+    sha256: str = Field(max_length=64)
+    mime: str = Field(max_length=100)
+    size: int
+    status: str = Field(default=DocumentStatus.PENDING, sa_column=enum_column(20))
+    extracted: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
+    error: str | None = Field(default=None, max_length=500)
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class DocumentLink(SQLModel, table=True):
+    __tablename__ = "document_link"
+
+    id: int | None = Field(default=None, primary_key=True)
+    document_id: int = Field(foreign_key="document.id", ondelete="CASCADE")
+    transaction_id: int | None = Field(default=None, foreign_key="transaction.id", ondelete="CASCADE")
+    fixed_cost_id: int | None = Field(default=None, foreign_key="fixed_cost.id", ondelete="CASCADE")
+    contract_id: int | None = Field(default=None, foreign_key="contract.id", ondelete="CASCADE")
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
