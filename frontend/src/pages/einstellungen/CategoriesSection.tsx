@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { api } from '../../api/client'
+import { descendantIds, flattenCategoryTree } from '../../lib/categoryTree'
 import { useApiMutation, useCategories, type Category } from '../../api/hooks'
 import { Button, Checkbox, Segmented, SelectField, TextField } from '../../ui/controls'
 import { Confirm, Dialog, useToast } from '../../ui/overlay'
@@ -15,12 +16,10 @@ const TYPE_OPTIONS: { value: CategoryType; label: string }[] = [
   { value: 'income', label: 'Einnahmen' },
 ]
 
-/** Eltern direkt gefolgt von ihren Unterkategorien (alphabetisch, wie vom Backend geliefert). */
-function ordered(all: Category[], type: CategoryType): Category[] {
-  const ofType = all.filter((c) => c.type === type)
-  const ids = new Set(ofType.map((c) => c.id))
-  const roots = ofType.filter((c) => c.parent_id === null || !ids.has(c.parent_id))
-  return roots.flatMap((r) => [r, ...ofType.filter((c) => c.parent_id === r.id)])
+/** Eltern direkt gefolgt von ihren Nachkommen – rekursiv, beliebig tief. */
+function ordered(all: Category[], type: CategoryType): { items: Category[]; depth: Map<number, number> } {
+  const flat = flattenCategoryTree(all.filter((c) => c.type === type))
+  return { items: flat.map((n) => n.item), depth: new Map(flat.map((n) => [n.item.id, n.depth])) }
 }
 
 export function CategoriesSection() {
@@ -28,7 +27,8 @@ export function CategoriesSection() {
   const toast = useToast()
   const [type, setType] = useState<CategoryType>('expense')
   const all = list.data ?? []
-  const items = useMemo(() => (list.data ? ordered(list.data, type) : undefined), [list.data, type])
+  const tree = useMemo(() => (list.data ? ordered(list.data, type) : undefined), [list.data, type])
+  const items = tree?.items
   const toggle = useApiMutation(
     (item: Category) => api.patch(`/categories/${item.id}`, { active: !item.active }),
     [...AREAS],
@@ -54,7 +54,8 @@ export function CategoriesSection() {
       formTitle={(item) => item?.name ?? 'Neue Kategorie'}
       renderRow={(item) => (
         <>
-          <span className={`row-main${item.parent_id ? ' settings-child' : ''}`}>
+          <span className={`row-main${item.parent_id ? ' settings-child' : ''}`}
+            style={(tree?.depth.get(item.id) ?? 0) > 1 ? { paddingLeft: `${28 + ((tree?.depth.get(item.id) ?? 0) - 1) * 20}px` } : undefined}>
             <strong>{item.name}</strong>
             <span>
               {item.system_key ? 'Systemkategorie' : item.parent_id ? `unter ${all.find((c) => c.id === item.parent_id)?.name ?? '…'}` : 'Hauptkategorie'}
@@ -89,8 +90,9 @@ function CategoryForm({ item, all, defaultType, done }: { item: Category | null;
   const [targetId, setTargetId] = useState('')
 
   const system = item?.system_key != null
-  const hasChildren = item ? all.some((c) => c.parent_id === item.id) : false
-  const parents = all.filter((c) => c.type === type && c.parent_id === null && c.id !== item?.id && (c.active || String(c.id) === parentId))
+  // Elternkategorie: jede Kategorie gleicher Art außer der Kategorie selbst und ihren Nachkommen
+  const blocked = item ? descendantIds(all, item.id) : new Set<number>()
+  const parents = flattenCategoryTree(all.filter((c) => c.type === type && !blocked.has(c.id) && (c.active || String(c.id) === parentId)))
   const targets = all.filter((c) => item && c.type === item.type && c.id !== item.id && c.active && c.system_key === null)
 
   const save = useApiMutation(
@@ -136,11 +138,9 @@ function CategoryForm({ item, all, defaultType, done }: { item: Category | null;
           { value: 'expense', label: 'Ausgabe' }, { value: 'income', label: 'Einnahme' },
         ]} />
       )}
-      {!hasChildren && (
-        <SelectField label="Gehört zu (optional)" value={parentId} onChange={setParentId} placeholder="Hauptkategorie"
-          options={parents.map((c) => ({ value: String(c.id), label: c.name }))} error={form.errors.parent_id}
-          hint="Unterkategorien erscheinen eingerückt unter ihrer Hauptkategorie." />
-      )}
+      <SelectField label="Gehört zu (optional)" value={parentId} onChange={setParentId} placeholder="Hauptkategorie"
+        options={parents.map((n) => ({ value: String(n.item.id), label: `${'– '.repeat(n.depth)}${n.item.name}` }))} error={form.errors.parent_id}
+        hint="Unterkategorien erscheinen eingerückt unter ihrer Hauptkategorie." />
       {item && <Checkbox label="aktiv" checked={active} onChange={setActive} hint="Inaktive Kategorien lassen sich nicht mehr neu vergeben." />}
       {form.formError && <p className="field-error" role="alert">{form.formError}</p>}
       <FormActions
@@ -179,7 +179,7 @@ function CategoryForm({ item, all, defaultType, done }: { item: Category | null;
                 Alle Buchungen, Regeln und Fixkosten von „{item.name}“ wandern in die Zielkategorie. „{item.name}“ wird danach gelöscht.
               </p>
               <SelectField label="Zielkategorie" value={targetId} onChange={setTargetId} placeholder="Bitte wählen"
-                options={targets.map((c) => ({ value: String(c.id), label: c.name }))} error={form.errors.target} />
+                options={flattenCategoryTree(targets).map((n) => ({ value: String(n.item.id), label: `${'– '.repeat(n.depth)}${n.item.name}` }))} error={form.errors.target} />
             </div>
           </Dialog>
         </>

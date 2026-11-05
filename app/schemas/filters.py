@@ -23,6 +23,10 @@ class TransactionFilter(BaseModel):
     )
     kind: TransactionKind | None = None
     review_status: ReviewStatus | None = None
+    unconfirmed: bool | None = Field(
+        default=None,
+        description="true: noch nicht vom Nutzer bestätigt (ohne Kategorie oder automatischer Vorschlag)",
+    )
     source: TransactionSource | None = None
     search: str | None = Field(default=None, max_length=200)
     amount_min: Money | None = None

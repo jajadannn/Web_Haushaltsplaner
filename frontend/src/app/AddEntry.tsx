@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { fieldErrors } from '../api/messages'
 import { MONEY_AREAS, useAccounts, useApiMutation, useCategories, useTransactions, type Account, type Category } from '../api/hooks'
+import { categoryPath } from '../lib/categoryTree'
 import { todayISO } from '../lib/dates'
 import { formatEuro } from '../lib/money'
 import { negate } from '../lib/moneyInput'
@@ -89,8 +90,7 @@ function bookable(accounts: Account[] | undefined): Account[] {
 }
 
 function categoryLabel(category: Category, all: Category[]): string {
-  const parent = category.parent_id ? all.find((c) => c.id === category.parent_id) : undefined
-  return parent ? `${parent.name} › ${category.name}` : category.name
+  return categoryPath(all, category.id) || category.name
 }
 
 function AddEntryDialog({ initialMode, onClose }: { initialMode: Mode; onClose: () => void }) {

@@ -4,19 +4,23 @@ Frei verfügbar = Einnahmen − Fixkosten − variable Ausgaben (je Profil und K
 
 - Einnahmen: reguläre Zeilen in Einnahmen-Kategorien (Rückzahlungen mindern sie).
   Unkategorisierte Eingänge zählen nicht mit, sie werden als `uncategorized_in` gezeigt.
-- Fixkosten: aktive Fixkosten mit ihrem geplanten Betrag plus alle im Monat fälligen
-  Kreditraten (Zins + Tilgung + Gebühren) – das Geld ist eingeplant, ob schon bezahlt oder nicht.
-- Variable Ausgaben: Ausgaben-Kategorien und unkategorisierte Abflüsse, abzüglich der
-  Zahlungen, die einer Fixkost zugeordnet sind, und der Zins-/Gebührenanteile gebuchter
-  Kreditraten (beides steckt schon in den Fixkosten). Tilgungen sind Umbuchungen und
-  zählen ohnehin nicht als Ausgabe.
+- Fixkosten: aktive Fixkosten und im Monat fällige Kreditraten. Offene Posten zählen mit
+  ihrem Planbetrag (das Geld ist reserviert), bezahlte mit dem TATSÄCHLICH gezahlten Betrag –
+  eine Mehrzahlung verschwindet so nicht, eine geringere Zahlung gibt den Rest frei
+  (eine erkannte Zahlung erledigt den Posten, auch als Teilzahlung).
+- Variable Ausgaben: alle tatsächlichen Abflüsse des Monats (Ausgaben-Kategorien,
+  unkategorisierte Abflüsse und Kreditzahlungen samt Tilgung), soweit sie nicht schon als
+  bezahlter Posten in den Fixkosten stehen. Eine Kreditrate, die erst im Folgemonat bezahlt
+  wird, gilt im Fälligkeitsmonat als bezahlt und belastet den Zahlungsmonat als Abfluss;
+  Zahlungen auf Kredite ohne Plan sind immer variable Abflüsse.
+- Kreditbuchungen (Rate oder Kreditkonto) werden nie einer gewöhnlichen Fixkost zugeordnet.
 """
 
 import calendar
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, exists, not_, or_
 from sqlmodel import Session, func, select
 
 from app.errors import Invalid
@@ -29,6 +33,7 @@ from app.models import (
     LoanScheduleEntry,
     ScheduleStatus,
     Transaction,
+    TransactionSource,
     User,
     transaction_line,
 )
@@ -135,6 +140,9 @@ def _payment_candidates(session: Session, user_id: int, fixed: FixedCost, first:
             L.excluded_at.is_(None),
             L.amount < 0,
             L.booking_date.between(first, last),
+            # Kreditraten und Belastungen des Kreditkontos gehören zum Kredit, nicht zur Fixkost
+            Transaction.source != TransactionSource.LOAN,
+            not_(exists().where(LoanPayment.payment_transaction_id == L.transaction_id)),
         )
         .order_by(L.booking_date, L.transaction_id, L.split_id)
     )
@@ -152,7 +160,9 @@ def _payment_candidates(session: Session, user_id: int, fixed: FixedCost, first:
 
 
 def _fixed_items(session: Session, user_id: int, first: date, last: date, today: date):
-    """Fixkosten des Monats mit erkannter Zahlung; jede Buchungszeile zählt nur für eine Fixkost."""
+    """Fixkosten des Monats mit erkannter Zahlung; jede Buchungszeile zählt nur für eine Fixkost.
+
+    Zweiter Wert: Summe der zugeordneten Zahlungen (alle im Monat gebucht)."""
     items, consumed, paid_actual = [], set(), ZERO
     for fixed in _active_fixed_costs(session, user_id, first, last):
         match = next(
@@ -207,10 +217,10 @@ def _loan_items(session: Session, user_id: int, first: date, last: date, today: 
     return items
 
 
-def _loan_costs_paid(session: Session, user_id: int, first: date, last: date) -> Decimal:
-    """Zins- und Gebührenanteile gebuchter Raten im Monat – sie stecken schon in den Fixkosten."""
+def _loan_principal_paid(session: Session, user_id: int, first: date, last: date) -> Decimal:
+    """Tilgungsanteile gebuchter Raten im Monat – als Umbuchung nicht in den Ausgaben, aber ein Abfluss."""
     value = session.execute(
-        select(func.coalesce(func.sum(LoanPayment.interest + LoanPayment.extra), 0))
+        select(func.coalesce(func.sum(LoanPayment.principal), 0))
         .join(Loan, Loan.id == LoanPayment.loan_id)
         .where(Loan.user_id == user_id, LoanPayment.booking_date.between(first, last))
     ).scalar_one()
@@ -249,8 +259,19 @@ def month_budget(session: Session, user_id: int, month: date, today: date) -> di
     items = sorted(fixed_items + loan_items, key=lambda i: (i["due_date"], i["kind"], i["name"]))
 
     income, unc_in, spent = _flows(session, user_id, first, last)
-    fixed_total = sum((i["amount"] for i in items), ZERO)
-    variable = spent - fixed_paid_actual - _loan_costs_paid(session, user_id, first, last)
+    # Bezahlte Posten mit dem tatsächlichen Betrag, offene mit dem Planbetrag (Reservierung)
+    fixed_total = sum(
+        (i["paid_amount"] if i["status"] == "paid" and i["paid_amount"] is not None else i["amount"] for i in items),
+        ZERO,
+    )
+    # Tatsächliche Abflüsse des Monats, abzüglich derer, die schon als bezahlter Posten zählen
+    outflow = spent + _loan_principal_paid(session, user_id, first, last)
+    loan_paid_here = sum(
+        (i["paid_amount"] for i in loan_items
+         if i["status"] == "paid" and i["paid_on"] is not None and first <= i["paid_on"] <= last),
+        ZERO,
+    )
+    variable = outflow - fixed_paid_actual - loan_paid_here
     available = income - fixed_total - variable
 
     if first <= today <= last:

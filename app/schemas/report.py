@@ -93,8 +93,12 @@ class RemainingAt(BaseModel):
 
 
 class YearInterest(BaseModel):
+    """Zinskosten eines Jahres: `interest` = `paid` (mit Raten gezahlt) + `charged` (der Schuld zugeschlagen)."""
+
     year: int
     interest: Money
+    paid: Money
+    charged: Money
 
 
 class LoanReportItem(BaseModel):
@@ -108,5 +112,9 @@ class LoanReportItem(BaseModel):
 
 
 class LoanReport(BaseModel):
+    """`remaining_debt` und die Monatswerte gelten zum Stichtag `until`; Status, nächste Rate und
+    `monthly_burden` sind der aktuelle Stand vom `current_as_of`."""
+
     loans: list[LoanReportItem]
     monthly_burden: Money
+    current_as_of: date

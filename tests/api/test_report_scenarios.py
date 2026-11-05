@@ -874,7 +874,7 @@ def test_kreditbericht_zwei_kredite_einer_vollstaendig_getilgt(client, headers, 
         {"month_end": "2026-01-31", "remaining_debt": "300.00"},
         {"month_end": "2026-02-28", "remaining_debt": "0.00"},  # 300 − 300 am 10.2.
     ]
-    assert zeile_privat["interest_paid_by_year"] == [{"year": 2026, "interest": "0.00"}]
+    assert zeile_privat["interest_paid_by_year"] == [{"year": 2026, "interest": "0.00", "paid": "0.00", "charged": "0.00"}]
     # Nur der aktive Kredit belastet monatlich; der getilgte hat keine offene Rate mehr
     assert r["monthly_burden"] == "230.30"
 
@@ -903,7 +903,7 @@ def test_kreditbericht_monatliche_belastung_ist_die_naechste_offene_rate_je_akti
     assert moebel_zeile["next_installment"] == "108.00"  # 5.50 + 100.00 + 2.50
     assert nachher["monthly_burden"] == "338.30"  # 230.30 + 108.00
     # Gebühren sind kein Zins: gezahlte Zinsen nur die 6.00; in den Ausgaben stehen Zinsen und Gebühren
-    assert moebel_zeile["interest_paid_by_year"] == [{"year": 2026, "interest": "6.00"}]
+    assert moebel_zeile["interest_paid_by_year"] == [{"year": 2026, "interest": "6.00", "paid": "6.00", "charged": "0.00"}]
     assert _summary(client, headers, "2026-01-01", "2026-01-31")["movements"]["expenses"] == "8.50"  # 6.00 + 2.50
 
 
@@ -950,8 +950,8 @@ def test_kreditbericht_zinsen_je_jahr_ueber_den_jahreswechsel(client, headers, m
 
     zeile = _kreditbericht(client, headers, until="2027-01-31", months=2)["loans"][0]
     assert zeile["interest_paid_by_year"] == [
-        {"year": 2026, "interest": "41.67"},
-        {"year": 2027, "interest": "80.97"},  # 40.88 + 40.09
+        {"year": 2026, "interest": "41.67", "paid": "41.67", "charged": "0.00"},
+        {"year": 2027, "interest": "80.97", "paid": "80.97", "charged": "0.00"},  # 40.88 + 40.09
     ]
     assert zeile["remaining_by_month"] == [
         {"month_end": "2026-12-31", "remaining_debt": "9811.37"},
@@ -977,11 +977,13 @@ def test_kreditbericht_monatsenden_ueber_jahreswechsel_und_schaltjahr(client, he
 
 def test_kreditbericht_ohne_kredite_und_je_profil_getrennt(client, headers, other_user):
     leer = {"loans": [], "monthly_burden": "0.00"}
-    assert _kreditbericht(client, headers, until="2026-03-31") == leer
+    bericht = _kreditbericht(client, headers, until="2026-03-31")
+    assert bericht.pop("current_as_of") and bericht == leer
     _kredit(client, headers)
     assert _kreditbericht(client, headers, until="2026-03-31")["monthly_burden"] == "230.30"
     # Der Kredit gehört dem ersten Profil
-    assert _kreditbericht(client, other_user["headers"], until="2026-03-31") == leer
+    bericht = _kreditbericht(client, other_user["headers"], until="2026-03-31")
+    assert bericht.pop("current_as_of") and bericht == leer
 
 
 def test_kategorienbericht_zeigt_von_der_kreditrate_nur_zinsen_und_gebuehren(client, headers, make_account):

@@ -1,9 +1,9 @@
 from sqlmodel import Session, func, select
 
 from app.errors import Invalid
-from app.models import Category, MappingRule, MatchType, User
+from app.models import Category, MappingRule, User
 from app.schemas.rule import RuleCreate
-from app.services.categorization import check_regex_size, compile_pattern
+from app.services.categorization import compile_pattern
 from app.services.common import apply_changes, get_owned
 
 
@@ -29,8 +29,6 @@ def _check_target(session: Session, user: User, category_id: int) -> None:
 
 def create_rule(session: Session, user: User, data: RuleCreate) -> MappingRule:
     _check_target(session, user, data.target_category_id)
-    if data.match_type == MatchType.REGEX:
-        check_regex_size(data.pattern)
     compile_pattern(data.pattern, data.match_type, data.case_sensitive)
     rule = MappingRule(user_id=user.id, **data.model_dump())
     session.add(rule)
@@ -43,10 +41,11 @@ def update_rule(session: Session, user: User, rule: MappingRule, changes: dict) 
         _check_target(session, user, changes["target_category_id"])
     pattern = changes.get("pattern", rule.pattern)
     match_type = changes.get("match_type", rule.match_type)
-    # Größenprüfung nur bei geändertem Muster – ältere Regeln bleiben bearbeitbar (z. B. Priorität)
-    if match_type == MatchType.REGEX and (pattern != rule.pattern or match_type != rule.match_type):
-        check_regex_size(pattern)
-    compile_pattern(pattern, match_type, changes.get("case_sensitive", rule.case_sensitive))
+    case_sensitive = changes.get("case_sensitive", rule.case_sensitive)
+    # Prüfen und Kompilieren nur bei geändertem Muster – ältere Regeln bleiben bearbeitbar
+    # (z. B. Priorität), ohne ein zu aufwendiges gespeichertes Muster zu kompilieren
+    if (pattern, match_type, case_sensitive) != (rule.pattern, rule.match_type, rule.case_sensitive):
+        compile_pattern(pattern, match_type, case_sensitive)
     apply_changes(rule, changes)
     session.flush()
     return rule

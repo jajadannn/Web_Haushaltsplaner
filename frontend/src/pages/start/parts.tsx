@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useProfileQuery, type BudgetMonth, type Category, type Loan, type MonthItem, type ScheduleEntry, type Transaction } from '../../api/hooks'
+import { type BudgetMonth, type Category, type Loan, type MonthItem, type Transaction } from '../../api/hooks'
 import { loanProgress } from '../../lib/loanProgress'
 import { daysLeftLabel, parseDate, shortDate, shortMonthLabel } from '../../lib/dates'
 import { formatEuro, isNegative } from '../../lib/money'
@@ -101,9 +101,7 @@ export function RecentList({ transactions, categories }: { transactions: Transac
 export function LoanSummary({ loan }: { loan: Loan }) {
   const remaining = loan.remaining_debt ?? '0.00'
   const paidOff = loan.status === 'paid_off'
-  // Getilgter Anteil: aus der ursprünglichen Summe, sonst aus dem Plan (bezahlte Tilgung)
-  const schedule = useProfileQuery<ScheduleEntry[]>('loans', `/loans/${loan.id}/schedule`, undefined, { enabled: !loan.principal_original && !paidOff })
-  const progress = loanProgress(loan, schedule.data)
+  const progress = loanProgress(loan)
   return (
     <Link to={`/kredite/${loan.id}`} className="loan-summary">
       <p className="loan-summary-name"><Icon name="car" size={26} /> {loan.name}</p>

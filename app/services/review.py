@@ -127,6 +127,18 @@ def bulk_confirm(session: Session, user: User, tx_ids: list[int], data: ReviewCo
     return len(txs)
 
 
+def _assert_suggestion_valid(session: Session, tx: Transaction) -> None:
+    """Ein Vorschlag ist nur bestätigbar, solange seine Kategorie aktiv ist (und bei KI-Vorschlägen
+    weiterhin zur Buchungsrichtung passt) – sie kann sich seit dem Vorschlag geändert haben."""
+    if tx.category_id is None:
+        return
+    category = session.get(Category, tx.category_id, with_for_update={"read": True})
+    if category is None or not category.active:
+        raise Invalid(f"Buchung {tx.id}: Kategorie ist deaktiviert", code="category_inactive")
+    if tx.category_source == CategorySource.AI and category.type != ("expense" if tx.amount < 0 else "income"):
+        raise Invalid(f"Buchung {tx.id}: Kategorie passt nicht mehr zur Buchung", code="category_type_mismatch")
+
+
 def confirm_all_suggestions(session: Session, user: User) -> dict:
     """Alle automatisch zugeordneten Buchungen (Regel/KI) so bestätigen, wie vorgeschlagen.
 
@@ -138,6 +150,7 @@ def confirm_all_suggestions(session: Session, user: User) -> dict:
     for tx in txs:
         savepoint = session.begin_nested()
         try:
+            _assert_suggestion_valid(session, tx)
             _confirm(session, user, tx, ReviewConfirm(), None)
             session.flush()
             savepoint.commit()

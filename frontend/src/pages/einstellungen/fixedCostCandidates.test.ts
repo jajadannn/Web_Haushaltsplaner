@@ -73,4 +73,52 @@ describe('fixedCostCandidates', () => {
     expect(filterCandidates(all, 'strom').map((c) => c.name)).toEqual(['Stadtwerke Musterhausen'])
     expect(filterCandidates(all, '  ').length).toBe(all.length)
   })
+
+  describe('Intervall', () => {
+    it('Quartalszahlungen sind nicht monatlich und werden auf den Monat umgerechnet', () => {
+      const [q] = fixedCostCandidates([
+        tx('2026-07-15', '-90.00', 'Versicherung Quartal'),
+        tx('2026-10-15', '-90.00', 'Versicherung Quartal'),
+      ])
+      expect(q.monthly).toBe(false)
+      expect(q.interval).toBe('quarterly')
+      expect(q.amount).toBe('90.00')
+      expect(q.monthlyAmount).toBe('30.00')
+    })
+
+    it('jährliche Zahlung: Zwölftel als Monatsbetrag', () => {
+      const [y] = fixedCostCandidates([
+        tx('2025-03-10', '-120.00', 'KFZ Steuer'),
+        tx('2026-03-10', '-120.00', 'KFZ Steuer'),
+      ])
+      expect(y.interval).toBe('yearly')
+      expect(y.monthlyAmount).toBe('10.00')
+    })
+
+    it('Monate mit Lücke sind unregelmäßig, nicht monatlich', () => {
+      const [g] = fixedCostCandidates([
+        tx('2026-07-15', '-20.00', 'Lücke'),
+        tx('2026-08-15', '-20.00', 'Lücke'),
+        tx('2026-11-15', '-20.00', 'Lücke'),
+      ])
+      expect(g.monthly).toBe(false)
+      expect(g.interval).toBe('irregular')
+    })
+
+    it('aufeinanderfolgende Monate mit Abstand von rund einem Monat sind monatlich', () => {
+      const [m] = fixedCostCandidates([
+        tx('2026-09-15', '-20.00', 'Abo'),
+        tx('2026-10-15', '-20.00', 'Abo'),
+      ])
+      expect(m).toMatchObject({ monthly: true, interval: 'monthly', monthlyAmount: '20.00' })
+    })
+
+    it('Monatsletzter und Monatsanfang hintereinander sind kein Monatsabstand', () => {
+      const [m] = fixedCostCandidates([
+        tx('2026-09-01', '-20.00', 'Nah'),
+        tx('2026-10-31', '-20.00', 'Nah'),
+      ])
+      expect(m.monthly).toBe(false)
+    })
+  })
 })

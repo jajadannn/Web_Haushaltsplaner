@@ -1,8 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading } from '../../ui/blocks'
-import { Dialog } from '../../ui/overlay'
-import type { IconName } from '../../ui/Icon'
+import { Icon, type IconName } from '../../ui/Icon'
 
 /**
  * Grundmuster der Einstellungen (Entwurf B): Kopf mit Titel, Hinweis und „… anlegen“,
@@ -49,6 +48,14 @@ export function MasterDetail<T extends { id: number }>(props: Props<T>) {
   const current = typeof selected === 'number' ? items?.find((i) => i.id === selected) ?? null : null
   const formOpen = selected === 'new' || current !== null
   const done = () => setSelected(null)
+
+  // Esc schließt das Blatt (wie bisher beim Dialog)
+  useEffect(() => {
+    if (!narrow || !formOpen) return
+    const on = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelected(null) }
+    document.addEventListener('keydown', on)
+    return () => document.removeEventListener('keydown', on)
+  }, [narrow, formOpen])
 
   const form = formOpen ? renderForm(selected === 'new' ? null : current, done) : null
 
@@ -99,26 +106,36 @@ export function MasterDetail<T extends { id: number }>(props: Props<T>) {
           {footer}
         </div>
 
-        {!narrow && (formOpen ? (
-          <aside className="tile settings-form" aria-label={formTitle(current)}>
-            <h3>{formTitle(selected === 'new' ? null : current)}</h3>
-            {form}
+        {narrow && formOpen && <button type="button" className="settings-sheet-backdrop" aria-label="Schließen" onClick={done} />}
+        {/* Ein einziger, an derselben Stelle stehender Formularbaum: beim Wechsel zwischen
+            Seitenbereich und Blatt ändert sich nur die Klasse, nichts wird neu eingehängt –
+            ungespeicherte Eingaben bleiben beim Ändern der Fensterbreite erhalten. */}
+        {(!narrow || formOpen) && (
+          <aside
+            className={`tile settings-form${narrow ? ' is-sheet' : ''}${formOpen ? '' : ' is-empty'}`}
+            aria-label={formOpen ? formTitle(current) : undefined}
+            role={narrow ? 'dialog' : undefined}
+            aria-modal={narrow ? true : undefined}
+          >
+            {formOpen ? (
+              <>
+                <div className="settings-form-head">
+                  <h3>{formTitle(selected === 'new' ? null : current)}</h3>
+                  {narrow && (
+                    <button type="button" className="icon-btn" onClick={done} aria-label="Schließen"><Icon name="close" /></button>
+                  )}
+                </div>
+                {form}
+              </>
+            ) : (
+              <EmptyState icon="edit" title="Eintrag wählen"
+                action={createLabel ? <Button variant="secondary" icon="plus" onClick={() => setSelected('new')}>{createLabel}</Button> : undefined}>
+                Wähle links einen Eintrag zum Bearbeiten{createLabel ? ' oder lege einen neuen an' : ''}.
+              </EmptyState>
+            )}
           </aside>
-        ) : (
-          <aside className="tile settings-form is-empty">
-            <EmptyState icon="edit" title="Eintrag wählen"
-              action={createLabel ? <Button variant="secondary" icon="plus" onClick={() => setSelected('new')}>{createLabel}</Button> : undefined}>
-              Wähle links einen Eintrag zum Bearbeiten{createLabel ? ' oder lege einen neuen an' : ''}.
-            </EmptyState>
-          </aside>
-        ))}
+        )}
       </div>
-
-      {narrow && (
-        <Dialog open={formOpen} onClose={done} title={formTitle(selected === 'new' ? null : current)}>
-          {form}
-        </Dialog>
-      )}
     </div>
   )
 }

@@ -14,6 +14,8 @@ const GENERIC: Record<string, string> = {
   not_found: 'Das gibt es nicht (mehr) – vielleicht wurde es gerade gelöscht.',
   conflict: 'Das gibt es schon.',
   internal_error: 'Im Finanzplaner ist ein Fehler aufgetreten. Bitte noch einmal versuchen.',
+  payment_followed_by_skip: 'Zuerst die spätere Ratenpause zurücknehmen.',
+  charge_has_later_payments: 'Nach dieser Belastung wurden Zahlungen gebucht – zuerst diese stornieren.',
   file_too_large: 'Die Datei ist zu groß.',
   http_500: 'Im Finanzplaner ist ein Fehler aufgetreten. Bitte noch einmal versuchen.',
   http_502: 'Der Finanzplaner antwortet gerade nicht.',

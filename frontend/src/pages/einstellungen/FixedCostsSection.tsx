@@ -13,6 +13,12 @@ import { useFormErrors } from '../../ui/useFormErrors'
 import { filterCandidates, fixedCostCandidates, type Candidate, type ExistingFixedCost } from './fixedCostCandidates'
 import { FormActions, MasterDetail, Switch } from './MasterDetail'
 
+const INTERVAL_LABEL = {
+  quarterly: { badge: 'vierteljährlich', every: 'etwa alle drei Monate' },
+  semiannual: { badge: 'halbjährlich', every: 'etwa alle sechs Monate' },
+  yearly: { badge: 'jährlich', every: 'etwa einmal im Jahr' },
+} as const
+
 /**
  * Fixkosten – VORLAGE für alle Einstellungsbereiche:
  *   Liste mit Zeilen (Icon, Name, Unterzeile, Betrag/Wert, Status, Schalter)
@@ -106,7 +112,8 @@ function FixedCostForm({ item, categories, done, existing }: {
 
   function pick(c: Candidate) {
     setName(c.name)
-    setAmount(c.amount)
+    // Fixkosten sind monatlich: bei Quartals-/Jahreszahlungen den Monatsanteil eintragen
+    setAmount(c.monthlyAmount)
     setDueDay(String(c.dueDay))
     setCategoryId(c.latest.category_id && categories.some((k) => k.id === c.latest.category_id) ? String(c.latest.category_id) : '')
     setMatchText(c.matchText)
@@ -156,6 +163,17 @@ function FixedCostForm({ item, categories, done, existing }: {
           <div className="pick-from">
             <Button icon="list" onClick={() => setPicking(true)}>Aus Buchung übernehmen</Button>
             {pickedFrom && <span className="muted">übernommen aus der Buchung vom {fullDate(pickedFrom.latest.booking_date)}</span>}
+            {pickedFrom && pickedFrom.interval !== 'monthly' && pickedFrom.interval !== 'irregular' && (
+              <span className="muted" role="note">
+                Die Zahlung ({formatEuro(pickedFrom.amount)}) kommt {INTERVAL_LABEL[pickedFrom.interval].every}.
+                Eingetragen ist der Monatsanteil {formatEuro(pickedFrom.monthlyAmount)} – bitte prüfen.
+              </span>
+            )}
+            {pickedFrom && pickedFrom.interval === 'irregular' && (
+              <span className="muted" role="note">
+                Der Rhythmus dieser Zahlung ist unklar. Bitte den Betrag als Monatsbetrag prüfen.
+              </span>
+            )}
           </div>
         )
       )}
@@ -235,6 +253,9 @@ function TransactionPicker({ existing, categories, onPick, onClose }: {
                 </span>
                 <span className="tx-picker-sub">
                   {c.monthly && <span className="tx-picker-monthly">monatlich</span>}
+                  {c.interval !== 'monthly' && c.interval !== 'irregular' && (
+                    <span className="tx-picker-monthly">{INTERVAL_LABEL[c.interval].badge} · {formatEuro(c.monthlyAmount)} / Monat</span>
+                  )}
                   am {c.dueDay}. · {categoryName(c.latest.category_id) ?? 'ohne Kategorie'}
                   {c.months >= 2 ? ` · in ${c.months} Monaten` : ` · zuletzt ${fullDate(c.latest.booking_date)}`}
                 </span>

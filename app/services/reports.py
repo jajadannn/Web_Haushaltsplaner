@@ -15,6 +15,7 @@ from decimal import Decimal
 from sqlalchemy import Date, and_, case, cast, func, literal, select, text
 from sqlmodel import Session
 
+from app import clock
 from app.models import Account, Category, Institution, Loan, LoanPayment, Transaction, User, transaction_line
 from app.services.balances import balances
 from app.services.categories import get_system_category
@@ -274,7 +275,10 @@ def trends(session: Session, user: User, months: int, until: date, category_id: 
 
 
 def loans(session: Session, user: User, until: date, months: int = 12) -> dict:
-    """Restschuld je Kredit am Monatsende, Zinsen je Jahr und monatliche Belastung."""
+    """Restschuld je Kredit zum Stichtag und am Monatsende, Zinsen je Jahr (gezahlt/belastet).
+
+    Status, nächste Rate und monatliche Belastung sind der aktuelle Stand (`current_as_of`).
+    """
     items, monthly_burden = [], ZERO
     month_ends = []
     current = _month(until)
@@ -290,13 +294,14 @@ def loans(session: Session, user: User, until: date, months: int = 12) -> dict:
         entries = open_entries(session, loan)
         if entries and loan.status == "active":
             monthly_burden += entries[0].planned_installment
-        interest_by_year: dict[int, Decimal] = defaultdict(lambda: ZERO)
+        paid_by_year: dict[int, Decimal] = defaultdict(lambda: ZERO)
+        charged_by_year: dict[int, Decimal] = defaultdict(lambda: ZERO)
         paid = session.execute(
             select(func.extract("year", LoanPayment.booking_date), func.sum(LoanPayment.interest))
             .where(LoanPayment.loan_id == loan.id, LoanPayment.booking_date <= until)
             .group_by(func.extract("year", LoanPayment.booking_date))
         )
-        charged = session.execute(  # direkt dem Kreditkonto belastete Zinsen
+        charged = session.execute(  # direkt dem Kreditkonto belastete (kapitalisierte) Zinsen
             select(func.extract("year", Transaction.booking_date), -func.sum(Transaction.amount))
             .where(
                 Transaction.account_id == loan.account_id,
@@ -306,21 +311,31 @@ def loans(session: Session, user: User, until: date, months: int = 12) -> dict:
             )
             .group_by(func.extract("year", Transaction.booking_date))
         )
-        for year, value in [*paid, *charged]:
-            interest_by_year[int(year)] += Decimal(value)
+        for year, value in paid:
+            paid_by_year[int(year)] += Decimal(value)
+        for year, value in charged:
+            charged_by_year[int(year)] += Decimal(value)
+        years = sorted(paid_by_year.keys() | charged_by_year.keys())
         items.append(
             {
                 "loan_id": loan.id,
                 "name": account.name,
                 "status": loan.status,
-                "remaining_debt": remaining_debt(session, loan),
+                # Stichtag des Berichts – nicht der heutige Stand
+                "remaining_debt": remaining_debt(session, loan, until),
                 "next_installment": entries[0].planned_installment if entries else None,
                 "remaining_by_month": [
                     {"month_end": d, "remaining_debt": remaining_debt(session, loan, d)} for d in month_ends
                 ],
                 "interest_paid_by_year": [
-                    {"year": year, "interest": _money(value)} for year, value in sorted(interest_by_year.items())
+                    {
+                        "year": year,
+                        "interest": _money(paid_by_year[year] + charged_by_year[year]),
+                        "paid": _money(paid_by_year[year]),
+                        "charged": _money(charged_by_year[year]),
+                    }
+                    for year in years
                 ],
             }
         )
-    return {"loans": items, "monthly_burden": monthly_burden}
+    return {"loans": items, "monthly_burden": monthly_burden, "current_as_of": clock.today()}

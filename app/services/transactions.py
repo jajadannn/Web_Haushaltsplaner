@@ -18,7 +18,7 @@ from app.models.transaction import (
     TransactionSplit,
 )
 from app.schemas.filters import TransactionFilter
-from app.schemas.transaction import SplitIn, TransactionCreate, TransferCreate
+from app.schemas.transaction import SplitIn, TransactionCreate, TransactionRead, TransferCreate
 from app.services.common import get_owned
 from app.services.iban import normalize_iban
 
@@ -104,6 +104,9 @@ def filtered_query(session: Session, user: User, f: TransactionFilter):
         )
     if f.review_status is not None:
         query = query.where(Transaction.review_status == f.review_status)
+    if f.unconfirmed is not None:
+        unconfirmed = Transaction.review_status != ReviewStatus.CONFIRMED
+        query = query.where(unconfirmed if f.unconfirmed else not_(unconfirmed))
     if f.source is not None:
         query = query.where(Transaction.source == f.source)
     if f.search:
@@ -356,6 +359,31 @@ def has_import_identity(session: Session, tx: Transaction) -> bool:
     return session.exec(
         select(TransactionImportLink.id).where(TransactionImportLink.transaction_id == tx.id)
     ).first() is not None
+
+
+def with_links(session: Session, txs: Sequence[Transaction]) -> list[TransactionRead]:
+    """Lesemodelle mit Import- und Kreditverknüpfung – daraus leitet die Oberfläche ab,
+    ob eine Buchung gelöscht, ausgeschlossen oder nur über /loans storniert werden kann."""
+    ids = [tx.id for tx in txs]
+    linked = set(
+        session.exec(
+            select(TransactionImportLink.transaction_id).where(TransactionImportLink.transaction_id.in_(ids))
+        )
+    ) if ids else set()
+    payments = dict(
+        session.exec(
+            select(LoanPayment.payment_transaction_id, LoanPayment.id).where(
+                LoanPayment.payment_transaction_id.in_(ids)
+            )
+        ).all()
+    ) if ids else {}
+    return [
+        TransactionRead.model_validate(tx).model_copy(update={
+            "import_linked": tx.source == TransactionSource.IMPORT or tx.id in linked,
+            "loan_payment_id": payments.get(tx.id),
+        })
+        for tx in txs
+    ]
 
 
 def delete_transaction(session: Session, tx: Transaction) -> None:
