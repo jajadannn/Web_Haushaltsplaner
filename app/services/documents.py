@@ -188,8 +188,8 @@ def _date(value) -> date | None:
 
 def _verified_contract(answer: dict) -> dict | None:
     contract = answer.get("vertrag")
-    if not contract:
-        return None
+    if not contract or all(v in (None, "") for v in contract.values()):
+        return None  # Modelle liefern ohne Vertrag oft ein Objekt voller null
     sourced = {f["feld"] for f in answer.get("fundstellen", []) if f.get("zitat", "").strip()}
     cleaned = {k: (v if k in sourced or k == "anbieter" else None) for k, v in contract.items()}
     return cleaned if cleaned.get("beitrag") and cleaned.get("rhythmus_monate") else cleaned

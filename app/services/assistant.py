@@ -139,12 +139,13 @@ def reports_jsonable(value):
 # --- 08 Fragen -----------------------------------------------------------------------------------
 
 TOOLS = {
-    "transactions_search": "Buchungen suchen (Zeitraum, Suchtext, Kategorie): Anzahl, Summe, Beispiele",
-    "sum_by": "Summen je Kategorie oder Gegenpartei in einem Zeitraum (gruppierung: kategorie|gegenpartei)",
-    "report_summary": "Einnahmen, Ausgaben und Vermögen in einem Zeitraum",
-    "report_categories": "Ausgaben oder Einnahmen je Kategorie in einem Zeitraum (typ: expense|income)",
-    "report_trends": "Monatsverlauf der letzten N Monate, optional für eine Kategorie",
-    "month_comparison": "Vergleich eines Monats mit dem Vormonat (Monat über date_from)",
+    "transactions_search": "Wie viel / wie oft für etwas in einem beliebigen Zeitraum: Summe, Anzahl und Beispiele, "
+                           "gefiltert nach Kategorie (kategorie_id) und/oder Suchtext (Händlername)",
+    "sum_by": "Summen je Kategorie oder je Gegenpartei in einem Zeitraum (gruppierung: kategorie|gegenpartei)",
+    "report_summary": "Einnahmen, Ausgaben und Vermögen insgesamt in einem Zeitraum",
+    "report_categories": "Ausgaben oder Einnahmen aller Hauptkategorien in einem Zeitraum (typ: expense|income)",
+    "report_trends": "Monatsverlauf der letzten N Monate (monate), optional für eine Kategorie",
+    "month_comparison": "NUR für „Warum war Monat X teurer/anders als der Vormonat?“ (Monat über date_from)",
     "fixed_costs_list": "Liste der Fixkosten und Abos",
 }
 NULLABLE_STRING = {"type": ["string", "null"]}
@@ -242,7 +243,10 @@ def ask(session: Session, user: User, question: str) -> dict:
     today = clock.today()
     categories = session.exec(select(Category.id, Category.name, Category.type).where(Category.user_id == user.id))
     choice = _ask(
-        "Wähle für die Frage des Nutzers genau ein Werkzeug und seine Parameter. Datumswerte als JJJJ-MM-TT; "
+        "Wähle für die Frage des Nutzers genau ein Werkzeug und seine Parameter. Der Zeitraum (date_from bis "
+        "date_to) muss die ganze Frage abdecken – z. B. „diesen und letzten Monat“ = erster Tag des Vormonats bis "
+        "heute. Für Beträge zu einer Kategorie oder einem Händler über einen Zeitraum nimm transactions_search. "
+        "Kategorien über kategorie_id (Händlernamen stehen nicht in den Kategorien). Datumswerte als JJJJ-MM-TT; "
         "nicht benötigte Parameter sind null.",
         {"frage": question[:500], "heute": today.isoformat(), "werkzeuge": TOOLS,
          "kategorien": [{"id": c.id, "name": c.name, "typ": c.type} for c in categories]},
@@ -281,10 +285,22 @@ _AMOUNT = re.compile(r"(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|eur|euro)?", re.IGNORE
 RELATIVE = {"heute": 0, "gestern": 1, "vorgestern": 2}
 
 
-def _money(text: str) -> Decimal | None:
+def _money(text) -> Decimal | None:
+    """Betrag aus Text wie „18,50 Euro“, „1.234,56“ oder „1,234.56“ – positiv, auf Cent gerundet."""
+    match = re.search(r"\d[\d.,]*", str(text or ""))
+    if not match:
+        return None
+    raw = match.group(0).rstrip(".,")
+    if "," in raw and "." in raw:  # das letzte Trennzeichen ist das Dezimalzeichen
+        decimal_sep = "," if raw.rfind(",") > raw.rfind(".") else "."
+        raw = raw.replace("." if decimal_sep == "," else ",", "").replace(decimal_sep, ".")
+    elif "," in raw:
+        raw = raw.replace(",", ".")
+    elif raw.count(".") > 1 or re.search(r"\.\d{3}$", raw):
+        raw = raw.replace(".", "")  # Tausenderpunkt
     try:
-        value = Decimal(text.replace(" ", "").replace(",", ".")).quantize(Decimal("0.01"))
-    except (InvalidOperation, ValueError):
+        value = Decimal(raw).quantize(Decimal("0.01"))
+    except InvalidOperation:
         return None
     return value if value > 0 else None
 
@@ -326,6 +342,8 @@ def parse_entry(session: Session, user: User, text: str) -> dict:
 
     questions = []
     amount = _money(parsed["betrag"])
+    if amount is None:  # KI-Betrag unlesbar: Betrag aus dem Text selbst
+        amount = _money(_rule_parse(text)["betrag"])
     if amount is None:
         questions.append("amount")
     booking_date = today

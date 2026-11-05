@@ -204,3 +204,11 @@ def test_dokumente_sind_profilgetrennt_und_nur_erlaubte_dateitypen(client, heade
     response = client.post("/documents", data={"kind": "receipt"},
                            files={"file": ("x.exe", b"MZ...", "application/octet-stream")}, headers=headers)
     assert response.status_code == 422 and response.json()["error"]["code"] == "document_type"
+
+
+def test_leeres_vertragsobjekt_gilt_als_kein_vertrag():
+    from app.services.documents import _verified_contract
+
+    empty = {k: None for k in ("anbieter", "beitrag", "rhythmus_monate", "naechste_faelligkeit", "kuendigungsfrist",
+                               "laufzeit_ende")}
+    assert _verified_contract({"vertrag": empty, "fundstellen": []}) is None

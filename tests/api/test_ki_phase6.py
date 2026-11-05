@@ -144,3 +144,33 @@ def test_ohne_ki_erkennt_die_regel_betrag_und_datum(client, headers, giro, monke
     monkeypatch.setattr(get_settings(), "ai_url", None)
     draft = client.post("/entries/parse", json={"text": "heute 4,20 € Bäcker"}, headers=headers).json()
     assert (draft["amount"], draft["booking_date"], draft["ai_used"]) == ("-4.20", "2026-11-20", False)
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    ("18,50 Euro", "18.50"), ("18.50 €", "18.50"), ("EUR 7", "7.00"), ("1.234,56", "1234.56"), ("1,234.56", "1234.56"),
+    ("", None), ("viel", None),
+])
+def test_betraege_aus_ki_antworten_werden_robust_gelesen(text, expected):
+    from app.services.assistant import _money
+
+    result = _money(text)
+    assert (str(result) if result is not None else None) == expected
+
+
+def test_unlesbarer_ki_betrag_faellt_auf_den_betrag_im_text_zurueck(client, headers, giro, ki):
+    ki.answers = [{"betrag": "achtzehn", "richtung": "ausgabe", "datum": None, "datum_relativ": "gestern",
+                   "kategorie_id": None, "konto_id": giro["id"], "beschreibung": "Mittagessen"}]
+    draft = client.post("/entries/parse", json={"text": "gestern 18,50 Euro Mittagessen"}, headers=headers).json()
+    assert draft["amount"] == "-18.50" and "amount" not in draft["questions"]
+
+
+def test_fragen_prompt_verlangt_zeitraum_ueber_die_ganze_frage(client, headers, monate, ki):
+    ki.answers = [
+        {"werkzeug": "transactions_search", "date_from": "2026-10-01", "date_to": "2026-11-20", "suche": None,
+         "kategorie_id": monate["essen"]["id"], "typ": None, "monate": None, "gruppierung": None},
+        {"antwort": "Im Oktober und November 600,00 €.", "belege": []},
+    ]
+    client.post("/ask", json={"question": "Wie viel ging diesen und letzten Monat für Lebensmittel drauf?"},
+                headers=headers)
+    task = ki.calls[0][1]["content"]
+    assert "ganze Frage" in task and "transactions_search" in task
