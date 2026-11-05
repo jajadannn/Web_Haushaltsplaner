@@ -211,4 +211,8 @@ Prüfsatz `tests/api/test_scenarios_recurring.py`, Oberfläche je Phase). Abweic
 - Der Prüfsatz-Fall „Preiserhöhung um mehr als 10 %“ ist als erwarteter Fehler markiert: Die Neuerkennung trennt
   den neuen Betrag ab; für bestehende Fixkosten erkennt Phase 3 die Preisänderung über die verknüpften Zahlungen.
 - Belege: PDFs ohne Textebene (Scans) werden mit Hinweis abgelehnt – es gibt kein lokales PDF-Rendering; Fotos gehen.
-- Noch nicht gegen ein echtes lokales Modell gemessen; alle KI-Tests nutzen vorgegebene Antworten.
+- Gegen `google/gemma-4-12b-qat` (LM Studio, OpenAI-kompatibel, Heimnetz) am 05.11.2026 geprüft: Prüfliste ≈2 s je Buchung,
+  Fixkosten-Anreicherung ≈3 s, Fragen 5–7 s (zwei Anfragen), Monatserklärung ≈4 s, Spracheingabe ≈3 s, Kassenbon als Bild
+  6–24 s – alle Antworten schemakonform, Prompt-Injection im Verwendungszweck wirkungslos. Daraus entstandene Korrekturen:
+  Beträge wie „18,50 Euro“ robust lesen, Zeitraum bei Fragen über die ganze Frage, leeres Vertragsobjekt = kein Vertrag.
+  Die automatisierten Tests nutzen weiterhin vorgegebene Antworten.

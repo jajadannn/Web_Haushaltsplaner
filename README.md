@@ -169,7 +169,8 @@ Je mehr bestätigt ist, desto treffsicherer wird sie. Regeln haben Vorrang: „R
 | Modell | Hardware | Zeit je Buchung |
 |---|---|---|
 | gemma4:e2b | Laptop-CPU | 15–20 s |
-| gemma-4-12b | Heimnetz-Rechner | ca. 10 s |
+| gemma-4-12b | Heimnetz-Rechner | ca. 2–10 s |
+| gemma-4-12b (Bildmodell) | Heimnetz-Rechner | Kassenbon-Foto 6–24 s |
 
 Beide Modelle irren sich gelegentlich, auch wenn sie „hoch“ als Sicherheit angeben. Deshalb bleibt das Bestätigen beim Menschen.
 
