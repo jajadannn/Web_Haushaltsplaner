@@ -173,6 +173,36 @@ Je mehr bestätigt ist, desto treffsicherer wird sie. Regeln haben Vorrang: „R
 
 Beide Modelle irren sich gelegentlich, auch wenn sie „hoch“ als Sicherheit angeben. Deshalb bleibt das Bestätigen beim Menschen.
 
+## Vorschläge, Automatik und weitere KI-Funktionen
+
+Nach jedem Import wertet der Worker das Profil aus (manuell: „Jetzt prüfen“ bzw. `POST /api/suggestions/refresh`).
+Alles Erkannte landet als **Vorschlag** mit Begründung und Belegen; übernommen wird nur, was du bestätigst.
+Abgelehnte Vorschläge erscheinen nicht erneut, solange sich nichts Wesentliches ändert.
+
+| Bereich | Was erkannt bzw. angeboten wird |
+|---|---|
+| Fixkosten | wiederkehrende Abbuchungen (monatlich, vierteljährlich, halbjährlich, jährlich), Preisänderungen ab einem Monat, Jahresposten |
+| Prüfliste | Regelvorschläge aus Korrekturen, Gruppen ähnlicher Buchungen, Reihenfolge nach Klärungsbedarf, Rückfragen zu Verträgen, widersprüchliche Zuordnungen |
+| Zahlungen | erwartete Zahlung fehlt (nur in importierten Zeiträumen, nach fünf Bankarbeitstagen), doppelte Abbuchung |
+| Zuordnung | Umbuchungen zwischen eigenen Konten, Erstattungen zu Einkäufen, wiederkehrende Aufteilungen |
+| Import | Aufbau einer CSV-Datei erkennen (Assistent unter Einstellungen › Importprofile), verständliche Fehlerdiagnose mit Profilkorrektur |
+| Vorschau | erwartete Einnahmen, Kontovorschau bis zu einem Datum (erwartet und tatsächlich getrennt) |
+| Berichte | Monatsvergleich mit KI-Erklärung, Fragen zu den eigenen Buchungen (nur lesend) |
+| Erfassung | „Gestern 18,50 € bar Mittagessen“ im Plus-Dialog → ausgefüllter Entwurf |
+| Belege | Belege und Verträge hochladen; die KI liest Händler, Betrag, Positionen und Vertragsdaten (nur mit Fundstelle) |
+
+**Automatik:** Unter Einstellungen › Automatik & KI je Profil und Funktion: *Aus*, *Nur Vorschläge* (Standard),
+*Probelauf* (zeigt, was automatisch übernommen worden wäre) oder *Automatisch* (nur eindeutige Fälle, mit Rückgängig im Verlauf).
+
+**Grundsätze:** Die Rechnung macht das Backend; die KI formuliert nur und bekommt Buchungstexte als markierte Daten.
+Jede KI-Antwort wird gegen ein festes Schema geprüft. Ohne `AI_URL` funktioniert alles Deterministische weiter.
+Keine automatischen Überweisungen, Kündigungen oder Löschungen.
+
+| Variable | Bedeutung |
+|---|---|
+| `AI_VISION_MODEL` | Bildmodell für Fotos von Belegen (leer = `AI_MODEL`); PDFs mit Textebene brauchen es nicht |
+| `DOCUMENT_DIR` | Ordner für hochgeladene Belege und Verträge (Standard `documents/`, Teil der Sicherung) |
+
 ## Fachliche Regeln (Kurzfassung)
 - **Saldo** = Anfangssaldo + Buchungen vom Stichtag bis zum Abfragetag. Er wird immer berechnet und nie gespeichert.
 - **Umbuchungen** (`kind: transfer`, `POST /transfers`) ändern Kontostände, zählen aber nicht als Einnahme oder Ausgabe.

@@ -1,6 +1,6 @@
 # Umsetzungsplan: KI-Ausbau des Finanzplaners
 
-Stand: 05.11.2026. Grundlage: [KI_INTEGRATION_IDEEN.md](KI_INTEGRATION_IDEEN.md) (Ideen 01–22) und der Code nach den Korrekturen aus den Prüfberichten vom 3./4. November (Branch `fix/pruefberichte-2026-11`). Dieser Plan ist zum späteren Umsetzen gedacht. Phase 1 ist bis auf Dateien, Tabellen, Endpunkte und Tests ausgearbeitet; die späteren Phasen sind gröber und werden vor ihrem Start verfeinert.
+Stand: 05.11.2026. **Umsetzung: Phasen 0–7 umgesetzt (Branch `feature/ki-ausbau`); Abweichungen siehe Abschnitt „Umsetzungsstand“ am Ende.** Grundlage: [KI_INTEGRATION_IDEEN.md](KI_INTEGRATION_IDEEN.md) (Ideen 01–22) und der Code nach den Korrekturen aus den Prüfberichten vom 3./4. November (Branch `fix/pruefberichte-2026-11`). Dieser Plan ist zum späteren Umsetzen gedacht. Phase 1 ist bis auf Dateien, Tabellen, Endpunkte und Tests ausgearbeitet; die späteren Phasen sind gröber und werden vor ihrem Start verfeinert.
 
 ## Leitlinien für alle Phasen
 
@@ -198,3 +198,17 @@ Fehlercodes in `frontend/src/api/messages.ts` ergänzen; `npm run gen:api` nach 
 - **Falsche Gruppierung bei Zahlungsdienstleistern:** ohne Referenz kein Vorschlag (1.3 Schritt 2).
 - **Budgetänderungen durch das neue Modell:** bestehende handgerechnete Szenarien in `tests/api/test_budget.py` und `tests/api/test_pruefbericht_2026_11.py` müssen unverändert grün bleiben; neue Rhythmen bekommen eigene Szenarien.
 - **Rückwirkende Effekte:** neue oder geänderte Fixkosten wirken nicht ungefragt auf vergangene Monate (`start_date` beim Übernehmen auf den aktuellen Monat setzen).
+
+---
+
+## Umsetzungsstand (05.11.2026)
+
+Alle Ideen 01–22 sind umgesetzt (Backend mit Regressionstests `tests/api/test_ki_phase1.py` … `test_ki_phase7.py`,
+Prüfsatz `tests/api/test_scenarios_recurring.py`, Oberfläche je Phase). Abweichungen vom Plan:
+
+- Importabdeckung wird aus den Buchungstagen der abgeschlossenen Importzeilen berechnet (keine eigenen Zeitraumspalten).
+- Split-Vorlagen werden bei jeder Auswertung aus bestätigten Aufteilungen abgeleitet (keine eigene Tabelle).
+- Der Prüfsatz-Fall „Preiserhöhung um mehr als 10 %“ ist als erwarteter Fehler markiert: Die Neuerkennung trennt
+  den neuen Betrag ab; für bestehende Fixkosten erkennt Phase 3 die Preisänderung über die verknüpften Zahlungen.
+- Belege: PDFs ohne Textebene (Scans) werden mit Hinweis abgelehnt – es gibt kein lokales PDF-Rendering; Fotos gehen.
+- Noch nicht gegen ein echtes lokales Modell gemessen; alle KI-Tests nutzen vorgegebene Antworten.
