@@ -39,6 +39,7 @@ describe('Ereignisse', () => {
     expect(eventKindLabel('fixed_cost')).toBe('Fixkost')
     expect(eventKindLabel('expected_income')).toBe('Einnahme')
     expect(eventKindLabel('loan_installment')).toBe('Kreditrate')
+    expect(eventKindLabel('transaction')).toBe('Gebucht')
   })
   it('zeigt die Spanne, falls vorhanden', () => {
     expect(eventRangeText(['2800.00', '3000.00'])).toBe('2.800,00\u00a0€ bis 3.000,00\u00a0€')

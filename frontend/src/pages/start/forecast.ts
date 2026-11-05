@@ -25,7 +25,9 @@ export function pickForecastAccount(accounts: AccountLike[]): number | null {
   return (usable.find((a) => a.type === 'checking') ?? usable[0])?.id ?? null
 }
 
-const KIND: Record<string, string> = { fixed_cost: 'Fixkost', expected_income: 'Einnahme', loan_installment: 'Kreditrate' }
+const KIND: Record<string, string> = {
+  fixed_cost: 'Fixkost', expected_income: 'Einnahme', loan_installment: 'Kreditrate', transaction: 'Gebucht',
+}
 export const eventKindLabel = (kind: string): string => KIND[kind] ?? kind
 
 export function eventRangeText(range: string[] | null | undefined): string | null {

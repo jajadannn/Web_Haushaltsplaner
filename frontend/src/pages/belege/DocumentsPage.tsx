@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
-import { openDocumentFile, useDeleteDocument, useDocumentFileUrl, useDocuments, useLinkDocument } from '../../api/documents'
+import { openDocumentFile, useDeleteDocument, useDocumentFileUrl, useDocuments, useLinkDocument, useRetryDocument } from '../../api/documents'
 import { SUGGESTION_AREAS, useApiMutation, useSuggestions, useTransactions, type Suggestion } from '../../api/hooks'
 import { fullDate, shortDate } from '../../lib/dates'
 import { formatEuro } from '../../lib/money'
@@ -92,6 +92,7 @@ function DocumentDetail({ doc, onDeleted }: { doc: DocumentItem; onDeleted: () =
   const toast = useToast()
   const [confirm, setConfirm] = useState(false)
   const remove = useDeleteDocument(() => { toast.ok('Datei gelöscht'); setConfirm(false); onDeleted() })
+  const retry = useRetryDocument(() => toast.ok('Wird erneut ausgelesen'))
   const e = parseExtracted(doc.extracted)
   const contract = e.contract
   const pick = (field: string) => sourceFor(e.sources, field)
@@ -105,7 +106,11 @@ function DocumentDetail({ doc, onDeleted }: { doc: DocumentItem; onDeleted: () =
         <div className="docs-extracted">
           {doc.status === 'pending' && <p role="status"><Icon name="clock" size={18} /> Wird ausgelesen …</p>}
           {doc.status === 'failed' && (
-            <p className="field-error" role="alert"><Icon name="alert" size={18} /> {doc.error || 'Das Auslesen ist fehlgeschlagen.'}</p>
+            <>
+              <p className="field-error" role="alert"><Icon name="alert" size={18} /> {doc.error || 'Das Auslesen ist fehlgeschlagen.'}</p>
+              <Button icon="refresh" disabled={retry.isPending}
+                onClick={() => retry.mutate(doc.id, { onError: toast.error })}>Erneut auslesen</Button>
+            </>
           )}
           {doc.status === 'extracted' && (
             <>

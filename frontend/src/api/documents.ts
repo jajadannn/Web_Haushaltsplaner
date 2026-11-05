@@ -30,6 +30,10 @@ export const useLinkDocument = (onDone?: () => void) =>
 export const useDeleteDocument = (onDone?: () => void) =>
   useApiMutation((id: number) => api.delete(`/documents/${id}`), [...DOCUMENT_AREAS, 'transactions'], onDone)
 
+/** Gescheitertes Auslesen erneut versuchen. */
+export const useRetryDocument = (onDone?: () => void) =>
+  useApiMutation((id: number) => api.post(`/documents/${id}/retry`), DOCUMENT_AREAS, onDone)
+
 /** Öffnet die Originaldatei in einem neuen Tab (per Blob, da der Profil-Header nötig ist). */
 export async function openDocumentFile(id: number): Promise<void> {
   const url = URL.createObjectURL(await fetchBlob(`/documents/${id}/file`))

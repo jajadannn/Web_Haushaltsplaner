@@ -41,6 +41,8 @@ export const KIND_LABELS: Record<string, string> = {
 const OBJECTS: Record<string, string> = {
   fixed_cost: 'Fixkost',
   fixed_cost_payment: 'Zahlungsverknüpfung',
+  fixed_cost_amount: 'Betrag ab Monat',
+  refund_link: 'Erstattungszuordnung',
   mapping_rule: 'Regel',
   transaction: 'Buchung',
 }
