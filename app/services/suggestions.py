@@ -91,6 +91,8 @@ def sync(session: Session, user: User, kind: str, found: list[Found], generator:
             ))
             counts["new"] += 1
             continue
+        if "ai" in old.payload:  # KI-Anreicherung (Name, Anbieter) bleibt erhalten
+            payload = {**payload, "ai": old.payload["ai"], "name": old.payload.get("name", payload.get("name"))}
         if old.status in (SuggestionStatus.OPEN, SuggestionStatus.DRY_RUN, SuggestionStatus.STALE):
             if old.payload != payload or old.evidence != evidence or old.status == SuggestionStatus.STALE:
                 counts["updated"] += 1

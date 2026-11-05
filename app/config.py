@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # OpenAI-kompatibel (LM Studio, llama.cpp, vLLM): AI_URL=http://192.168.1.50:1234/v1
     ai_url: str | None = Field(default=None, validation_alias=AliasChoices("ai_url", "ollama_url"))
     ai_model: str = "gemma4:e2b"
+    ai_vision_model: str | None = None  # Bildmodell für Belege/Scans; ohne Angabe ai_model
+    document_dir: Path = Path("documents")  # hochgeladene Belege und Verträge
     ai_timeout_seconds: float = 300.0
     # Gleichzeitige Anfragen an den KI-Server (1–4); mehr bremst kleine Server eher aus
     ai_parallel: int = Field(default=4, ge=1, le=4)

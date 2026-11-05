@@ -30,13 +30,14 @@ from app.models import (
     LoanPayment,
     Suggestion,
     SuggestionKind,
+    SuggestionStatus,
     Transaction,
     TransactionSource,
     User,
     transaction_line,
 )
 from app.schemas.budget import FixedCostCreate, FixedCostPaymentCreate
-from app.services import budget, changes, suggestions
+from app.services import ai_gateway, ai_jobs, budget, changes, merchants, suggestions
 from app.services.suggestions import Found, Handler
 
 L = transaction_line.c
@@ -163,11 +164,19 @@ def _covered(fixed_costs: list[FixedCost], cluster: list[Line], amount: Decimal)
 def detect(session: Session, user: User, today: date) -> list[Found]:
     categories = {c.id: c.name.casefold() for c in session.exec(select(Category).where(Category.user_id == user.id))}
     fixed_costs = list(session.exec(select(FixedCost).where(FixedCost.user_id == user.id, FixedCost.active)))
+    resolver = merchants.Resolver(session, user.id)
     groups: dict[str, list[Line]] = {}
+    names: dict[str, str] = {}
     for line in load_lines(session, user.id, today):
         if line.category_id is not None and categories.get(line.category_id) in CONSUMPTION:
             continue
-        key = group_key(line)
+        resolved = resolver.group(line.counterparty, line.iban, line.description)
+        if resolved is not None:
+            key, name = resolved  # bestätigter Anbieter/Vertrag; ("", "") = Zahlungsdienst ohne Referenz
+            if key:
+                names[key] = name
+        else:
+            key = group_key(line)
         if key:
             groups.setdefault(key, []).append(line)
 
@@ -187,7 +196,7 @@ def detect(session: Session, user: User, today: date) -> list[Found]:
             due_day = Counter(c.booking_date.day for c in cluster).most_common(1)[0][0]
             category = Counter(c.category_id for c in cluster if c.category_id).most_common(1)
             account = Counter(c.account_id for c in cluster).most_common(1)[0][0]
-            name = (cluster[-1].counterparty or cluster[-1].description or "Fixkost")[:100]
+            name = names.get(key) or (cluster[-1].counterparty or cluster[-1].description or "Fixkost")[:100]
             suffix = f"|~{int(amount)}" if len(clusters) > 1 else ""
             rhythm = {1: "monatlich", 3: "vierteljährlich", 6: "halbjährlich", 12: "jährlich"}[interval]
             spread = max(amounts) - min(amounts)
@@ -224,7 +233,71 @@ def detect(session: Session, user: User, today: date) -> list[Found]:
 
 
 def refresh(session: Session, user: User, today: date) -> dict[str, int]:
-    return suggestions.sync(session, user, SuggestionKind.FIXED_COST_NEW, detect(session, user, today), GENERATOR)
+    result = suggestions.sync(session, user, SuggestionKind.FIXED_COST_NEW, detect(session, user, today), GENERATOR)
+    if ai_gateway.enabled():
+        for suggestion in suggestions.list_suggestions(session, user, kind=SuggestionKind.FIXED_COST_NEW,
+                                                       status=SuggestionStatus.OPEN):
+            if "ai" not in suggestion.payload:
+                ai_jobs.enqueue(session, user.id, ENRICH, "suggestion", suggestion.id)
+    return result
+
+
+# --- KI-Anreicherung: Name, Anbieter, Verpflichtung (ändert nie Beträge oder Rhythmus) -----------
+
+ENRICH = "enrich_fixed_cost"
+ENRICH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 60},
+        "ist_verpflichtung": {"type": "boolean"},
+        "anbieter": {"type": "string", "maxLength": 100},
+        "vertrag_referenz": {"type": ["string", "null"], "maxLength": 60},
+        "begruendung": {"type": "string", "maxLength": 300},
+    },
+    "required": ["name", "ist_verpflichtung", "anbieter", "vertrag_referenz", "begruendung"],
+    "additionalProperties": False,
+}
+ENRICH_TASK = (
+    "Die Daten zeigen wiederkehrende Abbuchungen eines Empfängers. Gib einen kurzen, verständlichen "
+    "Namen für die Fixkost (z. B. „Internetanschluss“), den Anbieter, ob es eine vertragliche "
+    "Verpflichtung ist (Abo, Versicherung, Miete, Vertrag) oder nur regelmäßiger Konsum, und eine "
+    "Vertragsreferenz, falls sie wörtlich in den Texten steht, sonst null."
+)
+
+
+def _enrich_prepare(session: Session, job):
+    suggestion = session.get(Suggestion, job.ref_id)
+    if suggestion is None or suggestion.status != SuggestionStatus.OPEN or "ai" in suggestion.payload:
+        return None
+    ids = [t["id"] for t in suggestion.evidence.get("transactions", [])]
+    txs = session.exec(select(Transaction).where(Transaction.id.in_(ids)).order_by(Transaction.booking_date)).all()
+    data = {
+        "rhythmus_monate": suggestion.payload.get("interval_months"),
+        "betrag_eur": suggestion.payload.get("amount"),
+        "buchungen": [{"datum": t.booking_date.isoformat(), "empfaenger": (t.counterparty or "")[:120],
+                       "verwendungszweck": (t.description or "")[:200]} for t in txs[-5:]],
+    }
+    return ENRICH_TASK, data, ENRICH_SCHEMA
+
+
+def _enrich_finish(session: Session, job, answer: dict):
+    suggestion = session.get(Suggestion, job.ref_id, with_for_update=True, populate_existing=True)
+    if suggestion is None or suggestion.status != SuggestionStatus.OPEN:
+        return None
+    payload = dict(suggestion.payload)
+    payload["ai"] = answer
+    payload["name"] = answer["name"].strip()[:100] or payload["name"]
+    suggestion.payload = payload
+    if not answer["ist_verpflichtung"]:
+        suggestion.priority = min(suggestion.priority, 0) - 1
+        suggestion.reason += " – laut KI eher regelmäßiger Konsum als Vertrag"
+    else:
+        suggestion.reason += f" – KI: {answer['begruendung'][:200]}"
+    session.flush()
+    return answer
+
+
+ai_jobs.register(ENRICH, ai_jobs.Task(prepare=_enrich_prepare, finish=_enrich_finish))
 
 
 # --- Vorschlags-Handler --------------------------------------------------------------------------

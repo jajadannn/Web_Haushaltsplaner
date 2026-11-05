@@ -24,7 +24,7 @@ from watchdog.observers import Observer
 from app.config import get_settings
 from app.db import engine
 from app.models.imports import BatchSource, ImportProfile
-from app.services import ai_review, analysis
+from app.services import ai_jobs, ai_review, analysis
 from app.services.import_jobs import (
     archive_pending,
     create_batch,
@@ -156,6 +156,7 @@ def run() -> None:
     observer.start()
     log.info("Import-Worker beobachtet %s", inbox.resolve())
     ai_stop = ai_review.start_in_background(engine)  # Prüfliste: Vorschläge der lokalen KI
+    jobs_stop = ai_jobs.start_in_background(engine)  # weitere KI-Aufträge (Vorschläge, Belege …)
 
     tracker = SettleTracker()
     with Session(engine) as session:
@@ -191,8 +192,9 @@ def run() -> None:
     except KeyboardInterrupt:
         log.info("Import-Worker wird beendet")
     finally:
-        if ai_stop is not None:
-            ai_stop.set()
+        for stop in (ai_stop, jobs_stop):
+            if stop is not None:
+                stop.set()
         observer.stop()
         observer.join()
 

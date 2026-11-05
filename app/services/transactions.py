@@ -377,10 +377,14 @@ def with_links(session: Session, txs: Sequence[Transaction]) -> list[Transaction
             )
         ).all()
     ) if ids else {}
+    from app.services.merchants import merchant_ids
+
+    found = merchant_ids(session, txs[0].user_id, txs) if txs else {}
     return [
         TransactionRead.model_validate(tx).model_copy(update={
             "import_linked": tx.source == TransactionSource.IMPORT or tx.id in linked,
             "loan_payment_id": payments.get(tx.id),
+            "merchant_id": found.get(tx.id),
         })
         for tx in txs
     ]

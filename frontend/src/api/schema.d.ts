@@ -1481,6 +1481,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/merchants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Merchants
+         * @description Anbieter, unter denen wechselnde Buchungstexte zusammengefasst werden.
+         */
+        get: operations["list_merchants_merchants_get"];
+        put?: never;
+        /** Create Merchant */
+        post: operations["create_merchant_merchants_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/merchants/{merchant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Merchant */
+        delete: operations["delete_merchant_merchants__merchant_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Merchant */
+        patch: operations["update_merchant_merchants__merchant_id__patch"];
+        trace?: never;
+    };
+    "/merchants/{merchant_id}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Aliases */
+        get: operations["list_aliases_merchants__merchant_id__aliases_get"];
+        put?: never;
+        /**
+         * Add Alias
+         * @description Merkmal (IBAN, Referenz oder Name), an dem Buchungen des Anbieters erkannt werden.
+         */
+        post: operations["add_alias_merchants__merchant_id__aliases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/merchants/aliases/{alias_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Alias */
+        delete: operations["delete_alias_merchants_aliases__alias_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/merchants/{merchant_id}/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Contracts */
+        get: operations["list_contracts_merchants__merchant_id__contracts_get"];
+        put?: never;
+        /**
+         * Add Contract
+         * @description Vertrag mit optionaler Referenz – trennt mehrere Verträge beim selben Anbieter.
+         */
+        post: operations["add_contract_merchants__merchant_id__contracts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/merchants/contracts/{contract_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Contract */
+        delete: operations["delete_contract_merchants_contracts__contract_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -1621,6 +1736,35 @@ export interface components {
             reachable: boolean | null;
             /** Pending */
             pending: number;
+        };
+        /** AliasCreate */
+        AliasCreate: {
+            /**
+             * Match Type
+             * @enum {string}
+             */
+            match_type: "iban" | "reference" | "name";
+            /** Value */
+            value: string;
+            /** Contract Id */
+            contract_id?: number | null;
+        };
+        /** AliasRead */
+        AliasRead: {
+            /** Id */
+            id: number;
+            /** Merchant Id */
+            merchant_id: number;
+            /** Contract Id */
+            contract_id: number | null;
+            /** Match Type */
+            match_type: string;
+            /** Value */
+            value: string;
+            /** Confirmed */
+            confirmed: boolean;
+            /** Source */
+            source: string;
         };
         /** ApplyResult */
         ApplyResult: {
@@ -1874,6 +2018,30 @@ export interface components {
             confirmed: number;
             /** Skipped */
             skipped: number;
+        };
+        /** ContractCreate */
+        ContractCreate: {
+            /** Label */
+            label: string;
+            /** Reference */
+            reference?: string | null;
+        };
+        /** ContractRead */
+        ContractRead: {
+            /** Id */
+            id: number;
+            /** Merchant Id */
+            merchant_id: number;
+            /** Label */
+            label: string;
+            /** Reference */
+            reference: string | null;
+            /** Fixed Cost Id */
+            fixed_cost_id: number | null;
+            /** Notice Period */
+            notice_period: string | null;
+            /** Term End */
+            term_end: string | null;
         };
         /** FixedCostCreate */
         FixedCostCreate: {
@@ -2595,6 +2763,38 @@ export interface components {
          * @enum {string}
          */
         MatchType: "contains" | "regex";
+        /** MerchantCreate */
+        MerchantCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @default merchant
+             * @enum {string}
+             */
+            kind: "merchant" | "payment_provider";
+        };
+        /** MerchantRead */
+        MerchantRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** MerchantUpdate */
+        MerchantUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Kind */
+            kind?: ("merchant" | "payment_provider") | null;
+        };
         /** MonthFlows */
         MonthFlows: {
             /** Income */
@@ -3095,6 +3295,8 @@ export interface components {
             import_linked: boolean;
             /** Loan Payment Id */
             loan_payment_id?: number | null;
+            /** Merchant Id */
+            merchant_id?: number | null;
         };
         /**
          * TransactionSource
@@ -6976,6 +7178,352 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ChangeRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_merchants_merchants_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_merchant_merchants_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MerchantCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_merchant_merchants__merchant_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                merchant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_merchant_merchants__merchant_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                merchant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MerchantUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MerchantRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_aliases_merchants__merchant_id__aliases_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                merchant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AliasRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_alias_merchants__merchant_id__aliases_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                merchant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AliasCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AliasRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_alias_merchants_aliases__alias_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                alias_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_contracts_merchants__merchant_id__contracts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                merchant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_contract_merchants__merchant_id__contracts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                merchant_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_contract_merchants_contracts__contract_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                contract_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

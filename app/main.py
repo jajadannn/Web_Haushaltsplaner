@@ -12,6 +12,7 @@ from app.routers import (
     imports,
     institutions,
     loans,
+    merchants,
     reports,
     rules,
     suggestions,
@@ -45,7 +46,7 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
     routers = (users, institutions, accounts, categories, transactions, loans, imports, rules, reports, budget,
-               suggestions)
+               suggestions, merchants)
     for module in routers:
         app.include_router(module.router)
 

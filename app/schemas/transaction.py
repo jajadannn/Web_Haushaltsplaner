@@ -106,6 +106,7 @@ class TransactionRead(ReadModel):
     # bzw. als Kreditrate gebucht (dann nur über /loans stornierbar)
     import_linked: bool = False
     loan_payment_id: int | None = None
+    merchant_id: int | None = None  # erkannter Anbieter (über bestätigte Merkmale)
 
 
 class TransactionPage(BaseModel):

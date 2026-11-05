@@ -156,3 +156,60 @@ class AnalysisState(SQLModel, table=True):
     user_id: int = Field(foreign_key="app_user.id", primary_key=True, ondelete="CASCADE")
     due_at: datetime | None = Field(default=None, sa_column=nullable_timestamp())
     last_run_at: datetime | None = Field(default=None, sa_column=nullable_timestamp())
+
+
+class MerchantKind(StrEnum):
+    MERCHANT = "merchant"
+    PAYMENT_PROVIDER = "payment_provider"
+
+
+class Merchant(SQLModel, table=True):
+    """Anbieter/Händler hinter wechselnden Buchungstexten (Idee 09). Originaltexte bleiben unverändert."""
+
+    __tablename__ = "merchant"
+    __table_args__ = (UniqueConstraint("user_id", "name"), enum_check("kind", MerchantKind))
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_user.id", ondelete="CASCADE")
+    name: str = Field(max_length=100)
+    kind: str = Field(default=MerchantKind.MERCHANT, sa_column=enum_column(20))
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class AliasMatch(StrEnum):
+    IBAN = "iban"
+    REFERENCE = "reference"
+    NAME = "name"
+
+
+class MerchantAlias(SQLModel, table=True):
+    """Merkmal, an dem Buchungen eines Anbieters erkannt werden (IBAN > Referenz > Name)."""
+
+    __tablename__ = "merchant_alias"
+    __table_args__ = (UniqueConstraint("user_id", "match_type", "value"), enum_check("match_type", AliasMatch))
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_user.id", ondelete="CASCADE")
+    merchant_id: int = Field(foreign_key="merchant.id", ondelete="CASCADE")
+    contract_id: int | None = Field(default=None, foreign_key="contract.id", ondelete="SET NULL")
+    match_type: str = Field(sa_column=enum_column(20))
+    value: str = Field(max_length=140)  # normalisiert (IBAN ohne Leerzeichen, Name/Referenz kleingeschrieben)
+    confirmed: bool = False
+    source: str = Field(default="user", max_length=20)  # user | ai | rule
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class Contract(SQLModel, table=True):
+    """Vertrag bei einem Anbieter (z. B. zwei Mobilfunkverträge mit eigenen Referenzen)."""
+
+    __tablename__ = "contract"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_user.id", ondelete="CASCADE")
+    merchant_id: int = Field(foreign_key="merchant.id", ondelete="CASCADE")
+    label: str = Field(max_length=100)
+    reference: str | None = Field(default=None, max_length=140)
+    fixed_cost_id: int | None = Field(default=None, foreign_key="fixed_cost.id", ondelete="SET NULL")
+    notice_period: str | None = Field(default=None, max_length=100)  # aus Dokumenten (Idee 15)
+    term_end: str | None = Field(default=None, max_length=40)
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
