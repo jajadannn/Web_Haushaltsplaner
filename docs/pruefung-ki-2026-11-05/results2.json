@@ -1,0 +1,322 @@
+{
+  "one_income_suppresses_two": {
+    "account_id": 1,
+    "as_of": "2026-11-20",
+    "until": "2026-11-30",
+    "start_balance": "7000.00",
+    "events": [],
+    "end_balance": "7000.00",
+    "lowest": {
+      "date": "2026-11-20",
+      "balance": "7000.00"
+    }
+  },
+  "future_booked_missing": {
+    "account_id": 2,
+    "as_of": "2026-11-20",
+    "until": "2026-11-30",
+    "start_balance": "5000.00",
+    "events": [],
+    "end_balance": "5000.00",
+    "lowest": {
+      "date": "2026-11-20",
+      "balance": "5000.00"
+    }
+  },
+  "assistant_split_sum": {
+    "count": 1,
+    "sum": "-100.00",
+    "examples": [
+      {
+        "id": 3,
+        "date": "2026-11-02",
+        "amount": "-100.00",
+        "counterparty": null,
+        "description": "Sammelrechnung"
+      }
+    ]
+  },
+  "assistant_split_groups": {
+    "groups": [
+      {
+        "name": "ohne Kategorie",
+        "sum": "-100.00"
+      }
+    ]
+  },
+  "parse_day": {
+    "amount": "-18.50",
+    "booking_date": "2026-11-19",
+    "account_id": null,
+    "category_id": null,
+    "description": "Mittagessen",
+    "questions": [
+      "account"
+    ],
+    "possible_duplicate": null,
+    "ai_used": false
+  },
+  "parse_amount": {
+    "amount": "-1.23",
+    "booking_date": "2026-11-20",
+    "account_id": null,
+    "category_id": null,
+    "description": "Miete",
+    "questions": [
+      "account"
+    ],
+    "possible_duplicate": null,
+    "ai_used": false
+  },
+  "disabled_ai_called": {
+    "calls": 1,
+    "result": {
+      "amount": "-18.50",
+      "booking_date": "2026-11-20",
+      "account_id": null,
+      "category_id": null,
+      "description": "Essen",
+      "questions": [
+        "account"
+      ],
+      "possible_duplicate": null,
+      "ai_used": true
+    }
+  },
+  "foreign_currency_match": [
+    {
+      "id": 1,
+      "kind": "receipt_match",
+      "status": "open",
+      "fingerprint": "doc:1|tx:4",
+      "payload": {
+        "date": "2026-11-02",
+        "amount": "100.00",
+        "merchant": "Shop",
+        "positions": [],
+        "document_id": 1,
+        "transaction_id": 4
+      },
+      "evidence": {},
+      "reason": "Beleg „usd.pdf“ (100.00 €, 02.11.2026) passt zur Buchung vom 02.11.2026 (100.00 €).",
+      "generator": "document-v1",
+      "priority": 0,
+      "data_as_of": null,
+      "result_type": null,
+      "result_id": null,
+      "created_at": "2026-11-05T19:45:36.080485+01:00",
+      "updated_at": "2026-11-05T19:45:36.080485+01:00",
+      "decided_at": null
+    }
+  ],
+  "fixed_patch_ignored": {
+    "edited": {
+      "id": 2,
+      "name": "Vertrag",
+      "amount": "40.00",
+      "due_day": 2,
+      "category_id": null,
+      "match_text": null,
+      "start_date": null,
+      "end_date": null,
+      "active": true,
+      "interval_months": 1,
+      "first_due_date": null,
+      "account_id": null,
+      "created_at": "2026-11-05T19:45:36.193157+01:00",
+      "updated_at": "2026-11-05T19:45:36.223101+01:00"
+    },
+    "budget": {
+      "month": "2026-12-01",
+      "as_of": "2026-11-20",
+      "income": "0.00",
+      "uncategorized_in": "0.00",
+      "fixed_total": "30.00",
+      "fixed_paid": "0.00",
+      "variable_spent": "0.00",
+      "available": "-30.00",
+      "days_left": 31,
+      "available_per_day": null,
+      "items": [
+        {
+          "kind": "fixed",
+          "ref_id": 2,
+          "name": "Vertrag",
+          "amount": "30.00",
+          "due_date": "2026-12-02",
+          "status": "open",
+          "paid_amount": null,
+          "paid_on": null,
+          "linked": false
+        }
+      ],
+      "reserves": []
+    }
+  },
+  "over_refund": {
+    "matches": [
+      {
+        "id": 2,
+        "kind": "refund_match",
+        "status": "open",
+        "fingerprint": "refund:6|5",
+        "payload": {
+          "amount": "100.00",
+          "partial": false,
+          "category": "Kleidung",
+          "refund_id": 6,
+          "category_id": 417,
+          "original_id": 5,
+          "alternatives": 0,
+          "counterparty": "Shop",
+          "original_amount": "100.00"
+        },
+        "evidence": {},
+        "reason": "Die Gutschrift über 100.00 € von „Shop“ gehört vermutlich zum Einkauf vom 01.11.2026 (100.00 €).",
+        "generator": "refund-v1",
+        "priority": 0,
+        "data_as_of": "2026-11-05T19:45:36.401391+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:45:36.386747+01:00",
+        "updated_at": "2026-11-05T19:45:36.386747+01:00",
+        "decided_at": null
+      },
+      {
+        "id": 3,
+        "kind": "refund_match",
+        "status": "open",
+        "fingerprint": "refund:7|5",
+        "payload": {
+          "amount": "100.00",
+          "partial": false,
+          "category": "Kleidung",
+          "refund_id": 7,
+          "category_id": 417,
+          "original_id": 5,
+          "alternatives": 0,
+          "counterparty": "Shop",
+          "original_amount": "100.00"
+        },
+        "evidence": {},
+        "reason": "Die Gutschrift über 100.00 € von „Shop“ gehört vermutlich zum Einkauf vom 01.11.2026 (100.00 €).",
+        "generator": "refund-v1",
+        "priority": 0,
+        "data_as_of": "2026-11-05T19:45:36.401391+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:45:36.386747+01:00",
+        "updated_at": "2026-11-05T19:45:36.386747+01:00",
+        "decided_at": null
+      }
+    ],
+    "accepted": [
+      {
+        "id": 2,
+        "kind": "refund_match",
+        "status": "accepted",
+        "fingerprint": "refund:6|5",
+        "payload": {
+          "amount": "100.00",
+          "partial": false,
+          "category": "Kleidung",
+          "refund_id": 6,
+          "category_id": 417,
+          "original_id": 5,
+          "alternatives": 0,
+          "counterparty": "Shop",
+          "original_amount": "100.00"
+        },
+        "evidence": {},
+        "reason": "Die Gutschrift über 100.00 € von „Shop“ gehört vermutlich zum Einkauf vom 01.11.2026 (100.00 €).",
+        "generator": "refund-v1",
+        "priority": 0,
+        "data_as_of": "2026-11-05T19:45:36.401391+01:00",
+        "result_type": "transaction",
+        "result_id": 6,
+        "created_at": "2026-11-05T19:45:36.386747+01:00",
+        "updated_at": "2026-11-05T19:45:36.427068+01:00",
+        "decided_at": "2026-11-05T19:45:36.442245+01:00"
+      },
+      {
+        "id": 3,
+        "kind": "refund_match",
+        "status": "accepted",
+        "fingerprint": "refund:7|5",
+        "payload": {
+          "amount": "100.00",
+          "partial": false,
+          "category": "Kleidung",
+          "refund_id": 7,
+          "category_id": 417,
+          "original_id": 5,
+          "alternatives": 0,
+          "counterparty": "Shop",
+          "original_amount": "100.00"
+        },
+        "evidence": {},
+        "reason": "Die Gutschrift über 100.00 € von „Shop“ gehört vermutlich zum Einkauf vom 01.11.2026 (100.00 €).",
+        "generator": "refund-v1",
+        "priority": 0,
+        "data_as_of": "2026-11-05T19:45:36.401391+01:00",
+        "result_type": "transaction",
+        "result_id": 7,
+        "created_at": "2026-11-05T19:45:36.386747+01:00",
+        "updated_at": "2026-11-05T19:45:36.453082+01:00",
+        "decided_at": "2026-11-05T19:45:36.463910+01:00"
+      }
+    ]
+  },
+  "negative_ai_auto": {
+    "id": 4,
+    "kind": "fixed_cost_new",
+    "status": "auto_applied",
+    "fingerprint": "iban:DE02120300000000202051|1",
+    "payload": {
+      "ai": {
+        "ist_verpflichtung": false
+      },
+      "name": "Anbieter",
+      "amount": "20.00",
+      "due_day": 2,
+      "account_id": 8,
+      "match_text": "Anbieter",
+      "category_id": 477,
+      "first_due_date": null,
+      "interval_months": 1
+    },
+    "evidence": {
+      "group": "iban:DE02120300000000202051",
+      "transactions": [
+        {
+          "id": 8,
+          "date": "2026-09-02",
+          "amount": "20.00",
+          "split_id": null
+        },
+        {
+          "id": 9,
+          "date": "2026-10-02",
+          "amount": "20.00",
+          "split_id": null
+        },
+        {
+          "id": 10,
+          "date": "2026-11-02",
+          "amount": "20.00",
+          "split_id": null
+        }
+      ],
+      "identical_amount": true
+    },
+    "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+    "generator": "recurring-v1",
+    "priority": 2,
+    "data_as_of": "2026-11-05T19:45:36.685247+01:00",
+    "result_type": "fixed_cost",
+    "result_id": 3,
+    "created_at": "2026-11-05T19:45:36.621934+01:00",
+    "updated_at": "2026-11-05T19:45:36.676797+01:00",
+    "decided_at": "2026-11-05T19:45:36.724534+01:00"
+  }
+}

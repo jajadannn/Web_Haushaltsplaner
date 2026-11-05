@@ -1,0 +1,259 @@
+{
+  "dry_run_to_auto": {
+    "before": "dry_run",
+    "after": "dry_run",
+    "fixed": []
+  },
+  "stale_evidence": {
+    "suggestion_amount": "20.00",
+    "current_transaction_amounts": "-75.00",
+    "accepted": "accepted",
+    "fixed": {
+      "id": 1,
+      "name": "Anbieter",
+      "amount": "20.00",
+      "due_day": 2,
+      "category_id": 120,
+      "match_text": "Anbieter",
+      "start_date": "2026-11-01",
+      "end_date": null,
+      "active": true,
+      "interval_months": 1,
+      "first_due_date": null,
+      "account_id": 2,
+      "created_at": "2026-11-05T19:43:38.398888+01:00",
+      "updated_at": "2026-11-05T19:43:38.398888+01:00"
+    }
+  },
+  "manual_duplicate": {
+    "fixed": [
+      {
+        "id": 3,
+        "name": "Anbieter",
+        "amount": "20.00",
+        "due_day": 2,
+        "category_id": 180,
+        "match_text": "Anbieter",
+        "start_date": "2026-11-01",
+        "end_date": null,
+        "active": true,
+        "interval_months": 1,
+        "first_due_date": null,
+        "account_id": 3,
+        "created_at": "2026-11-05T19:43:38.629657+01:00",
+        "updated_at": "2026-11-05T19:43:38.629657+01:00"
+      },
+      {
+        "id": 2,
+        "name": "Schon manuell angelegt",
+        "amount": "20.00",
+        "due_day": 2,
+        "category_id": null,
+        "match_text": "Anbieter",
+        "start_date": null,
+        "end_date": null,
+        "active": true,
+        "interval_months": 1,
+        "first_due_date": null,
+        "account_id": null,
+        "created_at": "2026-11-05T19:43:38.616836+01:00",
+        "updated_at": "2026-11-05T19:43:38.616836+01:00"
+      }
+    ]
+  },
+  "amount_revert": {
+    "status": 409,
+    "body": {
+      "error": {
+        "code": "changed_since",
+        "message": "Seit der Änderung wurde manuell etwas geändert – bitte von Hand anpassen",
+        "details": null
+      }
+    },
+    "history": [
+      {
+        "id": 1,
+        "valid_from": "2000-01-01",
+        "amount": "20.00"
+      },
+      {
+        "id": 2,
+        "valid_from": "2026-10-01",
+        "amount": "30.00"
+      }
+    ]
+  },
+  "transfer_fake_revert": {
+    "status": "reverted",
+    "transaction": {
+      "id": 12,
+      "account_id": 5,
+      "booking_date": "2026-11-02",
+      "value_date": null,
+      "amount": "-100.00",
+      "description": "Transfer",
+      "counterparty": null,
+      "counterparty_iban": "DE02120300000000202051",
+      "kind": "transfer",
+      "category_id": null,
+      "review_status": "confirmed",
+      "category_source": "manual",
+      "applied_rule_id": null,
+      "source": "manual",
+      "transfer_peer_id": 13,
+      "excluded_at": null,
+      "excluded_reason": null,
+      "ai_note": null,
+      "created_at": "2026-11-05T19:43:39.018433+01:00",
+      "updated_at": "2026-11-05T19:43:39.084624+01:00",
+      "splits": [],
+      "import_linked": false,
+      "loan_payment_id": null,
+      "merchant_id": null
+    }
+  },
+  "unbalanced_transfer": [
+    {
+      "id": 14,
+      "account_id": 7,
+      "booking_date": "2026-11-02",
+      "value_date": null,
+      "amount": "-100.00",
+      "description": "Transfer",
+      "counterparty": null,
+      "counterparty_iban": "DE02120300000000202051",
+      "kind": "transfer",
+      "category_id": null,
+      "review_status": "confirmed",
+      "category_source": "manual",
+      "applied_rule_id": null,
+      "source": "manual",
+      "transfer_peer_id": 15,
+      "excluded_at": null,
+      "excluded_reason": null,
+      "ai_note": null,
+      "created_at": "2026-11-05T19:43:39.250835+01:00",
+      "updated_at": "2026-11-05T19:43:39.333991+01:00",
+      "splits": [],
+      "import_linked": false,
+      "loan_payment_id": null,
+      "merchant_id": null
+    },
+    {
+      "id": 15,
+      "account_id": 8,
+      "booking_date": "2026-11-02",
+      "value_date": null,
+      "amount": "200.00",
+      "description": "Prüfbuchung",
+      "counterparty": null,
+      "counterparty_iban": null,
+      "kind": "transfer",
+      "category_id": null,
+      "review_status": "confirmed",
+      "category_source": "manual",
+      "applied_rule_id": null,
+      "source": "manual",
+      "transfer_peer_id": 14,
+      "excluded_at": null,
+      "excluded_reason": null,
+      "ai_note": null,
+      "created_at": "2026-11-05T19:43:39.264541+01:00",
+      "updated_at": "2026-11-05T19:43:39.333991+01:00",
+      "splits": [],
+      "import_linked": false,
+      "loan_payment_id": null,
+      "merchant_id": null
+    }
+  ],
+  "wrong_account_payment": {
+    "kind": "fixed",
+    "ref_id": 5,
+    "name": "Vertrag",
+    "amount": "20.00",
+    "due_date": "2026-11-02",
+    "status": "paid",
+    "paid_amount": "20.00",
+    "paid_on": "2026-11-02",
+    "linked": false
+  },
+  "positive_fixed_payment": {
+    "month": "2026-11-01",
+    "as_of": "2026-11-20",
+    "income": "0.00",
+    "uncategorized_in": "20.00",
+    "fixed_total": "-20.00",
+    "fixed_paid": "-20.00",
+    "variable_spent": "20.00",
+    "available": "0.00",
+    "days_left": 11,
+    "available_per_day": null,
+    "items": [
+      {
+        "kind": "fixed",
+        "ref_id": 6,
+        "name": "Vertrag",
+        "amount": "20.00",
+        "due_date": "2026-11-02",
+        "status": "paid",
+        "paid_amount": "-20.00",
+        "paid_on": "2026-11-02",
+        "linked": true
+      }
+    ],
+    "reserves": []
+  },
+  "off_still_suggests": {
+    "suggestions": [
+      {
+        "id": 7,
+        "kind": "fixed_cost_new",
+        "status": "open",
+        "fingerprint": "iban:DE02120300000000202051|1",
+        "payload": {
+          "name": "Anbieter",
+          "amount": "20.00",
+          "due_day": 2,
+          "account_id": 13,
+          "match_text": "Anbieter",
+          "category_id": 594,
+          "first_due_date": null,
+          "interval_months": 1
+        },
+        "evidence": {
+          "group": "iban:DE02120300000000202051",
+          "transactions": [
+            {
+              "id": 18,
+              "date": "2026-09-02",
+              "amount": "20.00",
+              "split_id": null
+            },
+            {
+              "id": 19,
+              "date": "2026-10-02",
+              "amount": "20.00",
+              "split_id": null
+            },
+            {
+              "id": 20,
+              "date": "2026-11-02",
+              "amount": "20.00",
+              "split_id": null
+            }
+          ],
+          "identical_amount": true
+        },
+        "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+        "generator": "recurring-v1",
+        "priority": 2,
+        "data_as_of": "2026-11-05T19:43:39.911354+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:43:39.902851+01:00",
+        "updated_at": "2026-11-05T19:43:39.902851+01:00",
+        "decided_at": null
+      }
+    ]
+  }
+}

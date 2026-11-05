@@ -1,0 +1,223 @@
+{
+  "split_categorized_rejected": {
+    "status": 422,
+    "error": {
+      "error": {
+        "code": "split_on_line_level",
+        "message": "Bei einer Aufteilung tragen die Zeilen Art und Kategorie, nicht die Buchung",
+        "details": null
+      }
+    }
+  },
+  "second_split_fixed_rejected": {
+    "status": 409,
+    "body": {
+      "error": {
+        "code": "suggestion_stale",
+        "message": "Die Zahlungen sind inzwischen einer Fixkost zugeordnet",
+        "details": null
+      }
+    },
+    "proposals": [
+      {
+        "id": 2,
+        "kind": "fixed_cost_new",
+        "status": "open",
+        "fingerprint": "name:provider|1|~30",
+        "payload": {
+          "name": "Provider",
+          "amount": "30.00",
+          "due_day": 2,
+          "account_id": 2,
+          "match_text": "Provider",
+          "category_id": 121,
+          "first_due_date": null,
+          "interval_months": 1
+        },
+        "evidence": {
+          "group": "name:provider",
+          "transactions": [
+            {
+              "id": 4,
+              "date": "2026-09-02",
+              "amount": "30.00",
+              "split_id": 5
+            },
+            {
+              "id": 5,
+              "date": "2026-10-02",
+              "amount": "30.00",
+              "split_id": 7
+            },
+            {
+              "id": 6,
+              "date": "2026-11-02",
+              "amount": "30.00",
+              "split_id": 9
+            }
+          ],
+          "identical_amount": true
+        },
+        "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+        "generator": "recurring-v1",
+        "priority": 2,
+        "data_as_of": "2026-11-05T19:51:22.697059+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:51:22.679144+01:00",
+        "updated_at": "2026-11-05T19:51:22.679144+01:00",
+        "decided_at": null
+      },
+      {
+        "id": 3,
+        "kind": "fixed_cost_new",
+        "status": "open",
+        "fingerprint": "name:provider|1|~70",
+        "payload": {
+          "name": "Provider",
+          "amount": "70.00",
+          "due_day": 2,
+          "account_id": 2,
+          "match_text": "Provider",
+          "category_id": 122,
+          "first_due_date": null,
+          "interval_months": 1
+        },
+        "evidence": {
+          "group": "name:provider",
+          "transactions": [
+            {
+              "id": 4,
+              "date": "2026-09-02",
+              "amount": "70.00",
+              "split_id": 6
+            },
+            {
+              "id": 5,
+              "date": "2026-10-02",
+              "amount": "70.00",
+              "split_id": 8
+            },
+            {
+              "id": 6,
+              "date": "2026-11-02",
+              "amount": "70.00",
+              "split_id": 10
+            }
+          ],
+          "identical_amount": true
+        },
+        "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+        "generator": "recurring-v1",
+        "priority": 2,
+        "data_as_of": "2026-11-05T19:51:22.697059+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:51:22.679144+01:00",
+        "updated_at": "2026-11-05T19:51:22.679144+01:00",
+        "decided_at": null
+      }
+    ]
+  },
+  "income_inverted_range": {
+    "changed": {
+      "id": 1,
+      "name": "Gehalt",
+      "amount": "1500.00",
+      "amount_min": "3000.00",
+      "amount_max": "2000.00",
+      "interval_months": 1,
+      "due_day": 28,
+      "first_due_date": null,
+      "account_id": 3,
+      "category_id": null,
+      "match_text": null,
+      "active": true,
+      "created_at": "2026-11-05T19:51:22.884821+01:00"
+    },
+    "forecast": {
+      "account_id": 3,
+      "as_of": "2026-11-20",
+      "until": "2026-11-30",
+      "start_balance": "5000.00",
+      "events": [
+        {
+          "date": "2026-11-28",
+          "name": "Gehalt",
+          "amount": "1500.00",
+          "kind": "expected_income",
+          "expected": true,
+          "ref_id": 1,
+          "range": [
+            "3000.00",
+            "2000.00"
+          ],
+          "balance_after": "6500.00"
+        }
+      ],
+      "end_balance": "6500.00",
+      "lowest": {
+        "date": "2026-11-20",
+        "balance": "5000.00"
+      }
+    }
+  },
+  "invalid_override_500": {
+    "status": 500,
+    "body": "Internal Server Error"
+  },
+  "refund_overwrites_manual": {
+    "before": {
+      "id": 11,
+      "account_id": 5,
+      "booking_date": "2026-11-02",
+      "value_date": null,
+      "amount": "100.00",
+      "description": "Gutschrift",
+      "counterparty": "Shop",
+      "counterparty_iban": null,
+      "kind": "regular",
+      "category_id": 302,
+      "review_status": "confirmed",
+      "category_source": "manual",
+      "applied_rule_id": null,
+      "source": "manual",
+      "transfer_peer_id": null,
+      "excluded_at": null,
+      "excluded_reason": null,
+      "ai_note": null,
+      "created_at": "2026-11-05T19:51:23.240596+01:00",
+      "updated_at": "2026-11-05T19:51:23.289755+01:00",
+      "splits": [],
+      "import_linked": false,
+      "loan_payment_id": null,
+      "merchant_id": null
+    },
+    "after": {
+      "id": 11,
+      "account_id": 5,
+      "booking_date": "2026-11-02",
+      "value_date": null,
+      "amount": "100.00",
+      "description": "Gutschrift",
+      "counterparty": "Shop",
+      "counterparty_iban": null,
+      "kind": "regular",
+      "category_id": 301,
+      "review_status": "confirmed",
+      "category_source": "manual",
+      "applied_rule_id": null,
+      "source": "manual",
+      "transfer_peer_id": null,
+      "excluded_at": null,
+      "excluded_reason": null,
+      "ai_note": null,
+      "created_at": "2026-11-05T19:51:23.240596+01:00",
+      "updated_at": "2026-11-05T19:51:23.308910+01:00",
+      "splits": [],
+      "import_linked": false,
+      "loan_payment_id": null,
+      "merchant_id": null
+    }
+  }
+}

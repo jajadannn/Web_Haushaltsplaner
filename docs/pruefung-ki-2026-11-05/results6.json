@@ -1,0 +1,14 @@
+{
+  "backup_without_imports_omits_documents": {
+    "exit": 0,
+    "archive_members": [],
+    "original_document_exists": true
+  },
+  "restore_overwrites_document_without_yes": {
+    "exit": 0,
+    "restored_original": true,
+    "used_yes_flag": false,
+    "stdout": "Dump:          /tmp/fin-backup-probe-4rsyl_q3/backup2/finanzplaner_20261105-195548.dump\nImport-Archiv: /tmp/fin-backup-probe-4rsyl_q3/backup2/imports_20261105-195548.tar.gz (-> /tmp/fin-backup-probe-4rsyl_q3/restore-imports)\nZiel:          postgresql://postgres@127.0.0.1:5433/fin_restore_probe_49bc371261f6\nPrüfsumme OK:  finanzplaner_20261105-195548.dump\nPrüfsumme OK:  imports_20261105-195548.tar.gz\nDump enthält:  Datenbank 'fin_logic_review_33262312c1b9', erstellt 2026-11-05 19:55:48 CET\nZiel-Datenbank 'fin_restore_probe_49bc371261f6' existiert nicht - wird angelegt.\nLege Datenbank 'fin_restore_probe_49bc371261f6' leer an ...\nSpiele den Dump ein (pg_restore) ...\nEntpacke 1 Import-Datei(en) nach '/tmp/fin-backup-probe-4rsyl_q3/restore-imports' ...\nEntpacke Belege nach '/tmp/fin-backup-probe-4rsyl_q3/restore-docs' ...\n\nWiederherstellung abgeschlossen.\n  Ziel-Datenbank:    postgresql://postgres@127.0.0.1:5433/fin_restore_probe_49bc371261f6\n  Alembic-Revision:  8e02e866d112\n  Zeilen:            app_user=1 account=1 transaction=0 category=59 mapping_rule=0 import_batch=0\n  Import-Dateien:    1 nach /tmp/fin-backup-probe-4rsyl_q3/restore-imports\nHinweis: Hat der Code neuere Migrationen als diese Revision, jetzt 'uv run alembic upgrade head' ausführen.\n",
+    "stderr": ""
+  }
+}
