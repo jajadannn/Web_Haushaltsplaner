@@ -68,6 +68,14 @@ def document_file(document_id: int, session: SessionDep, user: CurrentUser):
     return FileResponse(service.file_path(doc), media_type=doc.mime, filename=doc.original_filename)
 
 
+@router.post("/{document_id}/retry")
+def retry_document(document_id: int, session: SessionDep, user: CurrentUser) -> dict[str, Any]:
+    """Gescheitertes Auslesen erneut versuchen."""
+    doc = service.retry(session, user, service.get_document(session, user, document_id))
+    session.commit()
+    return _read(doc, session)
+
+
 @router.post("/{document_id}/links", status_code=201)
 def link_document(document_id: int, data: LinkIn, session: SessionDep, user: CurrentUser) -> dict[str, Any]:
     doc = service.get_document(session, user, document_id)

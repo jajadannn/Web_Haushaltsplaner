@@ -150,14 +150,16 @@ def _still_running(last: date, interval: int, today: date) -> bool:
 
 
 def _covered(fixed_costs: list[FixedCost], cluster: list[Line], amount: Decimal) -> bool:
-    """Gibt es schon eine aktive Fixkost für diese Zahlungen?"""
+    """Gibt es schon eine aktive Fixkost für diese Zahlungen? Suchtext oder Kategorie muss passen und der
+    Betrag ähnlich sein – zwei Verträge beim selben Anbieter (z. B. Internet und Telefon) bleiben getrennt."""
     for fc in fixed_costs:
+        if abs(fc.amount - amount) > fc.amount * Decimal("0.10"):
+            continue
         text = (fc.match_text or "").casefold()
         if text and any(text in (c.counterparty or "").casefold() or text in c.description.casefold()
                         for c in cluster):
             return True
-        if fc.category_id is not None and any(c.category_id == fc.category_id for c in cluster) \
-                and abs(fc.amount - amount) <= fc.amount * Decimal("0.10"):
+        if fc.category_id is not None and any(c.category_id == fc.category_id for c in cluster):
             return True
     return False
 

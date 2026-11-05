@@ -23,6 +23,7 @@ from decimal import Decimal
 from sqlalchemy import and_, exists, not_, or_
 from sqlmodel import Session, func, select
 
+from app import clock
 from app.errors import Conflict, Invalid
 from app.models import (
     Account,
@@ -98,7 +99,17 @@ def update_fixed_cost(session: Session, user: User, fixed: FixedCost, changes: d
     end = changes.get("end_date", fixed.end_date)
     if start and end and end < start:
         raise Invalid("end_date liegt vor start_date", code="invalid_period")
+    changes = dict(changes)
+    amount = changes.pop("amount", None)
     apply_changes(fixed, changes)
+    if amount is not None and amount != fixed.amount:
+        if list_amounts(session, fixed):
+            # mit Betragsgeschichte: neuer Betrag ab dem laufenden Monat, frühere Monate bleiben unverändert
+            start = month_start(fixed.start_date) if fixed.start_date else None
+            valid_from = max(month_start(clock.today()), start) if start else month_start(clock.today())
+            set_amount_from(session, fixed, FixedCostAmountCreate(valid_from=valid_from, amount=amount))
+        else:
+            fixed.amount = amount
     flush_or_conflict(session, _UNIQUE)
     return fixed
 

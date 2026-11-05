@@ -64,7 +64,7 @@ class ForecastEvent(BaseModel):
     date: date
     name: str
     amount: Money
-    kind: Literal["fixed_cost", "expected_income", "loan_installment"]
+    kind: Literal["fixed_cost", "expected_income", "loan_installment", "transaction"]
     expected: bool
     ref_id: int
     range: list[Money] | None = None

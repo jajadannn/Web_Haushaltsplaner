@@ -60,3 +60,10 @@ def update(session: Session, user: User, changes: dict[str, Any]) -> dict[str, A
             row.value = value
     session.flush()
     return all_settings(session, user.id)
+
+
+def ai_allowed(session: Session, user_id: int) -> bool:
+    """KI für dieses Profil nutzbar: Server eingerichtet und im Profil nicht ausgeschaltet."""
+    from app.services import ai_gateway
+
+    return ai_gateway.enabled() and get(session, user_id, "ai.enabled") is True

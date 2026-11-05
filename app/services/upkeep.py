@@ -71,7 +71,10 @@ def detect_amount_changes(session: Session, user: User, today: date) -> list[Fou
         if paid == planned:
             continue
         previous = payments[-2] if len(payments) >= 2 else None
-        if previous is not None and -previous.amount == paid \
+        # dauerhaft nur bei zwei *aufeinanderfolgenden* Fälligkeiten (laut Rhythmus) mit gleichem neuen Betrag
+        consecutive = previous is not None and budget.months_between(previous.due_month, last.due_month) \
+            == fixed.interval_months
+        if consecutive and -previous.amount == paid \
                 and budget.amount_for(fixed, previous.due_month, history) != paid:
             change, valid_from, evidence = "dauerhaft", previous.due_month, [previous, last]
             reason = f"Die letzten zwei Zahlungen betrugen {paid} € statt {planned} €"

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import exists, func, not_, or_
+from sqlalchemy import Text, cast, exists, func, not_, or_
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
@@ -29,6 +29,7 @@ from app.config import get_settings
 from app.models import (
     Category,
     CategorySource,
+    ProfileSetting,
     ReviewStatus,
     Transaction,
     TransactionKind,
@@ -100,6 +101,9 @@ def pending_query(user_id: int | None = None):
         Transaction.kind == TransactionKind.REGULAR,
         Transaction.excluded_at.is_(None),
         not_(exists().where(TransactionSplit.transaction_id == Transaction.id)),
+        # Profile mit ausgeschalteter KI schicken keine Buchungen an die KI
+        not_(exists().where(ProfileSetting.user_id == Transaction.user_id, ProfileSetting.key == "ai.enabled",
+                            cast(ProfileSetting.value, Text) == "false")),
         not_(
             exists().where(
                 ImportRow.created_transaction_id == Transaction.id,
