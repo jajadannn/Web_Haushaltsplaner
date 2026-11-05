@@ -81,6 +81,11 @@ def create_income(session: Session, user: User, values: dict) -> ExpectedIncome:
 def update_income(session: Session, user: User, income: ExpectedIncome, changes_: dict) -> ExpectedIncome:
     merged = {k: getattr(income, k) for k in ("account_id", "category_id", "interval_months", "first_due_date")}
     _check_income(session, user, merged | changes_)
+    # Spanne nach dem Zusammenführen prüfen – sonst ließe sich z. B. nur amount_min über amount_max setzen
+    low = changes_.get("amount_min", income.amount_min)
+    high = changes_.get("amount_max", income.amount_max)
+    if low is not None and high is not None and low > high:
+        raise Invalid("amount_min ist größer als amount_max", code="invalid_range")
     apply_changes(income, changes_)
     flush_or_conflict(session, _UNIQUE)
     return income
@@ -98,7 +103,9 @@ def _income_due(income: ExpectedIncome, first: date) -> bool:
     return diff >= 0 and diff % income.interval_months == 0
 
 
-def _income_received(session: Session, income: ExpectedIncome, first: date, last: date) -> bool:
+def _income_payment(session: Session, income: ExpectedIncome, first: date, last: date,
+                    used: set[int]) -> int | None:
+    """Passende, noch keiner anderen Erwartung zugeordnete Gutschrift (Konto, Kategorie und Suchtext zugleich)."""
     query = select(Transaction.id).where(
         Transaction.user_id == income.user_id, Transaction.amount > 0, Transaction.excluded_at.is_(None),
         Transaction.kind == TransactionKind.REGULAR, Transaction.booking_date.between(first, last),
@@ -107,12 +114,15 @@ def _income_received(session: Session, income: ExpectedIncome, first: date, last
         query = query.where(Transaction.account_id == income.account_id)
     if income.category_id is not None:
         query = query.where(Transaction.category_id == income.category_id)
-    elif income.match_text:
-        pattern = f"%{income.match_text}%"
-        query = query.where(Transaction.counterparty.ilike(pattern) | Transaction.description.ilike(pattern))
-    else:
+    if income.match_text:
+        pattern = "%" + income.match_text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        query = query.where(Transaction.counterparty.ilike(pattern, escape="\\")
+                            | Transaction.description.ilike(pattern, escape="\\"))
+    if income.category_id is None and not income.match_text:
         query = query.where(Transaction.amount >= income.amount * Decimal("0.8"))
-    return session.exec(query).first() is not None
+    if used:
+        query = query.where(Transaction.id.not_in(used))
+    return session.exec(query.order_by(Transaction.booking_date, Transaction.id)).first()
 
 
 # --- 17 Kontovorschau ----------------------------------------------------------------------------
@@ -144,12 +154,16 @@ def forecast(session: Session, user: User, account_id: int, until: date) -> dict
             events.append({"date": item["due_date"], "name": fixed.name, "amount": -item["amount"],
                            "kind": "fixed_cost", "expected": True, "ref_id": fixed.id})
         last = budget.month_end(first)
+        used: set[int] = set()  # eine Gutschrift erledigt höchstens eine erwartete Einnahme
         for income in session.exec(select(ExpectedIncome).where(
-                ExpectedIncome.user_id == user.id, ExpectedIncome.active, ExpectedIncome.account_id == account.id)):
+                ExpectedIncome.user_id == user.id, ExpectedIncome.active, ExpectedIncome.account_id == account.id)
+                .order_by(ExpectedIncome.amount.desc(), ExpectedIncome.id)):
             due = budget.due_in_month(first, income.due_day)
             if not _income_due(income, first) or not (today < due <= until):
                 continue
-            if _income_received(session, income, first, last):
+            payment = _income_payment(session, income, first, last, used)
+            if payment is not None:
+                used.add(payment)
                 continue
             event = {"date": due, "name": income.name, "amount": income.amount, "kind": "expected_income",
                      "expected": True, "ref_id": income.id}
@@ -167,6 +181,13 @@ def forecast(session: Session, user: User, account_id: int, until: date) -> dict
         name = session.get(Account, loan.account_id).name
         events.append({"date": entry.due_date, "name": f"Rate {name}", "amount": -entry.planned_installment,
                        "kind": "loan_installment", "expected": True, "ref_id": loan.id})
+    # bereits erfasste künftige Buchungen: tatsächliche Ereignisse (der Anfangssaldo enthält sie noch nicht;
+    # Fixkosten, Raten und Einnahmen, die sie erledigen, stehen oben nicht mehr als erwartet)
+    for tx in session.exec(select(Transaction).where(
+            Transaction.user_id == user.id, Transaction.account_id == account.id, Transaction.excluded_at.is_(None),
+            Transaction.booking_date > today, Transaction.booking_date <= until)):
+        events.append({"date": tx.booking_date, "name": (tx.counterparty or tx.description or "Buchung")[:100],
+                       "amount": tx.amount, "kind": "transaction", "expected": False, "ref_id": tx.id})
     events.sort(key=lambda e: (e["date"], e["amount"] > 0, e["name"]))
     balance, lowest = start_balance, {"date": today, "balance": start_balance}
     for event in events:

@@ -76,7 +76,20 @@ def upload(session: Session, user: User, content: bytes, filename: str, kind: st
                    stored_path=name, sha256=digest, mime=mime, size=len(content))
     session.add(doc)
     session.flush()
-    ai_jobs.enqueue(session, user.id, EXTRACT, "document", doc.id)
+    if ai_jobs.enqueue(session, user.id, EXTRACT, "document", doc.id) is None:
+        doc.status, doc.error = DocumentStatus.FAILED, ai_jobs.AI_DISABLED
+        session.flush()
+    return doc
+
+
+def retry(session: Session, user: User, doc: Document) -> Document:
+    """Gescheitertes Auslesen erneut einreihen."""
+    if doc.status != DocumentStatus.FAILED:
+        raise Conflict("Nur gescheiterte Belege lassen sich erneut auslesen", code="document_not_failed")
+    if ai_jobs.enqueue(session, user.id, EXTRACT, "document", doc.id) is None:
+        raise Conflict(ai_jobs.AI_DISABLED, code="ai_disabled")
+    doc.status, doc.error = DocumentStatus.PENDING, None
+    session.flush()
     return doc
 
 
@@ -205,7 +218,9 @@ def _finish(session: Session, job: AiJob, answer: dict):
     user = session.get(User, doc.user_id)
     found = []
     amount, day = _amount(answer.get("betrag")), _date(answer.get("datum"))
-    if amount and day:
+    currency = str(answer.get("waehrung") or "EUR").strip().upper()
+    # Buchungen sind in Euro: ein Beleg in Fremdwährung wird nicht über den Betrag zugeordnet
+    if amount and day and currency in ("EUR", "€"):
         tolerance = max(amount * Decimal("0.01"), Decimal("0.01"))
         candidates = session.exec(select(Transaction).where(
             Transaction.user_id == user.id, Transaction.amount < 0, Transaction.excluded_at.is_(None),
@@ -240,7 +255,13 @@ def _finish(session: Session, job: AiJob, answer: dict):
     return None
 
 
-ai_jobs.register(EXTRACT, ai_jobs.Task(prepare=_prepare, finish=_finish))
+def _job_failed(session: Session, job: AiJob, error: str) -> None:
+    doc = session.get(Document, job.ref_id)
+    if doc is not None and doc.status == DocumentStatus.PENDING:
+        doc.status, doc.error = DocumentStatus.FAILED, f"Auslesen gescheitert: {error}"[:500]
+
+
+ai_jobs.register(EXTRACT, ai_jobs.Task(prepare=_prepare, finish=_finish, fail=_job_failed))
 
 
 # --- Handler -------------------------------------------------------------------------------------

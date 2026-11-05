@@ -129,20 +129,24 @@ UNTERORDNER=()
 for d in inbox processing failed archive; do
   if [ -d "$IMPORT_DIR/$d" ]; then UNTERORDNER+=("$d"); fi
 done
-info "Sichere Import-Dateien (tar.gz) ..."
+# Belege und Verträge (DOCUMENT_DIR) kommen unabhängig davon als Ordner "documents/" mit ins Archiv.
+BELEGE=()
+if [ -d "$DOCUMENT_DIR" ]; then
+  BELEGE=(-C "$(cd "$(dirname "$DOCUMENT_DIR")" && pwd)" --transform "s,^$(basename "$DOCUMENT_DIR"),documents," "$(basename "$DOCUMENT_DIR")")
+fi
+info "Sichere Import-Dateien und Belege (tar.gz) ..."
 if [ "${#UNTERORDNER[@]}" -eq 0 ]; then
-  warnung "Import-Ordner '$IMPORT_DIR' enthält keinen der Ordner inbox/processing/failed/archive: $TAR_NAME bleibt leer (IMPORT_DIR prüfen)."
+  warnung "Import-Ordner '$IMPORT_DIR' enthält keinen der Ordner inbox/processing/failed/archive (IMPORT_DIR prüfen)."
+fi
+if [ "${#UNTERORDNER[@]}" -eq 0 ] && [ "${#BELEGE[@]}" -eq 0 ]; then
   tar -czf "$TMP/$TAR_NAME" -T /dev/null || fehler "tar ist fehlgeschlagen. Es wurde nichts gespeichert."
 else
+  QUELLEN=()
+  if [ "${#UNTERORDNER[@]}" -gt 0 ]; then QUELLEN=(-C "$IMPORT_DIR" "${UNTERORDNER[@]}"); fi
   # -h: Symlinks werden aufgelöst. Sonst würde ein per Symlink eingebundener Ordner (z. B. archive/ auf
   # einer anderen Platte) nur als Verweis ins Archiv kommen und die Originale fehlten still.
   tar_rc=0
-  # Belege und Verträge (DOCUMENT_DIR) kommen als Ordner "documents/" mit ins Archiv
-  BELEGE=()
-  if [ -d "$DOCUMENT_DIR" ]; then
-    BELEGE=(-C "$(dirname "$DOCUMENT_DIR")" --transform "s,^$(basename "$DOCUMENT_DIR"),documents," "$(basename "$DOCUMENT_DIR")")
-  fi
-  tar -czhf "$TMP/$TAR_NAME" -C "$IMPORT_DIR" "${UNTERORDNER[@]}" "${BELEGE[@]}" || tar_rc=$?
+  tar -czhf "$TMP/$TAR_NAME" "${QUELLEN[@]}" "${BELEGE[@]}" || tar_rc=$?
   tar_gnu=0
   case $(tar --version 2>/dev/null || true) in *"GNU tar"*) tar_gnu=1 ;; esac
   if [ "$tar_rc" -eq 1 ] && [ "$tar_gnu" -eq 1 ]; then
@@ -172,7 +176,7 @@ echo "Sicherung abgeschlossen ($TS)"
 echo "  Datenbank:         $QUELL_URL"
 echo "  Alembic-Revision:  $REVISION"
 echo "  Zeilen:            $ZAHLEN"
-echo "  Import-Dateien:    $ANZAHL_DATEIEN in ${UNTERORDNER[*]:-(keine Ordner)}"
+echo "  Dateien im Archiv: $ANZAHL_DATEIEN aus ${UNTERORDNER[*]:-(keine Importordner)}${BELEGE[*]:+ und Belegen ($DOCUMENT_DIR)}"
 echo "  Dateien in $ZIEL:"
 printf '    %-42s %10s\n' "$DUMP_NAME" "$(groesse "$ZIEL/$DUMP_NAME")"
 printf '    %-42s %10s\n' "$TAR_NAME" "$(groesse "$ZIEL/$TAR_NAME")"

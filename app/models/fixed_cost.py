@@ -95,6 +95,8 @@ class ExpectedIncome(SQLModel, table=True):
         CheckConstraint("amount > 0", name="amount_positive"),
         CheckConstraint("due_day BETWEEN 1 AND 31", name="due_day_range"),
         CheckConstraint("interval_months IN (1, 3, 6, 12)", name="interval_months"),
+        CheckConstraint("amount_min IS NULL OR amount_max IS NULL OR amount_min <= amount_max",
+                        name="amount_range"),
         UniqueConstraint("user_id", "name"),
         ForeignKeyConstraint(["account_id", "user_id"], ["account.id", "account.user_id"]),
         ForeignKeyConstraint(["category_id", "user_id"], ["category.id", "category.user_id"]),

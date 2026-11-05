@@ -44,6 +44,7 @@ class Image:
 class Task:
     prepare: Callable[[Session, AiJob], tuple[str, Any, dict] | None]  # Daten oder Image
     finish: Callable[[Session, AiJob, dict], dict | None]
+    fail: Callable[[Session, AiJob, str], None] | None = None  # endgültig gescheitert (fachlichen Status setzen)
 
 
 TASKS: dict[str, Task] = {}
@@ -87,10 +88,16 @@ def _claim(session: Session) -> AiJob | None:
     return job
 
 
-def _fail(session: Session, job: AiJob, error: str) -> None:
+def _fail(session: Session, job: AiJob, error: str, *, final: bool = False) -> None:
     job.error = error[:500]
-    job.status = AiJobStatus.FAILED if job.attempts >= MAX_ATTEMPTS else AiJobStatus.QUEUED
+    job.status = AiJobStatus.FAILED if final or job.attempts >= MAX_ATTEMPTS else AiJobStatus.QUEUED
+    task = TASKS.get(job.kind)
+    if job.status == AiJobStatus.FAILED and task is not None and task.fail is not None:
+        task.fail(session, job, job.error)
     session.commit()
+
+
+AI_DISABLED = "Die KI ist in diesem Profil ausgeschaltet"
 
 
 def run_one(session: Session) -> bool | None:
@@ -101,6 +108,10 @@ def run_one(session: Session) -> bool | None:
     task = TASKS.get(job.kind)
     if task is None:
         _fail(session, job, f"Unbekannte Aufgabe {job.kind}")
+        return False
+    if not settings.get(session, job.user_id, "ai.enabled"):
+        # nach dem Einreihen abgeschaltet: keine Daten mehr an die KI, sichtbar als gescheitert
+        _fail(session, job, AI_DISABLED, final=True)
         return False
     try:
         prepared = task.prepare(session, job)

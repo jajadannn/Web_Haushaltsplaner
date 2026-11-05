@@ -29,6 +29,11 @@ def normalize(match_type: str, value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+def _contains(text: str, reference: str) -> bool:
+    """Referenz als ganzes Merkmal im Text – „1234“ trifft nicht „12345“."""
+    return re.search(rf"(?<![0-9a-z]){re.escape(reference)}(?![0-9a-z])", text) is not None
+
+
 @dataclass
 class Resolved:
     merchant: Merchant
@@ -49,23 +54,28 @@ class Resolver:
 
     def resolve(self, counterparty: str | None, iban: str | None, description: str | None) -> Resolved | None:
         text = (description or "").casefold()
+        references = [a for a, value in self.references if value and _contains(text, value)]
         alias = None
         if iban:
             alias = self.aliases.get((AliasMatch.IBAN, normalize_iban(iban)))
-        if alias is None:
-            alias = next((a for a, value in self.references if value and value in text), None)
+        if alias is None and references:
+            # mehrere Referenzen verschiedener Anbieter: mehrdeutig, nicht raten
+            if len({a.merchant_id for a in references}) == 1:
+                alias = references[0]
         if alias is None and counterparty:
             alias = self.aliases.get((AliasMatch.NAME, normalize(AliasMatch.NAME, counterparty)))
         if alias is None:
             return None
         merchant = self.merchants[alias.merchant_id]
-        contract = next((c for c in self.contracts if c.id == alias.contract_id), None)
-        if contract is None:
-            contract = next(
-                (c for c in self.contracts
-                 if c.merchant_id == merchant.id and c.reference and c.reference.casefold() in text),
-                None,
-            )
+        if alias.contract_id is not None:
+            contract_ids = {alias.contract_id}
+        else:
+            # alle Vertragsmerkmale des Anbieters: Vertragsreferenz und zusätzliche Referenz-Aliasse
+            contract_ids = {c.id for c in self.contracts
+                            if c.merchant_id == merchant.id and c.reference and _contains(text, c.reference.casefold())}
+            contract_ids |= {a.contract_id for a in references
+                             if a.merchant_id == merchant.id and a.contract_id is not None}
+        contract = next((c for c in self.contracts if c.id in contract_ids), None) if len(contract_ids) == 1 else None
         return Resolved(merchant, contract)
 
     def group(self, counterparty: str | None, iban: str | None, description: str | None) -> tuple[str, str] | None:

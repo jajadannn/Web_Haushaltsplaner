@@ -1,0 +1,117 @@
+{
+  "iban_hides_contract_alias": {
+    "first_contract": 1,
+    "second_contract": null
+  },
+  "reference_prefix_wrong_contract": {
+    "wanted": 3,
+    "actual": 2
+  },
+  "questions_starved": {
+    "before": 3,
+    "after": [
+      [
+        "Anbieter 0",
+        "rejected"
+      ],
+      [
+        "Anbieter 1",
+        "rejected"
+      ],
+      [
+        "Anbieter 2",
+        "rejected"
+      ]
+    ]
+  },
+  "failed_document_pending": {
+    "job": "failed",
+    "document": {
+      "id": 1,
+      "kind": "receipt",
+      "original_filename": "test.png",
+      "mime": "image/png",
+      "size": 8,
+      "status": "pending",
+      "extracted": null,
+      "error": null,
+      "created_at": "2026-11-05T19:46:47.152687+01:00",
+      "links": []
+    }
+  },
+  "disabled_queued_job_runs": {
+    "calls": 1,
+    "document": {
+      "id": 1,
+      "kind": "receipt",
+      "original_filename": "test.png",
+      "mime": "image/png",
+      "size": 8,
+      "status": "extracted",
+      "extracted": {
+        "art": "beleg",
+        "datum": null,
+        "betrag": null,
+        "vertrag": null,
+        "haendler": null,
+        "waehrung": "EUR",
+        "positionen": [],
+        "fundstellen": []
+      },
+      "error": null,
+      "created_at": "2026-11-05T19:46:47.152687+01:00",
+      "links": []
+    }
+  },
+  "nonconsecutive_price_auto": {
+    "id": 4,
+    "kind": "fixed_cost_change",
+    "status": "auto_applied",
+    "fingerprint": "fc:1|dauerhaft|2026-08-01|30.00",
+    "payload": {
+      "name": "Vertrag",
+      "change": "dauerhaft",
+      "new_amount": "30.00",
+      "old_amount": "20.00",
+      "valid_from": "2026-08-01",
+      "fixed_cost_id": 1
+    },
+    "evidence": {
+      "transactions": [
+        {
+          "id": 13,
+          "month": "2026-08-01",
+          "amount": "30.00"
+        },
+        {
+          "id": 14,
+          "month": "2026-11-01",
+          "amount": "30.00"
+        }
+      ]
+    },
+    "reason": "Die letzten zwei Zahlungen betrugen 30.00 € statt 20.00 €",
+    "generator": "amount-change-v1",
+    "priority": 1,
+    "data_as_of": "2026-11-05T19:46:47.483962+01:00",
+    "result_type": "fixed_cost",
+    "result_id": 1,
+    "created_at": "2026-11-05T19:46:47.475331+01:00",
+    "updated_at": "2026-11-05T19:46:47.475331+01:00",
+    "decided_at": "2026-11-05T19:46:47.497330+01:00"
+  },
+  "all_reverted_rate": {
+    "items": [
+      {
+        "kind": "fixed_cost_new",
+        "generator": "recurring-v1",
+        "counts": {
+          "reverted": 1
+        },
+        "acceptance_rate": 0.0,
+        "revert_rate": null
+      }
+    ],
+    "reverted_changes": 1
+  }
+}

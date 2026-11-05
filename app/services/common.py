@@ -17,7 +17,9 @@ def flush_or_conflict(session: Session, messages: dict[str, str]) -> None:
     try:
         session.flush()
     except IntegrityError as exc:
-        session.rollback()
+        # In einem Savepoint (z. B. Automatik) rollt der Aufrufer genau diesen zurück; sonst die Transaktion.
+        if not session.in_nested_transaction():
+            session.rollback()
         constraint = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
         if constraint in messages:
             raise Conflict(messages[constraint], details={"constraint": constraint}) from exc

@@ -20,6 +20,7 @@ from app.models import (
     CategorySource,
     ChangeActor,
     FixedCost,
+    FixedCostAmount,
     FixedCostPayment,
     MappingRule,
     ReviewStatus,
@@ -54,7 +55,7 @@ def detect_amount_changes(session: Session, user: User, today: date) -> list[Fou
         select(FixedCostPayment.fixed_cost_id, FixedCostPayment.due_month, L.amount, L.transaction_id)
         .join(transaction_line, and_(L.transaction_id == FixedCostPayment.transaction_id,
                                      L.split_id.is_not_distinct_from(FixedCostPayment.split_id)))
-        .where(FixedCostPayment.user_id == user.id, L.excluded_at.is_(None),
+        .where(FixedCostPayment.user_id == user.id, L.excluded_at.is_(None), L.amount < 0, L.kind == "regular",
                FixedCostPayment.fixed_cost_id.in_(list(fixed_costs)))
         .order_by(FixedCostPayment.fixed_cost_id, FixedCostPayment.due_month)
     ).all()
@@ -70,7 +71,10 @@ def detect_amount_changes(session: Session, user: User, today: date) -> list[Fou
         if paid == planned:
             continue
         previous = payments[-2] if len(payments) >= 2 else None
-        if previous is not None and -previous.amount == paid \
+        # dauerhaft nur bei zwei *aufeinanderfolgenden* Fälligkeiten (laut Rhythmus) mit gleichem neuen Betrag
+        consecutive = previous is not None and budget.months_between(previous.due_month, last.due_month) \
+            == fixed.interval_months
+        if consecutive and -previous.amount == paid \
                 and budget.amount_for(fixed, previous.due_month, history) != paid:
             change, valid_from, evidence = "dauerhaft", previous.due_month, [previous, last]
             reason = f"Die letzten zwei Zahlungen betrugen {paid} € statt {planned} €"
@@ -95,17 +99,34 @@ def _change_validate(session: Session, user: User, suggestion: Suggestion) -> No
         raise Conflict("Die Fixkost gibt es nicht mehr", code="suggestion_stale")
 
 
+AMOUNT_FIELDS = ("fixed_cost_id", "valid_from", "amount")
+
+
 def _change_apply(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str):
+    from app.services.recurring import FIXED_FIELDS
+
     fixed = session.get(FixedCost, suggestion.payload["fixed_cost_id"], with_for_update=True)
     if suggestion.payload["change"] == "einmalig":
         return "fixed_cost", fixed.id  # zur Kenntnis genommen, der Plan bleibt
-    before = changes.snapshot(fixed, ("amount",))
+    before = changes.snapshot(fixed, FIXED_FIELDS)
+    old_rows = {row.id: changes.snapshot(row, AMOUNT_FIELDS) for row in budget.list_amounts(session, fixed)}
     amount = Decimal(str(overrides.get("new_amount", suggestion.payload["new_amount"])))
     valid_from = date.fromisoformat(str(overrides.get("valid_from", suggestion.payload["valid_from"])))
     budget.set_amount_from(session, fixed, FixedCostAmountCreate(valid_from=valid_from, amount=amount))
-    changes.record(session, user.id, fixed, ("amount",), action="update", before=before,
+    # Betragsgeschichte mitprotokollieren, damit die Rücknahme sie vollständig wiederherstellt
+    for row in budget.list_amounts(session, fixed):
+        if row.id not in old_rows:
+            changes.record(session, user.id, row, AMOUNT_FIELDS, action="create", before=None,
+                           suggestion_id=suggestion.id, actor=actor)
+        elif changes.snapshot(row, AMOUNT_FIELDS) != old_rows[row.id]:
+            changes.record(session, user.id, row, AMOUNT_FIELDS, action="update", before=old_rows[row.id],
+                           suggestion_id=suggestion.id, actor=actor)
+    changes.record(session, user.id, fixed, FIXED_FIELDS, action="update", before=before,
                    suggestion_id=suggestion.id, actor=actor)
     return "fixed_cost", fixed.id
+
+
+changes.REVERTERS["fixed_cost_amount"] = (FixedCostAmount, AMOUNT_FIELDS, lambda session, row: session.delete(row))
 
 
 suggestions.register(SuggestionKind.FIXED_COST_CHANGE, Handler(
@@ -186,7 +207,8 @@ def _rule_apply(session: Session, user: User, suggestion: Suggestion, overrides:
     return "mapping_rule", rule.id
 
 
-RULE_FIELDS = ("name", "pattern", "match_field", "match_type", "target_category_id", "active", "priority")
+RULE_FIELDS = ("name", "pattern", "match_field", "match_type", "case_sensitive", "target_category_id", "active",
+               "priority")
 suggestions.register(SuggestionKind.RULE, Handler(
     validate=lambda session, user, s: None, apply=_rule_apply, setting="automation.rules",
     is_clear=lambda s: s.evidence.get("confirmed", 0) >= 5 and s.evidence.get("conflicts", 1) == 0,

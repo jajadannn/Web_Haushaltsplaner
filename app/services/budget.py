@@ -23,6 +23,7 @@ from decimal import Decimal
 from sqlalchemy import and_, exists, not_, or_
 from sqlmodel import Session, func, select
 
+from app import clock
 from app.errors import Conflict, Invalid
 from app.models import (
     Account,
@@ -98,7 +99,17 @@ def update_fixed_cost(session: Session, user: User, fixed: FixedCost, changes: d
     end = changes.get("end_date", fixed.end_date)
     if start and end and end < start:
         raise Invalid("end_date liegt vor start_date", code="invalid_period")
+    changes = dict(changes)
+    amount = changes.pop("amount", None)
     apply_changes(fixed, changes)
+    if amount is not None and amount != fixed.amount:
+        if list_amounts(session, fixed):
+            # mit Betragsgeschichte: neuer Betrag ab dem laufenden Monat, frühere Monate bleiben unverändert
+            start = month_start(fixed.start_date) if fixed.start_date else None
+            valid_from = max(month_start(clock.today()), start) if start else month_start(clock.today())
+            set_amount_from(session, fixed, FixedCostAmountCreate(valid_from=valid_from, amount=amount))
+        else:
+            fixed.amount = amount
     flush_or_conflict(session, _UNIQUE)
     return fixed
 
@@ -292,6 +303,9 @@ def _payment_candidates(session: Session, user_id: int, fixed: FixedCost, first:
     )
     if fixed.category_id is not None:
         query = query.where(L.category_id == fixed.category_id)
+    if fixed.account_id is not None:
+        # hinterlegtes Konto: nur Zahlungen von diesem Konto (Abweichungen lassen sich fest verknüpfen)
+        query = query.where(L.account_id == fixed.account_id)
     if fixed.match_text:
         pattern = "%" + fixed.match_text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         query = query.where(
@@ -307,14 +321,16 @@ def _linked_lines(session: Session, user_id: int, first: date):
     """Fest verknüpfte Zahlungen: alle verknüpften Zeilen des Profils und die des Monats je Fixkost."""
     rows = session.execute(
         select(FixedCostPayment.fixed_cost_id, FixedCostPayment.due_month, L.transaction_id, L.split_id,
-               L.amount, L.booking_date, L.excluded_at)
+               L.amount, L.booking_date, L.excluded_at, L.kind)
         .select_from(FixedCostPayment)
         .join(transaction_line, and_(L.transaction_id == FixedCostPayment.transaction_id,
                                      L.split_id.is_not_distinct_from(FixedCostPayment.split_id)))
         .where(FixedCostPayment.user_id == user_id)
     ).all()
     taken = {(r.transaction_id, r.split_id) for r in rows}
-    this_month = {r.fixed_cost_id: r for r in rows if r.due_month == first and r.excluded_at is None}
+    # Eine Verknüpfung zählt nur, solange die Zeile noch eine reguläre Abbuchung ist (Buchung kann sich ändern).
+    this_month = {r.fixed_cost_id: r for r in rows
+                  if r.due_month == first and r.excluded_at is None and r.amount < 0 and r.kind == "regular"}
     return taken, this_month
 
 

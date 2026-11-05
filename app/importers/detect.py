@@ -52,6 +52,9 @@ def _norm(name: str) -> str:
     return re.sub(r"[^a-zäöüß]", "", name.casefold())
 
 
+SAMPLE_ROWS = 3
+
+
 @dataclass
 class Detection:
     options: dict
@@ -62,6 +65,7 @@ class Detection:
     rows_parsed: int = 0
     errors: list[dict] = field(default_factory=list)
     preview: list[dict] = field(default_factory=list)
+    sample_rows: list[dict] = field(default_factory=list)  # Rohwerte der ersten Zeilen je Originalspalte
     statement_account: str | None = None
     safe: bool = False
 
@@ -258,7 +262,10 @@ def detect_csv(content: bytes, roles_override: dict[str, object] | None = None) 
         "debit_indicators": debit_indicators,
         "pending_values": pending_values,
     }
-    detection = Detection(options=options, header=header, roles=roles, uncertain=uncertain, unassigned=unassigned)
+    sample_rows = [{h: (r[i].strip() if i < len(r) else "") for i, h in enumerate(header) if h}
+                   for r in body[:SAMPLE_ROWS]]
+    detection = Detection(options=options, header=header, roles=roles, uncertain=uncertain, unassigned=unassigned,
+                          sample_rows=sample_rows)
     return verify(content, detection)
 
 

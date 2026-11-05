@@ -1,0 +1,327 @@
+{
+  "rejected_reappears_after_second_contract": {
+    "before": {
+      "id": 1,
+      "kind": "fixed_cost_new",
+      "status": "open",
+      "fingerprint": "iban:DE02120300000000202051|1",
+      "payload": {
+        "name": "Anbieter",
+        "amount": "20.00",
+        "due_day": 2,
+        "account_id": 1,
+        "match_text": "Anbieter",
+        "category_id": 60,
+        "first_due_date": null,
+        "interval_months": 1
+      },
+      "evidence": {
+        "group": "iban:DE02120300000000202051",
+        "transactions": [
+          {
+            "id": 1,
+            "date": "2026-09-02",
+            "amount": "20.00",
+            "split_id": null
+          },
+          {
+            "id": 2,
+            "date": "2026-10-02",
+            "amount": "20.00",
+            "split_id": null
+          },
+          {
+            "id": 3,
+            "date": "2026-11-02",
+            "amount": "20.00",
+            "split_id": null
+          }
+        ],
+        "identical_amount": true
+      },
+      "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+      "generator": "recurring-v1",
+      "priority": 2,
+      "data_as_of": "2026-11-05T19:55:42.979145+01:00",
+      "result_type": null,
+      "result_id": null,
+      "created_at": "2026-11-05T19:55:42.959105+01:00",
+      "updated_at": "2026-11-05T19:55:42.959105+01:00",
+      "decided_at": null
+    },
+    "after": [
+      {
+        "id": 1,
+        "kind": "fixed_cost_new",
+        "status": "rejected",
+        "fingerprint": "iban:DE02120300000000202051|1",
+        "payload": {
+          "name": "Anbieter",
+          "amount": "20.00",
+          "due_day": 2,
+          "account_id": 1,
+          "match_text": "Anbieter",
+          "category_id": 60,
+          "first_due_date": null,
+          "interval_months": 1
+        },
+        "evidence": {
+          "group": "iban:DE02120300000000202051",
+          "transactions": [
+            {
+              "id": 1,
+              "date": "2026-09-02",
+              "amount": "20.00",
+              "split_id": null
+            },
+            {
+              "id": 2,
+              "date": "2026-10-02",
+              "amount": "20.00",
+              "split_id": null
+            },
+            {
+              "id": 3,
+              "date": "2026-11-02",
+              "amount": "20.00",
+              "split_id": null
+            }
+          ],
+          "identical_amount": true
+        },
+        "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+        "generator": "recurring-v1",
+        "priority": 2,
+        "data_as_of": "2026-11-05T19:55:42.979145+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:55:42.959105+01:00",
+        "updated_at": "2026-11-05T19:55:43.008102+01:00",
+        "decided_at": "2026-11-05T19:55:43.010374+01:00"
+      },
+      {
+        "id": 2,
+        "kind": "fixed_cost_new",
+        "status": "open",
+        "fingerprint": "iban:DE02120300000000202051|1|~20",
+        "payload": {
+          "name": "Anbieter",
+          "amount": "20.00",
+          "due_day": 2,
+          "account_id": 1,
+          "match_text": "Anbieter",
+          "category_id": 60,
+          "first_due_date": null,
+          "interval_months": 1
+        },
+        "evidence": {
+          "group": "iban:DE02120300000000202051",
+          "transactions": [
+            {
+              "id": 1,
+              "date": "2026-09-02",
+              "amount": "20.00",
+              "split_id": null
+            },
+            {
+              "id": 2,
+              "date": "2026-10-02",
+              "amount": "20.00",
+              "split_id": null
+            },
+            {
+              "id": 3,
+              "date": "2026-11-02",
+              "amount": "20.00",
+              "split_id": null
+            }
+          ],
+          "identical_amount": true
+        },
+        "reason": "3 Zahlungen, monatlich um den 2., Betrag immer gleich",
+        "generator": "recurring-v1",
+        "priority": 2,
+        "data_as_of": "2026-11-05T19:55:43.076424+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:55:43.067109+01:00",
+        "updated_at": "2026-11-05T19:55:43.067109+01:00",
+        "decided_at": null
+      },
+      {
+        "id": 3,
+        "kind": "fixed_cost_new",
+        "status": "open",
+        "fingerprint": "iban:DE02120300000000202051|1|~70",
+        "payload": {
+          "name": "Anbieter",
+          "amount": "70.00",
+          "due_day": 5,
+          "account_id": 1,
+          "match_text": "Anbieter",
+          "category_id": 60,
+          "first_due_date": null,
+          "interval_months": 1
+        },
+        "evidence": {
+          "group": "iban:DE02120300000000202051",
+          "transactions": [
+            {
+              "id": 4,
+              "date": "2026-09-05",
+              "amount": "70.00",
+              "split_id": null
+            },
+            {
+              "id": 5,
+              "date": "2026-10-05",
+              "amount": "70.00",
+              "split_id": null
+            },
+            {
+              "id": 6,
+              "date": "2026-11-05",
+              "amount": "70.00",
+              "split_id": null
+            }
+          ],
+          "identical_amount": true
+        },
+        "reason": "3 Zahlungen, monatlich um den 5., Betrag immer gleich",
+        "generator": "recurring-v1",
+        "priority": 2,
+        "data_as_of": "2026-11-05T19:55:43.076424+01:00",
+        "result_type": null,
+        "result_id": null,
+        "created_at": "2026-11-05T19:55:43.067109+01:00",
+        "updated_at": "2026-11-05T19:55:43.067109+01:00",
+        "decided_at": null
+      }
+    ]
+  },
+  "auto_collision_breaks_savepoint": {
+    "status": 500,
+    "body": "Internal Server Error"
+  },
+  "rule_revert_loses_manual_case": {
+    "status": "reverted",
+    "rules": []
+  },
+  "auto_manual_duplicate_rules": {
+    "outcomes": [
+      "ok"
+    ],
+    "manual_status": "accepted",
+    "rules": [
+      {
+        "id": 2,
+        "name": "Anbieter",
+        "pattern": "Anbieter",
+        "match_type": "contains",
+        "match_field": "counterparty",
+        "case_sensitive": false,
+        "priority": 100,
+        "target_category_id": 240,
+        "active": true,
+        "created_at": "2026-11-05T19:55:43.711572+01:00",
+        "updated_at": "2026-11-05T19:55:43.711572+01:00"
+      },
+      {
+        "id": 3,
+        "name": "Anbieter",
+        "pattern": "Anbieter",
+        "match_type": "contains",
+        "match_field": "counterparty",
+        "case_sensitive": false,
+        "priority": 100,
+        "target_category_id": 240,
+        "active": true,
+        "created_at": "2026-11-05T19:55:43.703262+01:00",
+        "updated_at": "2026-11-05T19:55:43.703262+01:00"
+      }
+    ],
+    "suggestion": [
+      {
+        "id": 6,
+        "kind": "rule",
+        "status": "auto_applied",
+        "fingerprint": "rule:anbieter|240",
+        "payload": {
+          "name": "Anbieter",
+          "pattern": "Anbieter",
+          "match_type": "contains",
+          "match_field": "counterparty",
+          "target_category_id": 240
+        },
+        "evidence": {
+          "confirmed": 5,
+          "conflicts": 0,
+          "transactions": [
+            16,
+            17,
+            13,
+            14,
+            15
+          ],
+          "would_match_open": 0
+        },
+        "reason": "5× „Anbieter“ gleich eingeordnet – künftig automatisch zuordnen?",
+        "generator": "rule-v1",
+        "priority": 1,
+        "data_as_of": "2026-11-05T19:55:43.675601+01:00",
+        "result_type": "mapping_rule",
+        "result_id": 3,
+        "created_at": "2026-11-05T19:55:43.668073+01:00",
+        "updated_at": "2026-11-05T19:55:43.703262+01:00",
+        "decided_at": "2026-11-05T19:55:43.729599+01:00"
+      }
+    ]
+  },
+  "import_errors_500": {
+    "not_csv": {
+      "status": 500,
+      "body": "Internal Server Error"
+    },
+    "empty_header": {
+      "status": 500,
+      "body": "Internal Server Error"
+    },
+    "json_list": {
+      "status": 500,
+      "body": "Internal Server Error"
+    },
+    "json_null": {
+      "status": 500,
+      "body": "Internal Server Error"
+    },
+    "column_map_null": {
+      "status": 422,
+      "body": "{\"error\":{\"code\":\"preview_settings_invalid\",\"message\":\"Profilangaben unlesbar: argument of type 'NoneType' is not a container or iterable\",\"details\":null}}"
+    }
+  },
+  "ai_draft_no_samples": {
+    "spalten": [
+      "Tag",
+      "Wert",
+      "Partner",
+      "Notiz"
+    ],
+    "beispielzeilen": [],
+    "rollen": {
+      "booking_date": "Buchungsdatum",
+      "value_date": "Wertstellung",
+      "amount": "Betrag",
+      "debit": "Soll",
+      "credit": "Haben",
+      "indicator": "Soll/Haben-Kennzeichen",
+      "counterparty": "Gegenpartei",
+      "counterparty_iban": "IBAN der Gegenpartei",
+      "description": "Verwendungszweck",
+      "currency": "Währung",
+      "own_account": "eigenes Konto",
+      "status": "Status",
+      "external_id": "Umsatz-ID",
+      "ignore": "nicht verwenden"
+    }
+  }
+}

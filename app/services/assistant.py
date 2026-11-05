@@ -20,13 +20,23 @@ from sqlmodel import Session, func, select
 
 from app import clock
 from app.errors import AppError, Invalid
-from app.models import Account, AccountType, Category, FixedCost, Transaction, TransactionKind, User
+from app.models import (
+    Account,
+    AccountType,
+    Category,
+    FixedCost,
+    Transaction,
+    TransactionKind,
+    User,
+    transaction_line,
+)
 from app.schemas.filters import TransactionFilter
-from app.services import ai_gateway, budget, reports
+from app.services import ai_gateway, budget, reports, settings
 from app.services.recurring import normalize_name
-from app.services.transactions import filtered_query
+from app.services.transactions import category_with_descendants, filtered_query
 
 ZERO = Decimal("0.00")
+L = transaction_line.c
 
 
 class AiUnavailableError(AppError):
@@ -34,13 +44,15 @@ class AiUnavailableError(AppError):
     code = "ai_unavailable"
 
 
-def _require_ai() -> None:
+def _require_ai(session: Session | None = None, user: User | None = None) -> None:
     if not ai_gateway.enabled():
         raise AiUnavailableError("Keine lokale KI eingerichtet (AI_URL) – Funktion nicht verfügbar")
+    if session is not None and user is not None and not settings.get(session, user.id, "ai.enabled"):
+        raise AiUnavailableError("Die KI ist in diesem Profil ausgeschaltet (Einstellungen → Automatik & KI)")
 
 
-def _ask(task: str, data, schema: dict, session: Session | None = None) -> dict:
-    _require_ai()
+def _ask(task: str, data, schema: dict, session: Session | None = None, user: User | None = None) -> dict:
+    _require_ai(session, user)
     try:
         return ai_gateway.ask(task, data, schema, session=session)
     except ai_gateway.AiUnavailable as exc:
@@ -118,7 +130,7 @@ def explain_month(session: Session, user: User, month: date) -> dict:
             "Nutze nur die Zahlen aus den Daten, erfinde keine Ursachen. Ist der Monat unvollständig, sage das. "
             "Verweise nur auf Buchungs-IDs aus den Daten.")
     data = reports_jsonable(comparison)
-    answer = _ask(task, data, EXPLAIN_SCHEMA, session)
+    answer = _ask(task, data, EXPLAIN_SCHEMA, session, user)
     allowed = {t["transaction_id"] for t in comparison["largest"]}
     return {"month": comparison["month"], "text": answer["text"].strip(),
             "references": [i for i in answer["verweise"] if i in allowed], "comparison": comparison}
@@ -185,6 +197,20 @@ def _period(params: dict, today: date) -> tuple[date, date]:
     return start, end
 
 
+def _lines(session: Session, user: User, txs, f: TransactionFilter):
+    """Buchungszeilen der gefundenen Buchungen wie in den Berichten: Teilbuchungen einzeln, nur reguläre
+    (keine Umbuchungsanteile), bei Kategoriefilter nur die passenden Zeilen."""
+    if not txs:
+        return []
+    query = select(L.transaction_id, L.split_id, L.amount, L.category_id).where(
+        L.transaction_id.in_([t.id for t in txs]), L.kind == TransactionKind.REGULAR, L.excluded_at.is_(None))
+    if f.category_id is not None:
+        ids = (category_with_descendants(session, user.id, f.category_id) if f.include_subcategories
+               else [f.category_id])
+        query = query.where(L.category_id.in_(ids))
+    return session.execute(query).all()
+
+
 def _execute(session: Session, user: User, tool: str, params: dict) -> tuple[dict, tuple[date, date]]:
     today = clock.today()
     category_id = params.get("kategorie_id")
@@ -198,21 +224,20 @@ def _execute(session: Session, user: User, tool: str, params: dict) -> tuple[dic
         f = TransactionFilter(date_from=start, date_to=end, search=search, category_id=category_id)
         query = filtered_query(session, user, f)
         txs = session.exec(query.order_by(Transaction.booking_date.desc())).all()
-        total = sum((t.amount for t in txs if t.kind == TransactionKind.REGULAR), ZERO)
+        total = sum((line.amount for line in _lines(session, user, txs, f)), ZERO)
         return {"count": len(txs), "sum": total,
                 "examples": [{"id": t.id, "date": t.booking_date, "amount": t.amount, "counterparty": t.counterparty,
                               "description": (t.description or "")[:120]} for t in txs[:10]]}, (start, end)
     if tool == "sum_by":
         f = TransactionFilter(date_from=start, date_to=end, category_id=category_id)
         txs = session.exec(filtered_query(session, user, f)).all()
+        by_id = {t.id: t for t in txs}
         names = {c.id: c.name for c in session.exec(select(Category).where(Category.user_id == user.id))}
         totals: Counter = Counter()
-        for t in txs:
-            if t.kind != TransactionKind.REGULAR:
-                continue
-            key = names.get(t.category_id, "ohne Kategorie") if params.get("gruppierung") != "gegenpartei" \
-                else (t.counterparty or "unbekannt")
-            totals[key] += t.amount
+        for line in _lines(session, user, txs, f):
+            key = names.get(line.category_id, "ohne Kategorie") if params.get("gruppierung") != "gegenpartei" \
+                else (by_id[line.transaction_id].counterparty or "unbekannt")
+            totals[key] += line.amount
         return {"groups": [{"name": k, "sum": v} for k, v in sorted(totals.items(), key=lambda kv: kv[1])[:15]]}, \
             (start, end)
     if tool == "report_summary":
@@ -250,7 +275,7 @@ def ask(session: Session, user: User, question: str) -> dict:
         "nicht benötigte Parameter sind null.",
         {"frage": question[:500], "heute": today.isoformat(), "werkzeuge": TOOLS,
          "kategorien": [{"id": c.id, "name": c.name, "typ": c.type} for c in categories]},
-        TOOL_SCHEMA,
+        TOOL_SCHEMA, session, user,
     )
     result, (start, end) = _execute(session, user, choice["werkzeug"], choice)
     result = reports_jsonable(result)
@@ -258,7 +283,7 @@ def ask(session: Session, user: User, question: str) -> dict:
         "Beantworte die Frage kurz auf Deutsch nur mit den Ergebnissen. Nenne den Zeitraum. Belege nur als "
         "Buchungs-IDs aus den Ergebnissen.",
         {"frage": question[:500], "zeitraum": [start.isoformat(), end.isoformat()], "ergebnis": result},
-        ANSWER_SCHEMA,
+        ANSWER_SCHEMA, session, user,
     )
     allowed = {e["id"] for e in result.get("examples", [])}
     return {"question": question, "tool": choice["werkzeug"],
@@ -281,7 +306,10 @@ PARSE_SCHEMA = {
     "required": ["betrag", "richtung", "datum", "datum_relativ", "kategorie_id", "konto_id", "beschreibung"],
     "additionalProperties": False,
 }
-_AMOUNT = re.compile(r"(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|eur|euro)?", re.IGNORECASE)
+# Tausendertrennung (1.234,56 / 1,234.56) zuerst, sonst ganze Zahl mit optionalen Nachkommastellen
+_AMOUNT = re.compile(r"(\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d{1,7}(?:[.,]\d{1,2})?)\s*(?:€|eur|euro)?",
+                     re.IGNORECASE)
+_RELATIVE = re.compile(r"\b(vorgestern|gestern|heute)\b")
 RELATIVE = {"heute": 0, "gestern": 1, "vorgestern": 2}
 
 
@@ -308,7 +336,8 @@ def _money(text) -> Decimal | None:
 def _rule_parse(text: str) -> dict:
     lowered = text.casefold()
     match = _AMOUNT.search(lowered)
-    relative = next((w for w in RELATIVE if w in lowered), None)
+    found_day = _RELATIVE.search(lowered)  # Wortgrenzen: „gestern“ steckt auch in „vorgestern“
+    relative = found_day.group(1) if found_day else None
     income = any(w in lowered for w in ("bekommen", "erhalten", "einnahme", "gutschrift"))
     description = re.sub(r"\b(heute|gestern|vorgestern|bar|für|fuer|€|eur|euro)\b", " ", text, flags=re.IGNORECASE)
     description = " ".join(_AMOUNT.sub(" ", description).split())
@@ -324,7 +353,7 @@ def parse_entry(session: Session, user: User, text: str) -> dict:
     categories = session.exec(select(Category).where(Category.user_id == user.id, Category.active,
                                                      Category.system_key.is_(None))).all()
     ai_used = False
-    if ai_gateway.enabled():
+    if settings.ai_allowed(session, user.id):
         try:
             parsed = ai_gateway.ask(
                 "Mach aus der Beschreibung einen Buchungsentwurf. Konto und Kategorie nur aus den Listen, sonst null. "

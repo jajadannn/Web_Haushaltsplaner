@@ -4,7 +4,7 @@ export interface ForecastEvent {
   date: string
   name: string
   amount: string
-  kind: 'fixed_cost' | 'expected_income' | 'loan_installment'
+  kind: 'fixed_cost' | 'expected_income' | 'loan_installment' | 'transaction'
   expected: boolean
   ref_id: number
   range?: string[] | null

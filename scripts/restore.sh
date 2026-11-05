@@ -6,7 +6,7 @@
 #   IMPORT_TAR   imports_<ts>.tar.gz aus backup.sh; wird in IMPORT_DIR entpackt
 #   --target-db  Ziel-Datenbank (Standard: die Datenbank aus DATABASE_URL)
 #   --yes        keine Rückfrage vor dem Überschreiben einer nicht leeren Datenbank und
-#                vor dem Überschreiben bestehender Import-Dateien
+#                vor dem Überschreiben bestehender Import-Dateien und Belege
 #
 # Ablauf: Prüfsummen prüfen (.sha256 neben dem Dump), Dump und Archiv auf Lesbarkeit prüfen,
 # Ziel-DB löschen und leer neu anlegen, mit pg_restore einspielen, Import-Archiv entpacken,
@@ -15,6 +15,7 @@
 # Konfiguration (Umgebungsvariable vor .env vor Standard):
 #   DATABASE_URL  postgresql+psycopg://user[:pass]@host:port/db   (wie in .env)
 #   IMPORT_DIR    Zielordner für das Import-Archiv   (Standard: imports)
+#   DOCUMENT_DIR  Zielordner für Belege (documents/ im Archiv)   (Standard: documents)
 #   PG_BIN        Ordner mit pg_restore/psql/...   (Standard: .pg/bin, falls vorhanden, sonst PATH)
 # Relative Werte von DATABASE_URL/IMPORT_DIR/PG_BIN gelten ab der Projektwurzel, relative Pfade der
 # Argumente (DUMP, IMPORT_TAR) ab dem aktuellen Ordner. Das Passwort aus DATABASE_URL wird nie ausgegeben.
@@ -147,18 +148,23 @@ if [ -n "$IMPORT_TAR" ]; then
   while IFS= read -r eintrag; do
     case $eintrag in ''|*/) continue ;; esac
     TAR_ANZAHL=$((TAR_ANZAHL + 1))
-    if [ -e "$IMPORT_DIR/$eintrag" ] || [ -L "$IMPORT_DIR/$eintrag" ]; then KONFLIKTE+=("$eintrag"); fi
+    # Archivpfad auf den tatsächlichen Zielordner abbilden: documents/ landet in DOCUMENT_DIR
+    case $eintrag in
+      documents/*) ziel="$DOCUMENT_DIR/${eintrag#documents/}" ;;
+      *) ziel="$IMPORT_DIR/$eintrag" ;;
+    esac
+    if [ -e "$ziel" ] || [ -L "$ziel" ]; then KONFLIKTE+=("$ziel"); fi
   done <<<"$TAR_LISTE"
   if [ "${#KONFLIKTE[@]}" -gt 0 ]; then
     if [ "$JA" -ne 1 ]; then
       {
-        echo "FEHLER: ${#KONFLIKTE[@]} Datei(en) im Import-Ordner '$IMPORT_DIR' würden überschrieben, z. B.:"
+        echo "FEHLER: ${#KONFLIKTE[@]} vorhandene Datei(en) würden überschrieben (Import-Ordner '$IMPORT_DIR', Belege '$DOCUMENT_DIR'), z. B.:"
         printf '  %s\n' "${KONFLIKTE[@]:0:5}"
-        echo "Abbruch, es wurde nichts verändert. Mit --yes überschreiben, oder IMPORT_DIR auf einen anderen Ordner setzen."
+        echo "Abbruch, es wurde nichts verändert. Mit --yes überschreiben, oder IMPORT_DIR/DOCUMENT_DIR auf einen anderen Ordner setzen."
       } >&2
       exit 1
     fi
-    warnung "${#KONFLIKTE[@]} bestehende Datei(en) im Import-Ordner '$IMPORT_DIR' werden überschrieben (--yes)."
+    warnung "${#KONFLIKTE[@]} bestehende Datei(en) in '$IMPORT_DIR' bzw. '$DOCUMENT_DIR' werden überschrieben (--yes)."
   fi
 fi
 
