@@ -262,12 +262,18 @@ def chat(messages: list[dict]) -> str:
 
 
 def reachable() -> bool:
-    path = "/models" if get_settings().ai_api == "openai" else "/api/version"
-    try:
-        _post(path, None, timeout=2)
-        return True
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError):
-        return False
+    """Mindestens ein eingerichteter KI-Server antwortet."""
+    for endpoint in ai_gateway.endpoints():
+        path = "/models" if endpoint.api == "openai" else "/api/version"
+        token = ai_gateway._current.set(endpoint.url)
+        try:
+            _post(path, None, timeout=2)
+            return True
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            continue
+        finally:
+            ai_gateway._current.reset(token)
+    return False
 
 
 # --- Eine Buchung prüfen ---------------------------------------------------------------------
@@ -346,10 +352,10 @@ def _review_task(sessions: Callable[[], Session], tx_id: int) -> Suggestion | No
 
 def run_forever(engine: Engine, stop: threading.Event) -> None:
     settings = get_settings()
-    log.info(
-        "Lokale KI aktiv: %s (%s) mit Modell %s, bis zu %s Anfragen gleichzeitig",
-        settings.ai_url, settings.ai_api, settings.ai_model, settings.ai_parallel,
-    )
+    for endpoint in ai_gateway.endpoints():
+        log.info("Lokale KI Priorität %s: %s (%s) mit Modell %s", endpoint.priority, endpoint.url, endpoint.api,
+                 endpoint.model)
+    log.info("Bis zu %s Anfragen gleichzeitig", settings.ai_parallel)
     work_queue(lambda: Session(engine), stop, settings.ai_parallel, give_up=lambda tx_id: _give_up(engine, tx_id))
 
 
@@ -407,8 +413,8 @@ def work_queue(
 
 
 def start_in_background(engine: Engine) -> threading.Event | None:
-    """Startet den KI-Thread, falls AI_URL gesetzt ist; liefert das Stopp-Signal."""
-    if not get_settings().ai_url:
+    """Startet den KI-Thread, falls ein KI-Server eingerichtet ist; liefert das Stopp-Signal."""
+    if not ai_gateway.enabled():
         log.info("Lokale KI aus (AI_URL nicht gesetzt)")
         return None
     stop = threading.Event()

@@ -12,7 +12,7 @@ import pytest
 
 from app.config import get_settings
 from app.models import Transaction
-from app.services import ai_review
+from app.services import ai_gateway, ai_review
 
 
 @pytest.fixture
@@ -158,13 +158,16 @@ def test_regel_ueberschreibt_ki_vorschlag(client, headers, session, giro, tanken
 
 def test_status_und_erneut_pruefen(client, headers, session, giro, tanken, ki, monkeypatch):
     status = client.get("/review/ai", headers=headers).json()
-    assert status == {"enabled": False, "model": None, "reachable": None, "pending": 0}
+    assert status == {"enabled": False, "model": None, "reachable": None, "pending": 0, "endpoints": []}
 
     tx = book(client, headers, giro)
     monkeypatch.setattr(get_settings(), "ai_url", "http://192.168.1.50:11434")
     monkeypatch.setattr(ai_review, "reachable", lambda: True)
+    monkeypatch.setattr(ai_gateway, "check", lambda endpoint: True)
     status = client.get("/review/ai", headers=headers).json()
-    assert status == {"enabled": True, "model": get_settings().ai_model, "reachable": True, "pending": 1}
+    model = get_settings().ai_model
+    assert status == {"enabled": True, "model": model, "reachable": True, "pending": 1, "endpoints": [
+        {"priority": 1, "url": "http://192.168.1.50:11434", "model": model, "vision_model": model, "reachable": True}]}
 
     ki.answer = {"kategorie_id": 0, "sicherheit": "niedrig", "begruendung": "unklar"}
     ai_review.review_one(session, tx["id"])
