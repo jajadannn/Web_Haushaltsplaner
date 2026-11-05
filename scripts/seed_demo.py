@@ -82,6 +82,9 @@ def main() -> None:
     first_this = today.replace(day=1)
     last_prev = first_this - timedelta(days=1)
     first_prev = last_prev.replace(day=1)
+    # Vier Monate Historie auf dem Girokonto, damit die Fixkostenerkennung Serien findet
+    first_history = (first_prev - timedelta(days=1)).replace(day=1)
+    first_history = (first_history - timedelta(days=1)).replace(day=1)
 
     api = TestClient(app, client=("127.0.0.1", 50000))
 
@@ -134,7 +137,7 @@ def main() -> None:
     dkb = call("POST", "/institutions", f, json={"name": "DKB"})
     f_giro = call("POST", "/accounts", f, json={
         "name": "Girokonto", "type": "checking", "institution_id": sparkasse["id"],
-        "opening_balance": "1500.00", "opening_balance_date": first_prev.isoformat()})
+        "opening_balance": "1500.00", "opening_balance_date": first_history.isoformat()})
     f_tages = call("POST", "/accounts", f, json={
         "name": "Tagesgeld", "type": "savings", "institution_id": dkb["id"],
         "opening_balance": "5000.00", "opening_balance_date": first_prev.isoformat()})
@@ -243,6 +246,22 @@ def main() -> None:
         card_total += -Decimal(t["amount"])
     if card_total > 0:
         transfer(f_giro["id"], f_card["id"], day_of(first_this, 2), card_total, "Kreditkartenabrechnung", f)
+
+    # Für die Vorschläge (KI-Ausbau): Internet monatlich ohne Fixkost, Versicherung vierteljährlich,
+    # dreimal gleich eingeordneter Händler (Regelvorschlag), Erstattung zu einem Einkauf
+    month = first_history
+    while month <= first_this:
+        tx(f, f_giro["id"], day_of(month, 4), "-39.99", "Internet Festnetz Kundennr 88123", "Netzwelt GmbH",
+           cat(f, "Internet & Festnetz"))
+        nxt = month + timedelta(days=32)
+        month = nxt.replace(day=1)
+    tx(f, f_giro["id"], day_of(first_history, 12), "-96.00", "Beitrag Hausrat Q", "Hausrat Versicherung AG")
+    tx(f, f_giro["id"], day_of(first_this, 12), "-96.00", "Beitrag Hausrat Q", "Hausrat Versicherung AG")
+    for d in (5, 12, 19):
+        tx(f, f_giro["id"], day_of(first_prev, d), "-45.00", "Tankstelle Aral", "Aral", fc["Auto"])
+    tx(f, f_giro["id"], day_of(first_prev, 9), "-79.90", "Modehaus Online Bestellung", "Modehaus Nord",
+       cat(f, "Kleidung & Schuhe"))
+    tx(f, f_giro["id"], day_of(first_prev, 21), "29.90", "Rückerstattung Retoure", "Modehaus Nord")
 
     # Besonderheiten dieses Monats / Prüfliste
     gid = f_giro["id"]
