@@ -11,6 +11,7 @@ import { Button, SelectField } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading, PageHeader } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
 import { useToast } from '../../ui/overlay'
+import { mergeBatches, pickSelected } from './batches'
 import './import.css'
 
 /**
@@ -21,6 +22,8 @@ import './import.css'
  */
 
 const IMPORT_AREAS = [...MONEY_AREAS, 'imports'] as const
+const PAGE = 30
+const MAX_LIMIT = 200
 const BUSY: ImportBatch['status'][] = ['queued', 'processing']
 
 const STATUS: Record<ImportBatch['status'], { label: string; tone: string; icon: 'clock' | 'check' | 'alert' | 'refresh' }> = {
@@ -55,13 +58,22 @@ function errorText(error: unknown): string {
 export function ImportPage() {
   const [params, setParams] = useSearchParams()
   const selectedId = Number(params.get('id')) || null
+  // Verlauf: neueste Importe, per „Ältere laden“ erweiterbar (die API erlaubt höchstens 200)
+  const [limit, setLimit] = useState(PAGE)
   // Nur neu laden, solange ein Import wartet oder verarbeitet wird
-  const batches = useProfileQuery<ImportBatch[]>('imports', '/imports', { limit: 30 }, {
-    refetchInterval: (data) => (data?.some((b) => BUSY.includes(b.status)) ? 2500 : false),
+  const refetchInterval = (data: ImportBatch[] | ImportBatch | undefined) =>
+    ([] as (ImportBatch | undefined)[]).concat(data).some((b) => b && BUSY.includes(b.status)) ? 2500 : false
+  const batches = useProfileQuery<ImportBatch[]>('imports', '/imports', { limit }, { refetchInterval })
+  // Offene Importe hängen nicht an der Historienbegrenzung
+  const openBatches = useProfileQuery<ImportBatch[]>('imports', '/imports', { status: 'awaiting_review', limit: MAX_LIMIT })
+  // Der gewählte Import wird einzeln geladen – er muss nicht unter den neuesten stehen
+  const chosen = useProfileQuery<ImportBatch>('imports', `/imports/${selectedId}`, undefined, {
+    enabled: selectedId !== null, refetchInterval,
   })
-  const list = batches.data ?? []
+  const list = mergeBatches(batches.data, openBatches.data, chosen.data ? [chosen.data] : undefined)
   const anyBusy = list.some((b) => BUSY.includes(b.status))
-  const selected = list.find((b) => b.id === selectedId) ?? list.find((b) => b.status === 'awaiting_review' || b.status === 'failed')
+  const selected = pickSelected(list, selectedId, chosen.data)
+  const canLoadMore = (batches.data?.length ?? 0) >= limit && limit < MAX_LIMIT
 
   return (
     <div className="page import-page">
@@ -104,7 +116,15 @@ export function ImportPage() {
           })}
         </ul>
       )}
+      {canLoadMore && (
+        <div className="import-more">
+          <Button variant="secondary" icon="refresh" busy={batches.isFetching} onClick={() => setLimit((l) => Math.min(l + PAGE, MAX_LIMIT))}>
+            Ältere laden
+          </Button>
+        </div>
+      )}
       {anyBusy && <ProcessHint />}
+      {selectedId !== null && chosen.isError && !selected && <ErrorBox error={chosen.error} onRetry={() => chosen.refetch()} />}
 
       {selected && <BatchDetail key={selected.id} batch={selected} />}
     </div>

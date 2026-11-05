@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { download } from '../../api/client'
-import { useAccounts, useCategories, useTransactions, type Category, type Transaction } from '../../api/hooks'
+import { useAccounts, useCategories, useTransactionsInfinite, type Category, type Transaction } from '../../api/hooks'
 import { useAddEntry } from '../../app/AddEntry'
 import { monthLabel, parseDate, shiftMonth, shortDate, todayISO } from '../../lib/dates'
+import { flattenCategoryTree } from '../../lib/categoryTree'
 import { formatEuro } from '../../lib/money'
-import { fromCents, toCents } from '../../lib/moneyInput'
 import { Button, Toggle } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading, Money } from '../../ui/blocks'
 import { Icon, type IconName } from '../../ui/Icon'
 import { useToast } from '../../ui/overlay'
 import { iconForName } from '../../lib/icons'
 import { filterToParams, filterToQuery, parseFilter, type TxFilter } from './filters'
+import { PAGE_SIZE } from './paging'
+import { reviewIndicator } from './status'
+import { computeTotals } from './totals'
 import { TransactionEditor } from './TransactionEditor'
 import './buchungen.css'
-
-const PAGE = 100
 
 function rowIcon(tx: Transaction, category: Category | undefined, parent: Category | undefined): IconName {
   if (tx.kind === 'transfer') return 'transfer'
@@ -41,7 +42,6 @@ export function TransactionsPage() {
   const selectedId = Number(params.get('id')) || null
   const [searchText, setSearchText] = useState(filter.search)
   const search = useDebounced(searchText, 300)
-  const [pages, setPages] = useState(1)
   const addEntry = useAddEntry()
   const toast = useToast()
 
@@ -49,7 +49,6 @@ export function TransactionsPage() {
     const next = filterToParams({ ...filter, ...patch }, thisMonth)
     if (keepId && selectedId) next.id = String(selectedId)
     setParams(next)
-    setPages(1)
   }
 
   // Suche erst nach kurzer Tipp-Pause in die URL übernehmen
@@ -59,31 +58,20 @@ export function TransactionsPage() {
   }, [search])
 
   const query = filterToQuery(filter)
-  const list = useTransactions({ ...query, limit: PAGE * pages, offset: 0 })
+  const list = useTransactionsInfinite(query)
   const accounts = useAccounts({ include_archived: true })
   const categories = useCategories()
   const categoryById = useMemo(() => new Map((categories.data ?? []).map((c) => [c.id, c])), [categories.data])
   const accountName = (id: number) => accounts.data?.find((a) => a.id === id)?.name ?? ''
 
-  const items = useMemo(() => list.data?.items ?? [], [list.data])
-  const total = list.data?.total ?? 0
+  const items = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data])
+  const total = list.data?.pages.at(-1)?.total ?? 0
 
-  // Summen über die geladenen Buchungen; Umbuchungen und Ausgeschlossene zählen nicht
-  const sums = useMemo(() => {
-    let income = 0n
-    let expenses = 0n
-    for (const t of items) {
-      if (t.excluded_at) continue
-      const lines = t.splits.length ? t.splits : [{ amount: t.amount, kind: t.kind }]
-      for (const line of lines) {
-        if (line.kind === 'transfer') continue
-        const c = toCents(line.amount)
-        if (c > 0n) income += c
-        else expenses -= c
-      }
-    }
-    return { income: fromCents(income), expenses: fromCents(expenses) }
-  }, [items])
+  // Summen über die geladenen Buchungen, nach Kategorietyp wie im Backend (Erstattungen mindern Ausgaben)
+  const sums = useMemo(
+    () => computeTotals(items, (id) => (id ? categoryById.get(id)?.type : undefined)),
+    [items, categoryById],
+  )
 
   const days = useMemo(() => {
     // Umbuchungspaar nur einmal zeigen (die abgehende Seite), wenn beide Seiten geladen sind
@@ -140,11 +128,11 @@ export function TransactionsPage() {
             onChange={(e) => update({ category: e.target.value === 'ohne' ? 'ohne' : e.target.value ? Number(e.target.value) : null })}>
             <option value="">Alle Kategorien</option>
             <option value="ohne">Ohne Kategorie</option>
-            {allCategories.filter((c) => !c.parent_id).map((parent) => (
-              <optgroup key={parent.id} label={parent.name}>
-                <option value={parent.id}>{parent.name} (alle)</option>
-                {allCategories.filter((c) => c.parent_id === parent.id).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </optgroup>
+            {/* rekursiv – auch tiefer verschachtelte Kategorien (z. B. nach dem Zusammenführen) */}
+            {flattenCategoryTree(allCategories).map(({ item: c, depth }) => (
+              <option key={c.id} value={c.id}>
+                {'\u00a0\u00a0'.repeat(depth)}{c.name}{allCategories.some((k) => k.parent_id === c.id) ? ' (alle)' : ''}
+              </option>
             ))}
           </select>
           <Icon name="chevronDown" size={18} />
@@ -174,12 +162,20 @@ export function TransactionsPage() {
           <span><strong className="num">{total}</strong><small>{total === 1 ? 'Buchung' : 'Buchungen'}</small></span>
         </div>
       </div>
+      {sums.unclearInflow !== '0.00' && (
+        <p className="muted tx-partial">Dazu {formatEuro(sums.unclearInflow)} ungeklärte Zuflüsse ohne Kategorie.</p>
+      )}
       {total > items.length && items.length > 0 && (
         <p className="muted tx-partial">Summen über die {items.length} geladenen von {total} Buchungen.</p>
       )}
 
       {list.isLoading && <Loading />}
-      {list.isError && <ErrorBox error={list.error} onRetry={() => list.refetch()} />}
+      {list.isError && (
+        <ErrorBox
+          error={list.error}
+          onRetry={() => (list.isFetchNextPageError ? list.fetchNextPage() : list.refetch())}
+        />
+      )}
       {list.isSuccess && items.length === 0 && (
         <div className="tile">
           <EmptyState icon="list" title="Keine Buchungen gefunden">
@@ -198,7 +194,7 @@ export function TransactionsPage() {
               {txs.map((tx) => {
                 const category = tx.category_id ? categoryById.get(tx.category_id) : undefined
                 const open = tx.id === selectedId
-                const needsReview = tx.review_status === 'needs_review' && !tx.excluded_at
+                const indicator = reviewIndicator(tx.review_status)
                 const transfer = tx.kind === 'transfer'
                 const route = transfer && tx.counterparty
                   ? (tx.amount.startsWith('-') ? `${accountName(tx.account_id)} → ${tx.counterparty}` : `${tx.counterparty} → ${accountName(tx.account_id)}`)
@@ -222,12 +218,14 @@ export function TransactionsPage() {
                       <span className="tx-state">
                         {tx.excluded_at ? (
                           <span className="status is-muted" title="ausgeschlossen"><Icon name="eyeOff" size={22} /></span>
-                        ) : needsReview ? (
-                          <span className="review-badge">prüfen</span>
+                        ) : indicator.kind === 'open' ? (
+                          <span className="review-badge" title={indicator.title}>prüfen</span>
                         ) : tx.kind === 'transfer' ? (
                           <span className="status is-muted" title="Umbuchung"><Icon name="transfer" size={22} /></span>
+                        ) : indicator.kind === 'suggested' ? (
+                          <span className="status is-due" title={indicator.title}><Icon name={indicator.icon} size={22} /></span>
                         ) : (
-                          <span className="status is-paid" title="geprüft"><Icon name="check" size={22} /></span>
+                          <span className="status is-paid" title={indicator.title}><Icon name={indicator.icon} size={22} /></span>
                         )}
                       </span>
                     </button>
@@ -259,9 +257,9 @@ export function TransactionsPage() {
       </div>
 
       <div className="tx-footer">
-        {total > items.length && (
-          <Button variant="secondary" busy={list.isFetching} onClick={() => setPages((p) => p + 1)}>
-            Weitere {Math.min(PAGE, total - items.length)} laden
+        {list.hasNextPage && (
+          <Button variant="secondary" busy={list.isFetchingNextPage} onClick={() => list.fetchNextPage()}>
+            Weitere {Math.min(PAGE_SIZE, total - items.length)} laden
           </Button>
         )}
         <span className="spacer" />

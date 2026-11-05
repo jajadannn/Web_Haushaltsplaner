@@ -32,6 +32,7 @@ from app.services.common import get_owned
 from app.services.loans.core import (
     _loan_transaction,
     get_entry,
+    lock_loan,
     open_entries,
     rebuild_schedule,
     remaining_debt,
@@ -117,9 +118,25 @@ def _dues(
     """(fällige Zinsen, fällige Gebühren) für die Zahlung."""
     if entry is not None:
         return entry.planned_interest, entry.planned_extra
-    # Ohne Plan (Privatkredit): taggenau aufgelaufene Zinsen seit der letzten Zahlung
-    days = (booking_date - _last_payment_date(session, loan)).days
-    return accrued_interest(remaining_debt(session, loan), loan.annual_interest_rate, days), loan.extra_amount
+    # Ohne Plan (Privatkredit): taggenau aufgelaufene Zinsen seit der letzten Zahlung,
+    # abschnittsweise mit der jeweils geltenden Restschuld (Belastungen erhöhen sie ab ihrem Tag)
+    start = _last_payment_date(session, loan)
+    changes = session.exec(
+        select(Transaction.booking_date)
+        .where(
+            Transaction.account_id == loan.account_id,
+            Transaction.excluded_at.is_(None),
+            Transaction.booking_date > start,
+            Transaction.booking_date < booking_date,
+        )
+        .distinct()
+        .order_by(Transaction.booking_date)
+    ).all()
+    weighted = ZERO  # Σ Restschuld × Tage
+    for begin, end in zip([start, *changes], [*changes, booking_date], strict=True):
+        debt = remaining_debt(session, loan, begin) or ZERO
+        weighted += max(debt, ZERO) * (end - begin).days
+    return accrued_interest(weighted, loan.annual_interest_rate, 1 if weighted else 0), loan.extra_amount
 
 
 def suggest_split(
@@ -172,6 +189,7 @@ def _apply_lines(
 
 
 def record_payment(session: Session, user: User, loan: Loan, data: LoanPaymentCreate) -> LoanPayment:
+    lock_loan(session, loan)
     if loan.status == LoanStatus.PAID_OFF:
         raise Conflict("Kredit ist bereits vollständig getilgt", code="loan_paid_off")
     tx, owns_tx = _payment_transaction(session, user, loan, data)
@@ -204,7 +222,8 @@ def record_payment(session: Session, user: User, loan: Loan, data: LoanPaymentCr
     else:
         interest, principal, extra = suggest_split(session, loan, amount, tx.booking_date, entry)
 
-    remaining = remaining_debt(session, loan)
+    # Restschuld am Zahlungstag – eine spätere Belastung darf keine frühere Überzahlung decken
+    remaining = remaining_debt(session, loan, tx.booking_date) or ZERO
     if principal > remaining:
         raise Invalid(
             "Tilgungsanteil ist höher als die Restschuld",
@@ -256,6 +275,7 @@ def list_payments(session: Session, loan: Loan) -> list[tuple[LoanPayment, int |
 
 def delete_payment(session: Session, loan: Loan, payment_id: int) -> None:
     """Storniert die zuletzt gebuchte Rate (spätere Raten bauen auf ihr auf)."""
+    lock_loan(session, loan)
     payment = session.get(LoanPayment, payment_id)
     if payment is None or payment.loan_id != loan.id:
         raise NotFound(f"Zahlung {payment_id} nicht gefunden")
@@ -269,6 +289,20 @@ def delete_payment(session: Session, loan: Loan, payment_id: int) -> None:
 
     entry = session.exec(select(LoanScheduleEntry).where(LoanScheduleEntry.payment_id == payment.id)).first()
     if entry is not None:
+        later_skip = session.exec(
+            select(LoanScheduleEntry.seq).where(
+                LoanScheduleEntry.loan_id == loan.id,
+                LoanScheduleEntry.seq > entry.seq,
+                LoanScheduleEntry.status == ScheduleStatus.SKIPPED,
+            )
+        ).first()
+        if later_skip is not None:
+            # Sonst verschwände die wieder offene Rate hinter der Pause aus dem Plan
+            raise Conflict(
+                f"Nach dieser Rate ist Rate {later_skip} ausgesetzt – zuerst die Ratenpause zurücknehmen",
+                code="payment_followed_by_skip",
+                details={"skipped_seq": later_skip},
+            )
         entry.status, entry.payment_id = ScheduleStatus.PLANNED, None
     tx = session.get(Transaction, payment.payment_transaction_id)
     loan_tx = session.get(Transaction, payment.loan_transaction_id) if payment.loan_transaction_id else None
@@ -296,10 +330,26 @@ def is_loan_payment(session: Session, tx: Transaction) -> bool:
 # --- Belastungen direkt auf dem Kreditkonto -----------------------------------
 
 
+def _assert_no_payment_since(session: Session, loan: Loan, day: date) -> None:
+    """Belastungen ab dem Tag einer gebuchten Zahlung ändern deren Zinsen und Restschuld im
+    Nachhinein (bis hin zur Überzahlung) – erst die späteren Zahlungen stornieren."""
+    later = session.exec(
+        select(func.count(LoanPayment.id)).where(LoanPayment.loan_id == loan.id, LoanPayment.booking_date >= day)
+    ).one()
+    if later:
+        raise Conflict(
+            "Nach dieser Belastung wurden Zahlungen gebucht – zuerst diese stornieren",
+            code="charge_has_later_payments",
+            details={"payments": later},
+        )
+
+
 def add_charge(session: Session, user: User, loan: Loan, data: LoanChargeCreate) -> Transaction:
     """Zinsen/Gebühren, die dem Kreditkonto belastet werden (z. B. kapitalisierte Zinsen)."""
+    lock_loan(session, loan)
     loan_account = session.get(Account, loan.account_id)
     check_booking_date(loan_account, data.booking_date)
+    _assert_no_payment_since(session, loan, data.booking_date)
     is_interest = data.charge_type == "interest"
     category = get_system_category(session, user.id, LOAN_INTEREST if is_interest else LOAN_FEES)
     tx = _loan_transaction(
@@ -314,6 +364,7 @@ def add_charge(session: Session, user: User, loan: Loan, data: LoanChargeCreate)
 
 
 def delete_charge(session: Session, loan: Loan, transaction_id: int) -> None:
+    lock_loan(session, loan)
     tx = session.get(Transaction, transaction_id)
     if (
         tx is None
@@ -322,6 +373,7 @@ def delete_charge(session: Session, loan: Loan, transaction_id: int) -> None:
         or tx.kind != TransactionKind.REGULAR
     ):
         raise NotFound(f"Belastung {transaction_id} nicht gefunden")
+    _assert_no_payment_since(session, loan, tx.booking_date)
     session.delete(tx)
     session.flush()
     rebuild_schedule(session, loan)

@@ -12,6 +12,7 @@ import { Button, Checkbox, MoneyField, Segmented, SelectField, TextField } from 
 import { Confirm, Dialog, useToast } from '../../ui/overlay'
 import { useFormErrors } from '../../ui/useFormErrors'
 import { LOAN_TYPE_LABEL, parseRate, rateLabel } from './labels'
+import { loanPatch } from './loanPatch'
 
 const LOAN_AREAS = [...MONEY_AREAS, 'fixed-costs'] as const
 
@@ -206,7 +207,7 @@ export function LoanFormDialog({ loan, onClose, onSaved, onDeleted }: {
   const [balance, setBalance] = useState<string | null>(null)
   const [balanceDate, setBalanceDate] = useState(todayISO())
   const [firstDue, setFirstDue] = useState('')
-  const [basis, setBasis] = useState<Basis>(loan?.term_months && !loan.installment_amount ? 'term' : 'rate')
+  const [basis, setBasis] = useState<Basis>(loan?.term_months && !loan.installment_amount && !loan.fixed_principal ? 'term' : 'rate')
   const [installment, setInstallment] = useState<string | null>(loan?.installment_amount ?? null)
   const [fixedPrincipal, setFixedPrincipal] = useState<string | null>(loan?.fixed_principal ?? null)
   const [term, setTerm] = useState(loan?.term_months ? String(loan.term_months) : '')
@@ -222,14 +223,20 @@ export function LoanFormDialog({ loan, onClose, onSaved, onDeleted }: {
   const ownAccounts = (accounts.data ?? []).filter((a) => a.type !== 'loan' && !a.archived_at)
   const parsedRate = parseRate(rate)
 
+  // Beim Bearbeiten bleibt das nicht gewählte Feld (Rate bzw. Laufzeit) wie gespeichert;
+  // nur ein bewusster Wechsel der Basis setzt es auf null.
+  const initialBasis: Basis = loan?.term_months && !loan.installment_amount && !loan.fixed_principal ? 'term' : 'rate'
+  const switched = editing && basis !== initialBasis
+  const termValue = term ? Number(term) : null
+
   const body = () => {
     const plan: Record<string, unknown> = {}
     if (type === 'annuity') {
-      plan.installment_amount = basis === 'rate' ? installment : null
-      plan.term_months = basis === 'term' && term ? Number(term) : null
+      plan.installment_amount = basis === 'rate' ? installment : editing && !switched ? loan.installment_amount : null
+      plan.term_months = basis === 'term' ? termValue : editing && !switched ? loan.term_months : null
     } else if (type === 'installment') {
-      plan.fixed_principal = basis === 'rate' ? fixedPrincipal : null
-      plan.term_months = basis === 'term' && term ? Number(term) : null
+      plan.fixed_principal = basis === 'rate' ? fixedPrincipal : editing && !switched ? loan.fixed_principal : null
+      plan.term_months = basis === 'term' ? termValue : editing && !switched ? loan.term_months : null
     } else {
       plan.installment_amount = installment
     }
@@ -239,7 +246,10 @@ export function LoanFormDialog({ loan, onClose, onSaved, onDeleted }: {
       lender_iban: lenderIban.trim() || null, payment_reference: reference.trim() || null,
       fixed_rate_until: fixedUntil || null, extra_amount: extra ?? '0.00', ...plan,
     }
-    if (editing) return common
+    if (editing) return loanPatch(loan, {
+      fixed_principal: loan.fixed_principal ?? null, installment_amount: loan.installment_amount ?? null,
+      term_months: loan.term_months ?? null, ...common,
+    })
     return {
       ...common, loan_type: type, current_balance: balance, balance_date: balanceDate,
       first_due_date: firstDue || null, institution_id: institution ? Number(institution) : null,

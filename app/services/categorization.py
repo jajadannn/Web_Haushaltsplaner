@@ -40,24 +40,92 @@ MAX_REPEAT = 100
 MAX_REPEAT_SUM = 300
 
 
-def check_regex_size(pattern: str) -> None:
-    """Begrenzt Wiederholungszahlen VOR dem Kompilieren (beim Anlegen/Ändern einer Regel).
+MAX_EXPANSION = 2000  # grobe Obergrenze für die ausgerollte Mustergröße
 
-    Das Zeitlimit greift nur bei der Suche; `x{1000000000}` würde schon beim Kompilieren
-    sehr viel Speicher belegen. Typische Muster wie `\\d{2}\\.\\d{2}\\.\\d{4}` bleiben erlaubt.
+
+def _expanded_size(pattern: str) -> int:
+    """Schätzt, wie groß das Muster nach dem Ausrollen aller Wiederholungen wird.
+
+    Verschachtelte Wiederholungen multiplizieren sich: `((x{100}){100}){100}` entspricht
+    einer Million Zeichen, obwohl jede einzelne Zahl klein ist. Jedes Zeichen, jede
+    Zeichenklasse und jede Escape-Sequenz zählt als 1; `*`, `+`, `?` verdoppeln höchstens.
+    """
+    stack: list[list[int]] = [[]]  # je offener Gruppe die Größen ihrer Bestandteile
+    i, n = 0, len(pattern)
+    while i < n:
+        ch = pattern[i]
+        if ch == "\\":
+            i += 2
+            if i <= n and pattern[i - 1] in "pPNxuUg" and i < n and pattern[i] == "{":
+                close = pattern.find("}", i)
+                i = n if close < 0 else close + 1
+            stack[-1].append(1)
+            continue
+        if ch == "[":
+            j = i + 1
+            if j < n and pattern[j] == "^":
+                j += 1
+            if j < n and pattern[j] == "]":
+                j += 1
+            while j < n and pattern[j] != "]":
+                j += 2 if pattern[j] == "\\" else 1
+            stack[-1].append(1)
+            i = j + 1
+            continue
+        if ch == "(":
+            stack.append([])
+            i += 1
+            continue
+        if ch == ")" and len(stack) > 1:
+            group = sum(stack.pop())
+            stack[-1].append(max(group, 1))
+            i += 1
+            continue
+        repeat = _REPEAT.match(pattern, i) if ch == "{" else None
+        if repeat or ch in "*+?":
+            if repeat:
+                low = int(repeat.group(1) or 0)
+                high = int(repeat.group(2)) if repeat.group(2) else low + 1  # {n,} ≈ n+1
+                times = max(low, high if "," in repeat.group(0) else low, 1)
+                i = repeat.end()
+            else:
+                times = 2
+                i += 1
+            if i < n and pattern[i] in "?+":  # lazy/possessiv
+                i += 1
+            if stack[-1]:
+                stack[-1][-1] *= times
+            continue
+        stack[-1].append(1)
+        i += 1
+    return sum(sum(level) for level in stack)
+
+
+def check_regex_size(pattern: str) -> None:
+    """Begrenzt Wiederholungen VOR dem Kompilieren (beim Anlegen/Ändern und Laden einer Regel).
+
+    Das Zeitlimit greift nur bei der Suche; `x{1000000000}` oder verschachtelte Wiederholungen
+    wie `((x{100}){100}){100}` würden schon beim Kompilieren sehr viel Speicher belegen.
+    Typische Muster wie `\\d{2}\\.\\d{2}\\.\\d{4}` bleiben erlaubt.
     """
     numbers = [int(n) for pair in _REPEAT.findall(pattern) for n in pair if n]
-    if any(n > MAX_REPEAT for n in numbers) or sum(numbers) > MAX_REPEAT_SUM:
+    if (
+        any(n > MAX_REPEAT for n in numbers)
+        or sum(numbers) > MAX_REPEAT_SUM
+        or _expanded_size(pattern) > MAX_EXPANSION
+    ):
         raise Invalid(
             f"Regulärer Ausdruck zu aufwendig: Wiederholungen {{n,m}} höchstens {MAX_REPEAT}, "
-            f"zusammen höchstens {MAX_REPEAT_SUM}",
+            f"zusammen höchstens {MAX_REPEAT_SUM}, verschachtelt höchstens {MAX_EXPANSION} Zeichen",
             code="regex_too_complex",
         )
 
 
 def compile_pattern(pattern: str, match_type: str, case_sensitive: bool):
+    """Kompiliert ein Regex-Muster – erst nach der Größenprüfung, auch beim Laden gespeicherter Regeln."""
     if match_type != MatchType.REGEX:
         return None
+    check_regex_size(pattern)
     try:
         return regex.compile(pattern, 0 if case_sensitive else regex.IGNORECASE)
     except regex.error as exc:

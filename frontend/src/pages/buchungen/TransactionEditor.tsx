@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import { fieldErrors } from '../../api/messages'
 import { MONEY_AREAS, useApiMutation, type Account, type Category, type Transaction } from '../../api/hooks'
+import { categoryPath } from '../../lib/categoryTree'
 import { formatEuro } from '../../lib/money'
 import { negate } from '../../lib/moneyInput'
 import { Button, MoneyField, SelectField, TextField } from '../../ui/controls'
 import { Confirm, useToast } from '../../ui/overlay'
 import { Icon } from '../../ui/Icon'
+import { editorMode } from './status'
 import { splitProblem, splitRemainder, SPLIT_PROBLEM_TEXT, toApiSplits, type SplitDraft } from './splits'
 
 interface Props {
@@ -23,14 +25,16 @@ function categoryOptions(categories: Category[], sign: 'in' | 'out') {
   const sorted = [...categories].sort((a, b) => (a.type === first ? 0 : 1) - (b.type === first ? 0 : 1))
   return sorted.map((c) => ({
     value: String(c.id),
-    label: `${c.parent_id ? `${categories.find((p) => p.id === c.parent_id)?.name ?? ''} › ` : ''}${c.name}${c.type !== first ? (c.type === 'income' ? ' (Einnahme)' : ' (Ausgabe)') : ''}`,
+    label: `${categoryPath(categories, c.id)}${c.type !== first ? (c.type === 'income' ? ' (Einnahme)' : ' (Ausgabe)') : ''}`,
   }))
 }
 
 /** Aufgeklappte Bearbeitung einer Buchung (Entwurf B: unter der Zeile in der Tageskachel). */
 export function TransactionEditor({ tx, accounts, categories, onClose }: Props) {
   const toast = useToast()
-  const imported = tx.source === 'import'
+  // Auch eine als Bankzeile bestätigte manuelle Buchung hat feste Bankfelder (Backend prüft das ebenso)
+  const imported = tx.source === 'import' || tx.import_linked
+  const mode = editorMode(tx)
   const loan = tx.source === 'loan'
   const transfer = tx.kind === 'transfer'
   const sign = tx.amount.startsWith('-') ? 'out' : 'in'
@@ -74,11 +78,26 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
       }
     }
     return api.patch<Transaction>(`/transactions/${tx.id}`, body)
-  }, MONEY_AREAS)
+  }, MONEY_AREAS, () => {
+    toast.ok('Buchung gespeichert')
+    onClose()
+  })
 
-  const remove = useApiMutation(() => api.delete(`/transactions/${tx.id}`), MONEY_AREAS)
-  const exclude = useApiMutation(() => api.post(`/transactions/${tx.id}/exclude`, { reason: reason.trim() }), MONEY_AREAS)
-  const include = useApiMutation(() => api.post(`/transactions/${tx.id}/include`), MONEY_AREAS)
+  // Meldung und Schließen laufen vor dem Neuladen (onDone), denn das Neuladen hängt den Editor aus
+  const remove = useApiMutation(() => api.delete(`/transactions/${tx.id}`), MONEY_AREAS, () => {
+    toast.ok('Buchung gelöscht')
+    setConfirm(null)
+    onClose()
+  })
+  const exclude = useApiMutation(() => api.post(`/transactions/${tx.id}/exclude`, { reason: reason.trim() }), MONEY_AREAS, () => {
+    toast.ok('Buchung ausgeschlossen')
+    setConfirm(null)
+    onClose()
+  })
+  const include = useApiMutation(() => api.post(`/transactions/${tx.id}/include`), MONEY_AREAS, () => {
+    toast.ok('Buchung zählt wieder')
+    onClose()
+  })
 
   const fail = (error: unknown) => {
     if (error instanceof ApiError) {
@@ -105,13 +124,7 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
         return
       }
     }
-    save.mutate(undefined, {
-      onSuccess: () => {
-        toast.ok('Buchung gespeichert')
-        onClose()
-      },
-      onError: fail,
-    })
+    save.mutate(undefined, { onError: fail })
   }
 
   if (loan) {
@@ -144,7 +157,7 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
           <Icon name="eyeOff" size={18} /> Ausgeschlossen{tx.excluded_reason ? `: ${tx.excluded_reason}` : ''} – zählt nicht in Salden und Berichten.
         </p>
       )}
-      {imported && <p className="tx-editor-note">Importiert: Konto, Datum und Betrag kommen von der Bank und sind fest.</p>}
+      {imported && <p className="tx-editor-note">Mit Bankdaten abgeglichen: Konto, Datum und Betrag kommen von der Bank und sind fest.</p>}
       {transfer && <p className="tx-editor-note">Umbuchung zwischen eigenen Konten – zählt weder als Einnahme noch als Ausgabe.</p>}
 
       <div className="tx-editor-grid">
@@ -207,11 +220,15 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
         )}
         {tx.excluded_at ? (
           <Button variant="secondary" icon="refresh" busy={include.isPending}
-            onClick={() => include.mutate(undefined, { onSuccess: () => { toast.ok('Buchung zählt wieder'); onClose() }, onError: fail })}>
+            onClick={() => include.mutate(undefined, { onError: fail })}>
             Wieder einschließen
           </Button>
-        ) : imported ? (
+        ) : mode === 'exclude' ? (
           <Button variant="secondary" icon="eyeOff" onClick={() => setConfirm('exclude')}>Ausschließen</Button>
+        ) : mode === 'loan-payment' ? (
+          <span className="tx-editor-note">
+            Als Kreditrate gebucht – unter <Link to="/kredite">Kredite</Link> stornieren.
+          </span>
         ) : (
           <Button variant="danger" icon="trash" onClick={() => setConfirm('delete')}>Löschen</Button>
         )}
@@ -230,7 +247,6 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
         busy={remove.isPending}
         onCancel={() => setConfirm(null)}
         onConfirm={() => remove.mutate(undefined, {
-          onSuccess: () => { toast.ok('Buchung gelöscht'); setConfirm(null); onClose() },
           onError: (e) => { setConfirm(null); fail(e) },
         })}
       />
@@ -252,7 +268,6 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
         onConfirm={() => {
           if (!reason.trim()) return
           exclude.mutate(undefined, {
-            onSuccess: () => { toast.ok('Buchung ausgeschlossen'); setConfirm(null); onClose() },
             onError: (e) => { setConfirm(null); fail(e) },
           })
         }}

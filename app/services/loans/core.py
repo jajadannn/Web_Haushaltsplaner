@@ -52,6 +52,18 @@ def get_loan(session: Session, user: User, loan_id: int) -> Loan:
     return get_owned(session, Loan, loan_id, user.id, "Kredit")
 
 
+def lock_loan(session: Session, loan: Loan) -> Loan:
+    """Sperrt den Kredit bis zum Ende der Transaktion und lädt ihn frisch.
+
+    Gemeinsame Konvention für alle ändernden Kreditoperationen (Zahlung, Storno, Belastung,
+    Konditionen, Ratenpause): Wer Status, Plan oder Restschuld liest und daraufhin bucht, hält
+    vorher diese Sperre – sonst könnten zwei parallele Zahlungen dieselbe Restschuld tilgen.
+    """
+    session.execute(select(Loan.id).where(Loan.id == loan.id).with_for_update())
+    session.refresh(loan)
+    return loan
+
+
 def list_loans(session: Session, user: User) -> list[Loan]:
     return list(session.exec(select(Loan).where(Loan.user_id == user.id).order_by(Loan.id)))
 
@@ -92,6 +104,9 @@ def loan_view(session: Session, loan: Loan, today: date | None = None) -> dict:
         name=account.name,
         institution_id=account.institution_id,
         remaining_debt=remaining_debt(session, loan),
+        principal_repaid=session.exec(
+            select(func.coalesce(func.sum(LoanPayment.principal), 0)).where(LoanPayment.loan_id == loan.id)
+        ).one(),
         next_due_date=entries[0].due_date if entries else None,
         next_installment=entries[0].planned_installment if entries else None,
         open_installments=len(entries),
@@ -351,13 +366,19 @@ _PLAN_FIELDS = {"annual_interest_rate", "payment_day", "term_months", "installme
 
 
 def update_loan(session: Session, user: User, loan: Loan, changes: dict) -> Loan:
+    lock_loan(session, loan)
+    # Unveränderte Werte zählen nicht als Änderung: Ein Formular, das beim Umbenennen die
+    # gespeicherte Laufzeit oder Rate mitschickt, darf den Plan nicht neu berechnen lassen
+    if changes.get("lender_iban"):
+        changes["lender_iban"] = normalize_iban(changes["lender_iban"])
+    if changes.get("name") == session.get(Account, loan.account_id).name:
+        changes.pop("name")
+    changes = {k: v for k, v in changes.items() if k == "name" or getattr(loan, k) != v}
     if "name" in changes:
         session.get(Account, loan.account_id).name = changes.pop("name")
         flush_or_conflict(session, ACCOUNT_UNIQUE)
     if "payment_account_id" in changes:
         changes["payment_account_id"] = _payment_account(session, user, changes["payment_account_id"])
-    if changes.get("lender_iban"):
-        changes["lender_iban"] = normalize_iban(changes["lender_iban"])
 
     plan_changed = bool(_PLAN_FIELDS & changes.keys())
     term, derived = None, True
@@ -401,6 +422,7 @@ def update_loan(session: Session, user: User, loan: Loan, changes: dict) -> Loan
 
 def delete_loan(session: Session, loan: Loan) -> None:
     """Nur ohne gebuchte Raten/Belastungen; die Auszahlungsbuchung wird mit entfernt."""
+    lock_loan(session, loan)
     payments = session.exec(select(func.count()).where(LoanPayment.loan_id == loan.id)).one()
     if payments:
         raise Conflict(
@@ -436,6 +458,7 @@ def get_entry(session: Session, loan: Loan, seq: int) -> LoanScheduleEntry:
 
 def skip_installment(session: Session, loan: Loan, seq: int) -> None:
     """Vereinbarte Ratenpause für die nächste offene Rate; der Plan verschiebt sich um einen Monat."""
+    lock_loan(session, loan)
     entry = get_entry(session, loan, seq)
     entries = open_entries(session, loan)
     if entry.status != ScheduleStatus.PLANNED or entry.id != entries[0].id:
@@ -448,6 +471,7 @@ def skip_installment(session: Session, loan: Loan, seq: int) -> None:
 
 
 def unskip_installment(session: Session, loan: Loan, seq: int) -> None:
+    lock_loan(session, loan)
     entry = get_entry(session, loan, seq)
     latest = session.exec(
         select(LoanScheduleEntry)

@@ -34,8 +34,6 @@ function Progress({ value }: { value: number | null }) {
 
 function LoanCard({ loan, selected }: { loan: Loan; selected: boolean }) {
   const paidOff = loan.status === 'paid_off'
-  // Ohne ursprüngliche Summe: Fortschritt aus dem Plan (bezahlte Tilgung)
-  const schedule = useProfileQuery<ScheduleEntry[]>('loans', `/loans/${loan.id}/schedule`, undefined, { enabled: !loan.principal_original && !paidOff })
   return (
     <Link to={`/kredite/${loan.id}`} className={`tile loan-card${selected ? ' is-selected' : ''}`} aria-current={selected || undefined}>
       <header className="loan-card-head">
@@ -54,7 +52,7 @@ function LoanCard({ loan, selected }: { loan: Loan; selected: boolean }) {
           {loan.next_installment && (
             <p className="loan-card-rate">Rate {formatEuro(loan.next_installment)} am {loan.payment_day}.</p>
           )}
-          <Progress value={loanProgress(loan, schedule.data)} />
+          <Progress value={loanProgress(loan)} />
           <p className="loan-card-foot">
             <span>{loan.final_due_date ? `Abbezahlt ${shortMonthLabel(loan.final_due_date)}` : 'Ohne festen Plan'}</span>
             <span>noch {loan.open_installments} {loan.open_installments === 1 ? 'Rate' : 'Raten'}</span>
@@ -138,7 +136,7 @@ function LoanDetail({ loan, onDeleted }: { loan: Loan; onDeleted: () => void }) 
   const entries = schedule.data ?? []
   const nextOpen = entries.find((e) => e.status === 'planned')
   const lastSkipped = [...entries].reverse().find((e) => e.status === 'skipped')
-  const latestPayment = [...(payments.data ?? [])].sort((a, b) => b.booking_date.localeCompare(a.booking_date) || b.id - a.id)[0]
+  const latestPayment = (payments.data ?? []).at(-1)
   // Bezahlte bleiben sichtbar, von den künftigen zunächst nur die nächsten 12
   const firstOpenIndex = entries.findIndex((e) => e.status !== 'paid')
   const visible = showAll || firstOpenIndex < 0 ? entries : entries.slice(0, firstOpenIndex + 12)
@@ -256,6 +254,40 @@ function LoanDetail({ loan, onDeleted }: { loan: Loan; onDeleted: () => void }) 
       )}
       {schedule.isSuccess && entries.length === 0 && loan.loan_type === 'private' && (
         <p className="muted">Privatkredit ohne festen Plan – Zahlungen frei mit „Rate buchen“ erfassen.</p>
+      )}
+
+      {payments.isSuccess && (payments.data ?? []).length > 0 && (
+        <div className="plan-wrap">
+          <h3>Gebuchte Zahlungen</h3>
+          <table className="plan" aria-label="Gebuchte Zahlungen">
+            <thead>
+              <tr>
+                <th scope="col">Datum</th>
+                <th scope="col" className="num">Betrag</th>
+                <th scope="col" className="num">Zinsen</th>
+                <th scope="col" className="num">Tilgung</th>
+                <th scope="col" className="num">Gebühren</th>
+                <th scope="col"><span className="visually-hidden">Aktion</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...(payments.data ?? [])].reverse().map((p) => (
+                <tr key={p.id}>
+                  <td>{fullDate(p.booking_date)}</td>
+                  <td className="num">{formatEuro(fromCents(toCents(p.interest) + toCents(p.principal) + toCents(p.extra)))}</td>
+                  <td className="num">{formatEuro(p.interest)}</td>
+                  <td className="num">{formatEuro(p.principal)}</td>
+                  <td className="num">{formatEuro(p.extra)}</td>
+                  <td>
+                    {p.id === latestPayment?.id && (
+                      <button type="button" className="mini-btn" onClick={() => setConfirm({ kind: 'storno', payment: p })}>stornieren</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {dialog === 'payment' && <PaymentDialog loan={loan} next={nextOpen} onClose={() => setDialog(null)} />}

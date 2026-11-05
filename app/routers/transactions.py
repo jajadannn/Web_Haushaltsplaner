@@ -28,7 +28,7 @@ def list_transactions(
 ):
     """Buchungen, neueste zuerst (`booking_date`, dann `id` absteigend)."""
     items, total = service.list_transactions(session, user, filters, limit=limit, offset=offset)
-    return {"items": items, "total": total, "limit": limit, "offset": offset}
+    return {"items": service.with_links(session, items), "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/transactions", response_model=TransactionRead, status_code=201)
@@ -42,7 +42,7 @@ def create_transaction(data: TransactionCreate, session: SessionDep, user: Curre
 
 @router.get("/transactions/{transaction_id}", response_model=TransactionRead)
 def get_transaction(transaction_id: int, session: SessionDep, user: CurrentUser):
-    return service.get_transaction(session, user, transaction_id)
+    return service.with_links(session, [service.get_transaction(session, user, transaction_id)])[0]
 
 
 @router.patch("/transactions/{transaction_id}", response_model=TransactionRead)
@@ -52,7 +52,7 @@ def update_transaction(
     tx = service.get_transaction(session, user, transaction_id)
     service.update_transaction(session, user, tx, data.changes())
     session.commit()
-    return tx
+    return service.with_links(session, [tx])[0]
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
@@ -70,14 +70,14 @@ def exclude_transaction(
     """Importierte Buchung aus Salden/Berichten ausschließen – die Importidentität bleibt."""
     tx = service.set_excluded(session, service.get_transaction(session, user, transaction_id), data.reason)
     session.commit()
-    return tx
+    return service.with_links(session, [tx])[0]
 
 
 @router.post("/transactions/{transaction_id}/include", response_model=TransactionRead)
 def include_transaction(transaction_id: int, session: SessionDep, user: CurrentUser):
     tx = service.set_excluded(session, service.get_transaction(session, user, transaction_id), None)
     session.commit()
-    return tx
+    return service.with_links(session, [tx])[0]
 
 
 @router.post("/transfers", response_model=TransferRead, status_code=201)

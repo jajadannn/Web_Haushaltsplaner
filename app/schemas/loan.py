@@ -100,6 +100,7 @@ class LoanRead(BaseModel):
     fixed_rate_until: date | None
     final_due_date: date | None
     remaining_debt: Money
+    principal_repaid: Money  # Summe der tatsächlich gezahlten Tilgungsanteile
     next_due_date: date | None
     next_installment: Money | None
     open_installments: int

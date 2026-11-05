@@ -64,6 +64,39 @@ def import_dir(name: str) -> Path:
     return path
 
 
+IMPORT_FOLDERS = ("inbox", "processing", "failed", "archive")
+
+
+def to_stored(path: Path) -> str:
+    """Speicherform eines Dateipfads: relativ zum Importordner, damit ein Restore an einen
+    anderen Ort (anderes IMPORT_DIR) die Verweise nicht ungültig macht."""
+    root = get_settings().import_dir
+    try:
+        return str(Path(path).resolve().relative_to(Path(root).resolve()))
+    except ValueError:
+        return str(path)
+
+
+def stored_file(stored: str) -> Path:
+    """Tatsächlicher Pfad zu `stored_path` unter dem aktuellen Importordner.
+
+    Ältere Datensätze enthalten absolute Pfade. Existiert die Datei dort nicht mehr (z. B. nach
+    einem Restore in ein anderes IMPORT_DIR), wird der Teil ab dem Unterordner
+    (inbox/processing/failed/archive) auf den aktuellen Importordner umgelenkt.
+    """
+    path = Path(stored)
+    root = get_settings().import_dir
+    if not path.is_absolute():
+        return root / path
+    if path.exists():
+        return path
+    parts = path.parts
+    for i in range(len(parts) - 2, -1, -1):
+        if parts[i] in IMPORT_FOLDERS:
+            return root.joinpath(*parts[i:])
+    return path
+
+
 def safe_filename(name: str) -> str:
     base = Path(name or "datei").name
     return re.sub(r"[^A-Za-z0-9._-]+", "_", base)[:100] or "datei"
@@ -138,7 +171,7 @@ def create_batch(
         profile_version=profile.version,
         parser_version=PARSER_VERSION,
         original_filename=Path(original_filename).name[:255] or "datei",
-        stored_path=str(path),
+        stored_path=to_stored(path),
         file_sha256=file_hash,
         source=source,
     )
@@ -262,7 +295,7 @@ def process_batch(session: Session, batch: ImportBatch) -> None:
     """Liest die Datei, bewertet jede Zeile und übernimmt sofort, wenn nichts zu klären ist."""
     profile = session.get(ImportProfile, batch.import_profile_id)
     try:
-        content = Path(batch.stored_path).read_bytes()
+        content = stored_file(batch.stored_path).read_bytes()
     except OSError as exc:
         raise ImportFailure("Arbeitskopie der Datei fehlt", code="file_missing") from exc
     if sha256(content) != batch.file_sha256:
@@ -465,13 +498,13 @@ def archive_file(session: Session, batch: ImportBatch) -> None:
     if batch.status not in (BatchStatus.DONE, BatchStatus.FAILED) or batch.archive_state == ArchiveState.DONE:
         return
     folder = "archive" if batch.status == BatchStatus.DONE else "failed"
-    source = Path(batch.stored_path)
+    source = stored_file(batch.stored_path)
     target = import_dir(folder) / f"{batch.id}_{safe_filename(batch.original_filename)}"
     with file_moves():
         try:
             if source != target:
                 os.replace(source, target)
-            batch.stored_path = str(target)
+            batch.stored_path = to_stored(target)
             batch.archive_state = ArchiveState.DONE
         except OSError:
             log.exception("Archivieren von Import %s fehlgeschlagen", batch.id)

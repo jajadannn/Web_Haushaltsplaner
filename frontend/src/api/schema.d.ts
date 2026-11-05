@@ -2128,6 +2128,8 @@ export interface components {
             final_due_date: string | null;
             /** Remaining Debt */
             remaining_debt: string;
+            /** Principal Repaid */
+            principal_repaid: string;
             /** Next Due Date */
             next_due_date: string | null;
             /** Next Installment */
@@ -2142,12 +2144,21 @@ export interface components {
              */
             created_at: string;
         };
-        /** LoanReport */
+        /**
+         * LoanReport
+         * @description `remaining_debt` und die Monatswerte gelten zum Stichtag `until`; Status, nächste Rate und
+         *     `monthly_burden` sind der aktuelle Stand vom `current_as_of`.
+         */
         LoanReport: {
             /** Loans */
             loans: components["schemas"]["LoanReportItem"][];
             /** Monthly Burden */
             monthly_burden: string;
+            /**
+             * Current As Of
+             * Format: date
+             */
+            current_as_of: string;
         };
         /** LoanReportItem */
         LoanReportItem: {
@@ -2668,6 +2679,13 @@ export interface components {
             updated_at: string;
             /** Splits */
             splits: components["schemas"]["SplitRead"][];
+            /**
+             * Import Linked
+             * @default false
+             */
+            import_linked: boolean;
+            /** Loan Payment Id */
+            loan_payment_id?: number | null;
         };
         /**
          * TransactionSource
@@ -2907,12 +2925,19 @@ export interface components {
              */
             created_at: string;
         };
-        /** YearInterest */
+        /**
+         * YearInterest
+         * @description Zinskosten eines Jahres: `interest` = `paid` (mit Raten gezahlt) + `charged` (der Schuld zugeschlagen).
+         */
         YearInterest: {
             /** Year */
             year: number;
             /** Interest */
             interest: string;
+            /** Paid */
+            paid: string;
+            /** Charged */
+            charged: string;
         };
     };
     responses: never;
@@ -3687,6 +3712,8 @@ export interface operations {
                 uncategorized?: boolean | null;
                 kind?: components["schemas"]["TransactionKind"] | null;
                 review_status?: components["schemas"]["ReviewStatus"] | null;
+                /** @description true: noch nicht vom Nutzer bestätigt (ohne Kategorie oder automatischer Vorschlag) */
+                unconfirmed?: boolean | null;
                 source?: components["schemas"]["TransactionSource"] | null;
                 search?: string | null;
                 amount_min?: number | string | null;
@@ -5687,6 +5714,8 @@ export interface operations {
                 uncategorized?: boolean | null;
                 kind?: components["schemas"]["TransactionKind"] | null;
                 review_status?: components["schemas"]["ReviewStatus"] | null;
+                /** @description true: noch nicht vom Nutzer bestätigt (ohne Kategorie oder automatischer Vorschlag) */
+                unconfirmed?: boolean | null;
                 source?: components["schemas"]["TransactionSource"] | null;
                 search?: string | null;
                 amount_min?: number | string | null;

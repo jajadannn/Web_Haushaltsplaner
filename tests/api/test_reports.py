@@ -92,7 +92,7 @@ def test_kreditzinsen_sind_ausgabe_tilgung_nicht(client, headers, setup):
     loans = client.get("/reports/loans", params={"until": "2026-02-15", "months": 2}, headers=headers).json()
     item = loans["loans"][0]
     assert [x["remaining_debt"] for x in item["remaining_by_month"]] == ["9811.37", "9811.37"]
-    assert item["interest_paid_by_year"] == [{"year": 2026, "interest": "41.67"}]
+    assert item["interest_paid_by_year"] == [{"year": 2026, "interest": "41.67", "paid": "41.67", "charged": "0.00"}]
     assert loans["monthly_burden"] == "230.30"
 
 
@@ -195,7 +195,7 @@ def test_kreditbericht_zaehlt_belastete_zinsen(client, headers, setup):
                                                       "charge_type": "interest"}, headers=headers)
     r = client.get("/reports/loans", params={"until": "2027-01-15", "months": 1}, headers=headers).json()
     item = r["loans"][0]
-    assert item["interest_paid_by_year"] == [{"year": 2026, "interest": "20.00"}]
+    assert item["interest_paid_by_year"] == [{"year": 2026, "interest": "20.00", "paid": "0.00", "charged": "20.00"}]
     assert item["remaining_by_month"] == [{"month_end": "2027-01-15", "remaining_debt": "1020.00"}]
 
 

@@ -2,9 +2,12 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { download, type Schemas } from '../../api/client'
 import { useInstitutions, useProfileQuery, useTransactions } from '../../api/hooks'
-import { monthEnd, monthLabel, parseDate, shiftMonth, shortMonthLabel, todayISO } from '../../lib/dates'
+import { fullDate, monthEnd, monthLabel, parseDate, shiftMonth, shortMonthLabel, todayISO } from '../../lib/dates'
 import { formatEuro, isNegative } from '../../lib/money'
 import { fromCents, toCents } from '../../lib/moneyInput'
+import { descendantIds, flattenCategoryTree } from '../../lib/categoryTree'
+import { topRecipients } from './recipients'
+import { currentStateNote, interestBreakdown } from './loanReport'
 import { Button, Segmented } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading } from '../../ui/blocks'
 import { Icon } from '../../ui/Icon'
@@ -205,28 +208,31 @@ function CategoriesPanel({ range, compact }: { range: { date_from: string; date_
           </p>
         )}
       </div>
-      {current && <CategoryDetail item={current} subcategories={items.filter((i) => i.parent_id === current.category_id)} range={range} type={type} />}
+      {current && <CategoryDetail item={current} all={items} range={range} type={type} />}
     </section>
   )
 }
 
-function CategoryDetail({ item, subcategories, range, type }: {
+function CategoryDetail({ item, all, range, type }: {
   item: CategoryItem
-  subcategories: CategoryItem[]
+  all: CategoryItem[]
   range: { date_from: string; date_to: string }
   type: 'expense' | 'income'
 }) {
   // Größte Empfänger der Kategorie im Zeitraum (aus den Buchungen, inkl. Unterkategorien)
   const txs = useTransactions({ ...range, category_id: item.category_id, kind: 'regular', limit: 200 })
-  const top = useMemo(() => {
-    const sums = new Map<string, bigint>()
-    for (const t of txs.data?.items ?? []) {
-      const name = t.counterparty || t.description
-      const value = type === 'expense' ? -toCents(t.amount) : toCents(t.amount)
-      sums.set(name, (sums.get(name) ?? 0n) + value)
-    }
-    return [...sums.entries()].filter(([, v]) => v > 0n).sort((a, b) => Number(b[1] - a[1])).slice(0, 5)
-  }, [txs.data, type])
+  // Nur die passenden regulären Splitanteile der Kategorie inkl. aller Unterkategorien zählen
+  const nodes = useMemo(() => all.map((c) => ({ id: c.category_id, parent_id: c.parent_id, item: c })), [all])
+  const top = useMemo(
+    () => topRecipients(txs.data?.items ?? [], descendantIds(nodes, item.category_id), type),
+    [txs.data, nodes, item.category_id, type],
+  )
+  const subcategories = useMemo(
+    () => flattenCategoryTree(nodes.filter((n) => n.id !== item.category_id))
+      .filter((n) => descendantIds(nodes, item.category_id).has(n.item.id) && toCents(n.item.item.net) !== 0n)
+      .map((n) => ({ ...n.item.item, depth: n.depth })),
+    [nodes, item.category_id],
+  )
   const topMax = top[0]?.[1] ?? 1n
 
   return (
@@ -239,8 +245,8 @@ function CategoryDetail({ item, subcategories, range, type }: {
       </dl>
       {subcategories.length > 0 && (
         <ul className="detail-children">
-          {subcategories.filter((c) => toCents(c.net) !== 0n).map((c) => (
-            <li key={c.category_id}><span>{c.name}</span><span className="money">{formatEuro(c.net)}</span></li>
+          {subcategories.map((c) => (
+            <li key={c.category_id} style={c.depth > 0 ? { paddingLeft: `${c.depth * 16}px` } : undefined}><span>{c.name}</span><span className="money">{formatEuro(c.net)}</span></li>
           ))}
         </ul>
       )}
@@ -341,18 +347,25 @@ function LoansPanel({ to }: { to: string }) {
   if (report.isLoading) return <section className="tile report-panel"><Loading /></section>
   if (report.isError) return <ErrorBox error={report.error} onRetry={() => report.refetch()} />
   const loans = report.data?.loans ?? []
+  const stateNote = report.data ? currentStateNote(monthEnd(to), report.data.current_as_of) : null
   if (!loans.length) return <section className="tile report-panel"><EmptyState icon="coins" title="Keine Kredite" /></section>
   return (
     <section className="tile report-panel">
       <header className="panel-head">
         <h2>Kredite</h2>
-        <p className="muted">Monatliche Belastung durch Raten: <strong className="money">{formatEuro(report.data!.monthly_burden)}</strong></p>
+        <p className="muted">
+          Monatliche Belastung durch Raten{stateNote && ` – ${stateNote}`}: <strong className="money">{formatEuro(report.data!.monthly_burden)}</strong>
+        </p>
       </header>
       {loans.map((loan) => {
         const points = loan.remaining_by_month.filter((p) => p.remaining_debt !== null)
         return (
           <div key={loan.loan_id} className="loan-report">
-            <h3>{loan.name} <span className="muted">· Restschuld {loan.remaining_debt ? formatEuro(loan.remaining_debt) : '–'}</span></h3>
+            <h3>{loan.name} <span className="muted">· Restschuld am {fullDate(monthEnd(to))} {loan.remaining_debt ? formatEuro(loan.remaining_debt) : '–'}</span></h3>
+            <p className="muted">
+              Status{stateNote && ` – ${stateNote}`}: {loan.status === 'paid_off' ? 'abbezahlt' : 'läuft'}
+              {loan.next_installment && ` · nächste Rate ${formatEuro(loan.next_installment)}`}
+            </p>
             <table className="chart-table">
               <thead>
                 <tr><th scope="col">Monatsende</th>{points.map((p) => <th key={p.month_end} scope="col" className="num">{shortMonthLabel(p.month_end)}</th>)}</tr>
@@ -363,7 +376,11 @@ function LoansPanel({ to }: { to: string }) {
             </table>
             {loan.interest_paid_by_year.length > 0 && (
               <p className="muted">
-                Gezahlte Zinsen: {loan.interest_paid_by_year.map((y) => `${y.year}: ${formatEuro(y.interest)}`).join(' · ')}
+                Zinskosten: {loan.interest_paid_by_year.map((y) => {
+                  const d = interestBreakdown(y)
+                  const parts = [d.paid && `${formatEuro(d.paid)} gezahlt`, d.charged && `${formatEuro(d.charged)} der Schuld zugeschlagen`].filter(Boolean)
+                  return `${d.year}: ${formatEuro(d.total)}${parts.length ? ` (${parts.join(', ')})` : ''}`
+                }).join(' · ')}
               </p>
             )}
           </div>

@@ -9,7 +9,7 @@ import { monthEnd } from '../../lib/dates'
  *   &konto=3            ein Konto
  *   &kategorie=12       Kategorie (mit Unterkategorien) · "ohne" = unkategorisiert
  *   &q=rewe             Suche in Text und Empfänger
- *   &pruefen=1          nur ungeprüfte
+ *   &pruefen=1          nur unbestätigte (ohne Bestätigung oder nur Vorschlag)
  *   &ausgeschlossen=1   ausgeschlossene mit anzeigen
  */
 export interface TxFilter {
@@ -57,7 +57,8 @@ export function filterToQuery(filter: TxFilter): Query {
     category_id: typeof filter.category === 'number' ? filter.category : undefined,
     uncategorized: filter.category === 'ohne' ? true : undefined,
     search: filter.search.trim() || undefined,
-    review_status: filter.onlyReview ? 'needs_review' : undefined,
+    // needs_review UND auto_categorized: alles, was der Nutzer noch nicht bestätigt hat
+    unconfirmed: filter.onlyReview ? true : undefined,
     include_excluded: filter.withExcluded || undefined,
   }
 }

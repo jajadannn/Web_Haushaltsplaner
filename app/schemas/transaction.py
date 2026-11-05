@@ -102,6 +102,10 @@ class TransactionRead(ReadModel):
     created_at: datetime
     updated_at: datetime
     splits: list[SplitRead]
+    # Fähigkeiten für die Oberfläche: mit Bankdaten abgeglichen (dann ausschließen statt löschen)
+    # bzw. als Kreditrate gebucht (dann nur über /loans stornierbar)
+    import_linked: bool = False
+    loan_payment_id: int | None = None
 
 
 class TransactionPage(BaseModel):

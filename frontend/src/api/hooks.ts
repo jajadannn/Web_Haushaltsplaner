@@ -3,8 +3,9 @@
  * damit ein Profilwechsel den Cache sauber trennt. Änderungen invalidieren gezielt die
  * betroffenen Bereiche (`invalidate`).
  */
-import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query'
 import { useProfile } from '../app/ProfileContext'
+import { nextOffset, PAGE_SIZE } from '../pages/buchungen/paging'
 import { api, type Query, type Schemas } from './client'
 
 export type User = Schemas['UserRead']
@@ -68,11 +69,21 @@ function useProfileQuery<T>(area: Area, path: string, query?: Query, options?: {
 export function useApiMutation<TVars, TResult = unknown>(
   run: (vars: TVars) => Promise<TResult>,
   areas: Area[],
+  /**
+   * Läuft nach dem erfolgreichen Aufruf, sobald die betroffenen Daten neu geladen sind – so
+   * passen Meldung und Liste zusammen (die gelöschte Zeile ist dann schon weg). Als Option des
+   * Hooks läuft sie auch, wenn das Neuladen die aufrufende Komponente (z. B. den
+   * Buchungseditor) ausgehängt hat; per-`mutate`-Callbacks würden dann entfallen.
+   */
+  onDone?: (result: TResult, vars: TVars) => void,
 ) {
   const invalidate = useInvalidate()
   return useMutation({
     mutationFn: run,
-    onSuccess: () => invalidate(areas),
+    onSuccess: async (result, vars) => {
+      await invalidate(areas)
+      onDone?.(result, vars)
+    },
   })
 }
 
@@ -91,6 +102,19 @@ export const useBudgetMonth = (month?: string) =>
   useProfileQuery<BudgetMonth>('budget', '/budget/month', { month })
 export const useTransactions = (query: Query) =>
   useProfileQuery<TransactionPage>('transactions', '/transactions', query)
+/** Buchungsliste seitenweise (feste Seitengröße, Offset); geladene Seiten bleiben bei Folgefehlern erhalten. */
+export function useTransactionsInfinite(query: Query) {
+  const key = useProfileKey()
+  const { profile } = useProfile()
+  return useInfiniteQuery({
+    queryKey: key('transactions', '/transactions', 'seiten', query),
+    queryFn: ({ signal, pageParam }) =>
+      api.get<TransactionPage>('/transactions', { ...query, limit: PAGE_SIZE, offset: pageParam }, signal),
+    initialPageParam: 0,
+    getNextPageParam: (last, all) => nextOffset(last, all.reduce((n, p) => n + p.items.length, 0)),
+    enabled: profile !== null,
+  })
+}
 export const useFixedCosts = () => useProfileQuery<FixedCost[]>('fixed-costs', '/fixed-costs')
 export const useLoans = () => useProfileQuery<Loan[]>('loans', '/loans')
 export const useRules = () => useProfileQuery<Rule[]>('rules', '/mapping-rules')

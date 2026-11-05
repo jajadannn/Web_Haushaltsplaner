@@ -359,6 +359,12 @@ def review_one(session: Session, tx_id: int) -> Suggestion | None:
     if not _still_pending(tx) or tx.updated_at != stamp:
         session.rollback()
         return None
+    if suggestion.category_id is not None:
+        # Die Kategorie kann sich während der KI-Anfrage geändert haben (deaktiviert, Typ
+        # gewechselt, gelöscht): unter Sperre gegen die jetzt gültige Auswahl prüfen
+        session.get(Category, suggestion.category_id, with_for_update={"read": True})
+        if suggestion.category_id not in offered_categories(session, tx):
+            suggestion = Suggestion(None, "niedrig", "Vorgeschlagene Kategorie ist inzwischen nicht mehr gültig")
     tx.ai_checked_at = datetime.now(UTC)
     tx.ai_note = suggestion.note
     if suggestion.category_id is not None:
