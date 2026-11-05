@@ -22,7 +22,7 @@ from app.schemas.rule import (
     RuleUpdate,
 )
 from app.schemas.transaction import TransactionRead
-from app.services import ai_review, review, rules
+from app.services import ai_gateway, ai_review, review, rules
 from app.services.categorization import RuleSet, apply_rules
 from app.services.transactions import get_transaction
 
@@ -135,11 +135,13 @@ def ai_status(session: SessionDep, user: CurrentUser):
     """Ob die lokale KI eingerichtet und erreichbar ist und wie viele Buchungen sie noch prüft."""
     settings = get_settings()
     enabled = bool(settings.ai_url)
+    endpoints = ai_gateway.status() if enabled else []
     return AiStatus(
         enabled=enabled,
         model=settings.ai_model if enabled else None,
         reachable=ai_review.reachable() if enabled else None,
         pending=ai_review.pending_count(session, user),
+        endpoints=endpoints,
     )
 
 

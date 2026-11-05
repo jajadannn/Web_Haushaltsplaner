@@ -29,6 +29,20 @@ def import_dir(tmp_path, monkeypatch):
     return path
 
 
+def pytest_configure(config):
+    config.addinivalue_line("markers", "echter_verbindungstest: prüft den echten KI-Verbindungstest (Socket gefälscht)")
+
+
+@pytest.fixture(autouse=True)
+def ki_ohne_netz(request, monkeypatch):
+    """Tests sprechen nie mit echten KI-Servern: der kurze Verbindungstest gilt als erfolgreich."""
+    from app.services import ai_gateway
+
+    if request.node.get_closest_marker("echter_verbindungstest") is None:
+        monkeypatch.setattr(ai_gateway, "_connectable", lambda url: True)
+    ai_gateway.reset_health()
+
+
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
     settings = get_settings()

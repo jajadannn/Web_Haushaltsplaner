@@ -133,13 +133,22 @@ class RuleSuggestion(BaseModel):
     matching_transactions: int
 
 
+class AiEndpointStatus(BaseModel):
+    priority: int  # 1 = zuerst gefragt, 2 = übernimmt bei Ausfall
+    url: str
+    model: str
+    vision_model: str
+    reachable: bool
+
+
 class AiStatus(BaseModel):
     """Lokale KI in der Prüfliste."""
 
     enabled: bool  # AI_URL gesetzt
-    model: str | None
-    reachable: bool | None  # None, wenn aus
+    model: str | None  # Modell von Priorität 1
+    reachable: bool | None  # mindestens ein Server erreichbar; None, wenn aus
     pending: int  # Buchungen dieses Profils, die die KI noch prüfen wird
+    endpoints: list[AiEndpointStatus] = []  # alle eingerichteten Server in Prioritätsreihenfolge
 
 
 class AiRetryResult(BaseModel):
