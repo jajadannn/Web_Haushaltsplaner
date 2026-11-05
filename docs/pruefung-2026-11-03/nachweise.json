@@ -1,0 +1,296 @@
+{
+  "term-followup-evidence": [
+    {
+      "name": "Kontrolle",
+      "term_months": 48,
+      "installment_amount": "234.86",
+      "open_installments": 48,
+      "final_due_date": "2030-10-30"
+    },
+    {
+      "name": "Nur Name geändert",
+      "term_months": null,
+      "installment_amount": "208.34",
+      "open_installments": 56,
+      "final_due_date": "2031-06-30"
+    }
+  ],
+  "loan-ui-evidence": {
+    "unscheduledCancellation": {
+      "paymentCount": 1,
+      "stornoButtons": 0
+    },
+    "renameLoan": {
+      "before": {
+        "term_months": 48,
+        "final_due_date": "2030-10-30",
+        "open_installments": 48,
+        "installment_amount": "208.34"
+      },
+      "after": {
+        "term_months": null,
+        "final_due_date": "2030-10-30",
+        "open_installments": 48,
+        "installment_amount": "208.34"
+      }
+    }
+  },
+  "restore-evidence": {
+    "backup_exit": 0,
+    "restore_exit": 0,
+    "stored_path": "/tmp/finanz-review-20261103-uyaft4iq/imports/processing/4f2b63d639844ba18c28eeb92eb2c0ca_Audit_Neu_0.csv",
+    "restored_file": "/tmp/finanz-review-20261103-uyaft4iq/restored-imports/processing/4f2b63d639844ba18c28eeb92eb2c0ca_Audit_Neu_0.csv",
+    "restored_file_exists": true,
+    "processing_error": "file_missing",
+    "processing_message": "Arbeitskopie der Datei fehlt"
+  },
+  "extra-evidence": {
+    "categoryDetail": {
+      "net": "8,00 €",
+      "payee": "Audit Händler12,50 €"
+    },
+    "filteredExpense": "Ausgaben12,50 €",
+    "oldImport": {
+      "id": 2,
+      "status": "awaiting_review",
+      "shown": 0,
+      "rowCount": 30,
+      "detailCount": 0,
+      "directGet": 200
+    },
+    "matchedManual": {
+      "id": 43,
+      "source": "manual",
+      "excludeButtons": 0,
+      "deleteButtons": 1,
+      "deleteStatus": 409,
+      "error": {
+        "error": {
+          "code": "imported_use_exclude",
+          "message": "Importierte Buchungen werden ausgeschlossen statt gelöscht, damit ein erneuter Import sie nicht wiederherstellt",
+          "details": null
+        }
+      }
+    }
+  },
+  "ui-evidence": {
+    "firstPage": 100,
+    "thirdPage": {
+      "status": 422,
+      "body": {
+        "error": {
+          "code": "validation_error",
+          "message": "Ungültige Eingabe",
+          "details": [
+            {
+              "loc": [
+                "query",
+                "limit"
+              ],
+              "msg": "Input should be less than or equal to 200",
+              "type": "less_than_equal"
+            }
+          ]
+        }
+      }
+    },
+    "rowsAfterThirdPage": 0,
+    "mergeStatus": 200,
+    "nestedCategory": {
+      "api": {
+        "id": 421,
+        "name": "Audit Kind",
+        "type": "expense",
+        "parent_id": 423,
+        "icon": null,
+        "color": null,
+        "active": true,
+        "system_key": null,
+        "created_at": "2026-11-03T10:43:41.442173+01:00"
+      },
+      "visibleRows": 0
+    },
+    "resizeDraft": {
+      "name": "",
+      "amount": ""
+    },
+    "deleteStatus": 204,
+    "deleteToast": {
+      "count": 0,
+      "url": "http://127.0.0.1:8017/buchungen?monat=alle&q=AuditDeleteProbe&id=292",
+      "apiStatus": 404
+    }
+  },
+  "race-evidence": {
+    "results": [
+      {
+        "request": 1,
+        "committed_payment_id": 7
+      },
+      {
+        "request": 2,
+        "committed_payment_id": 6
+      }
+    ],
+    "remaining_debt": "-500.00",
+    "loan_id": 6,
+    "setup": "1000 EUR private loan; two concurrent payments of 750 EUR; barrier after existing remaining-debt reads only"
+  },
+  "budget-evidence": {
+    "private_no_schedule": {
+      "payment": {
+        "id": 3,
+        "loan_id": 3,
+        "payment_transaction_id": 73,
+        "loan_transaction_id": 74,
+        "booking_date": "2026-11-02",
+        "interest": "0.00",
+        "principal": "250.00",
+        "extra": "0.00",
+        "schedule_seq": null
+      },
+      "before": {
+        "month": "2026-11-01",
+        "as_of": "2026-11-03",
+        "income": "1000.00",
+        "uncategorized_in": "0.00",
+        "fixed_total": "0.00",
+        "fixed_paid": "0.00",
+        "variable_spent": "0.00",
+        "available": "1000.00",
+        "days_left": 28,
+        "available_per_day": "35.71",
+        "items": []
+      },
+      "after": {
+        "month": "2026-11-01",
+        "as_of": "2026-11-03",
+        "income": "1000.00",
+        "uncategorized_in": "0.00",
+        "fixed_total": "0.00",
+        "fixed_paid": "0.00",
+        "variable_spent": "0.00",
+        "available": "1000.00",
+        "days_left": 28,
+        "available_per_day": "35.71",
+        "items": []
+      }
+    },
+    "fixed_above_plan": {
+      "month": "2026-11-01",
+      "as_of": "2026-11-03",
+      "income": "1000.00",
+      "uncategorized_in": "0.00",
+      "fixed_total": "100.00",
+      "fixed_paid": "150.00",
+      "variable_spent": "0.00",
+      "available": "900.00",
+      "days_left": 28,
+      "available_per_day": "32.14",
+      "items": [
+        {
+          "kind": "fixed",
+          "ref_id": 8,
+          "name": "Strom",
+          "amount": "100.00",
+          "due_date": "2026-11-02",
+          "status": "paid",
+          "paid_amount": "150.00",
+          "paid_on": "2026-11-02"
+        }
+      ]
+    },
+    "loan_above_plan": {
+      "month": "2026-11-01",
+      "as_of": "2026-11-03",
+      "income": "1000.00",
+      "uncategorized_in": "0.00",
+      "fixed_total": "100.00",
+      "fixed_paid": "250.00",
+      "variable_spent": "0.00",
+      "available": "900.00",
+      "days_left": 28,
+      "available_per_day": "32.14",
+      "items": [
+        {
+          "kind": "loan",
+          "ref_id": 4,
+          "name": "Prüfkredit",
+          "amount": "100.00",
+          "due_date": "2026-11-02",
+          "status": "paid",
+          "paid_amount": "250.00",
+          "paid_on": "2026-11-02"
+        }
+      ]
+    },
+    "fixed_matches_loan": {
+      "month": "2026-11-01",
+      "as_of": "2026-11-03",
+      "income": "1000.00",
+      "uncategorized_in": "0.00",
+      "fixed_total": "150.00",
+      "fixed_paid": "110.00",
+      "variable_spent": "-10.00",
+      "available": "860.00",
+      "days_left": 28,
+      "available_per_day": "30.71",
+      "items": [
+        {
+          "kind": "loan",
+          "ref_id": 5,
+          "name": "Prüfkredit",
+          "amount": "100.00",
+          "due_date": "2026-11-02",
+          "status": "paid",
+          "paid_amount": "100.00",
+          "paid_on": "2026-11-02"
+        },
+        {
+          "kind": "fixed",
+          "ref_id": 9,
+          "name": "Andere Fixkosten",
+          "amount": "50.00",
+          "due_date": "2026-11-03",
+          "status": "paid",
+          "paid_amount": "10.00",
+          "paid_on": "2026-11-02"
+        }
+      ]
+    }
+  },
+  "regex": {
+    "memory_limit_mib": 256,
+    "patterns": [
+      "((x{100}){100}){100}",
+      "(((x{75}){75}){75}){75}"
+    ],
+    "result": "Both passed the size guard; compilation raised MemoryError in isolated subprocesses. No unbounded server crash attempted."
+  },
+  "ai-category-evidence": [
+    {
+      "category_change_while_ai_pending": {
+        "active": false
+      },
+      "assigned_category_id": 603,
+      "expected_category_id": 603,
+      "review_status": "auto_categorized",
+      "confirm_all": {
+        "confirmed": 1,
+        "skipped": 0
+      }
+    },
+    {
+      "category_change_while_ai_pending": {
+        "type": "income"
+      },
+      "assigned_category_id": 604,
+      "expected_category_id": 604,
+      "review_status": "auto_categorized",
+      "confirm_all": {
+        "confirmed": 1,
+        "skipped": 0
+      }
+    }
+  ]
+}
