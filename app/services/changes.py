@@ -71,7 +71,9 @@ def revert(session: Session, user: User, change_id: int) -> ChangeLog:
         raise Conflict("Änderung ist bereits zurückgenommen", code="already_reverted")
     model, fields, delete = REVERTERS[change.object_type]
     obj = session.get(model, change.object_id, with_for_update=True)
-    if obj is not None and snapshot(obj, fields) != change.after:
+    # Verglichen werden die protokollierten Felder (ältere Einträge kennen neu aufgenommene Felder noch nicht)
+    compared = tuple(f for f in fields if f in (change.after or {}))
+    if obj is not None and snapshot(obj, compared) != change.after:
         raise Conflict("Seit der Änderung wurde manuell etwas geändert – bitte von Hand anpassen",
                        code="changed_since")
     if change.action == "create":

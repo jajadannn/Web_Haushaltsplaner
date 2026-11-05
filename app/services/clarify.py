@@ -127,7 +127,15 @@ def detect_questions(session: Session, user: User, today: date) -> list[Found]:
             evidence={"transactions": {r: ids for r, ids in by_ref.items()}},
             reason=f"Die Antwort ordnet {sum(len(v) for v in by_ref.values())} Buchungen zu.",
         ))
-    return result[:MAX_OPEN_QUESTIONS]
+    # Die Grenze gilt für anzeigbare Fragen: bereits entschiedene zählen nicht mit, offene behalten Vorrang
+    status = dict(session.exec(select(Suggestion.fingerprint, Suggestion.status).where(
+        Suggestion.user_id == user.id, Suggestion.kind == SuggestionKind.QUESTION)).all())
+    shown = (SuggestionStatus.OPEN, SuggestionStatus.DRY_RUN)
+    decided = [f for f in result if f.fingerprint in status and status[f.fingerprint] not in
+               (*shown, SuggestionStatus.STALE)]
+    candidates = [f for f in result if f not in decided]
+    candidates.sort(key=lambda f: status.get(f.fingerprint) not in shown)
+    return decided + candidates[:MAX_OPEN_QUESTIONS]
 
 
 def _answer(session: Session, user: User, suggestion: Suggestion, overrides: dict, actor: str):

@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from sqlmodel import Session, select
 
 from app.errors import Conflict, Invalid
+from app.importers.base import ParseError
 from app.importers.detect import ROLES, Detection, detect_csv, verify
 from app.models import ImportBatch, ImportProfile, Suggestion, SuggestionKind, SuggestionStatus, User
 from app.services import ai_gateway, import_profiles, suggestions
@@ -41,7 +42,8 @@ def _ai_roles(detection: Detection, session: Session | None) -> dict[str, str]:
     }
     data = {
         "spalten": columns,
-        "beispielzeilen": [{k: v for k, v in row.items() if k != "row_no"} for row in detection.preview[:3]],
+        # Rohwerte unter den Originalspalten – die Parser-Vorschau fehlt gerade, solange Rollen unklar sind
+        "beispielzeilen": [{k: v[:80] for k, v in row.items()} for row in detection.sample_rows],
         "rollen": {k: v for k, v in ROLE_LABELS.items()},
     }
     answer = ai_gateway.ask(
@@ -55,14 +57,22 @@ def _ai_roles(detection: Detection, session: Session | None) -> dict[str, str]:
     return roles
 
 
+def _detect(content: bytes, roles_override: dict | None = None) -> Detection:
+    try:
+        return detect_csv(content, roles_override=roles_override)
+    except (ParseError, UnicodeDecodeError) as exc:
+        raise Invalid(f"Die Datei lässt sich nicht als CSV-Tabelle lesen: {exc}",
+                      code="import_file_unreadable") from exc
+
+
 def draft(content: bytes, *, use_ai: bool = False, session: Session | None = None) -> dict:
-    detection = detect_csv(content)
+    detection = _detect(content)
     ai_used = False
     if use_ai and not detection.safe and ai_gateway.enabled():
         try:
             override = _ai_roles(detection, session)
             if override:
-                detection = detect_csv(content, roles_override=override)
+                detection = _detect(content, roles_override=override)
                 ai_used = True
         except (ai_gateway.AiUnavailable, ai_gateway.AiInvalidAnswer):
             pass
@@ -72,6 +82,11 @@ def draft(content: bytes, *, use_ai: bool = False, session: Session | None = Non
 def preview(content: bytes, settings: str) -> dict:
     try:
         options = json.loads(settings)
+    except ValueError as exc:
+        raise Invalid(f"Profilangaben unlesbar: {exc}", code="preview_settings_invalid") from exc
+    if not isinstance(options, dict) or not isinstance(options.get("column_map", {}), dict):
+        raise Invalid("Profilangaben müssen ein Objekt mit column_map sein", code="preview_settings_invalid")
+    try:
         detection = Detection(options=options, header=[], roles=options.get("column_map", {}))
         return verify(content, detection).as_dict() | {"ai_used": False}
     except (ValueError, TypeError) as exc:

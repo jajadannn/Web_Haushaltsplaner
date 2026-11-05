@@ -207,7 +207,8 @@ def _rule_apply(session: Session, user: User, suggestion: Suggestion, overrides:
     return "mapping_rule", rule.id
 
 
-RULE_FIELDS = ("name", "pattern", "match_field", "match_type", "target_category_id", "active", "priority")
+RULE_FIELDS = ("name", "pattern", "match_field", "match_type", "case_sensitive", "target_category_id", "active",
+               "priority")
 suggestions.register(SuggestionKind.RULE, Handler(
     validate=lambda session, user, s: None, apply=_rule_apply, setting="automation.rules",
     is_clear=lambda s: s.evidence.get("confirmed", 0) >= 5 and s.evidence.get("conflicts", 1) == 0,

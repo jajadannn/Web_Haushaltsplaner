@@ -476,3 +476,159 @@ def test_n30_erstattung_ueberschreibt_manuelle_kategorie_nicht(api):
     r = api.raw("POST", f"/suggestions/{s['id']}/accept", {})
     assert r.status_code == 409
     assert api.req("GET", f"/transactions/{t['id']}")["category_id"] == gehalt["id"]
+
+
+# N20 – nach IBAN-Treffer zählen auch Referenz-Aliasse des Vertrags
+def test_n20_iban_treffer_verdeckt_vertragsalias_nicht(api, session, user):
+    from app.services import merchants
+
+    api.account()
+    m = api.req("POST", "/merchants", {"name": "Mobilfunk"}, 201)
+    api.req("POST", f"/merchants/{m['id']}/aliases", {"match_type": "iban", "value": IBAN_B}, 201)
+    c = api.req("POST", f"/merchants/{m['id']}/contracts", {"label": "Ein Vertrag", "reference": "ABCD"}, 201)
+    api.req("POST", f"/merchants/{m['id']}/aliases", {"match_type": "reference", "value": "EFGH",
+                                                       "contract_id": c["id"]}, 201)
+    resolver = merchants.Resolver(session, user["id"])
+    assert resolver.resolve("Mobilfunk", IBAN_B, "Referenz ABCD").contract.id == c["id"]
+    assert resolver.resolve("Mobilfunk", IBAN_B, "Referenz EFGH").contract.id == c["id"]
+
+
+# N21 – Referenzen werden als ganzes Wort verglichen
+def test_n21_referenz_ist_kein_teilstring(api, session, user):
+    from app.services import merchants
+
+    m = api.req("POST", "/merchants", {"name": "Mobilfunk"}, 201)
+    api.req("POST", f"/merchants/{m['id']}/contracts", {"label": "Erster", "reference": "1234"}, 201)
+    d = api.req("POST", f"/merchants/{m['id']}/contracts", {"label": "Zweiter", "reference": "12345"}, 201)
+    resolved = merchants.Resolver(session, user["id"]).resolve("Mobilfunk", None, "Vertrag 12345")
+    assert resolved.contract.id == d["id"]
+
+
+# N22 – abgelehnte Rückfragen blockieren keine neuen
+def test_n22_abgelehnte_rueckfragen_machen_platz(api):
+    a = api.account()
+    for n in range(4):
+        m = api.req("POST", "/merchants", {"name": f"Anbieter {n}"}, 201)
+        api.req("POST", f"/merchants/{m['id']}/aliases", {"match_type": "name", "value": f"Anbieter {n}"}, 201)
+        for day, ref in [(1, "ABCD"), (2, "EFGH"), (3, "ABCD")]:
+            api.tx(a, "-20", f"2026-11-0{day}", f"Vertrag {ref}", counterparty=f"Anbieter {n}")
+    api.refresh("questions")
+    before = api.suggestions("question")
+    assert len(before) == 3
+    for s in before:
+        api.req("POST", f"/suggestions/{s['id']}/reject")
+    api.refresh("questions")
+    assert len([s for s in api.suggestions("question") if s["status"] == "open"]) == 1
+
+
+# N31 – ein weiterer Vertrag bringt eine abgelehnte Serie nicht zurück
+def test_n31_abgelehnte_serie_bleibt_abgelehnt(api):
+    a, txs = api.series()
+    api.refresh()
+    (s,) = api.suggestions("fixed_cost_new")
+    api.req("POST", f"/suggestions/{s['id']}/reject")
+    for m in (9, 10, 11):
+        api.tx(a, "-70", f"2026-{m:02d}-05", "Zweiter Vertrag", counterparty="Anbieter", counterparty_iban=IBAN_B,
+               category_id=txs[0]["category_id"])
+    api.refresh()
+    found = api.suggestions("fixed_cost_new")
+    assert not any(x["status"] == "open" and Decimal(x["payload"]["amount"]) == 20 for x in found)
+    assert any(x["status"] == "open" and Decimal(x["payload"]["amount"]) == 70 for x in found)
+
+
+def test_n31_alter_fingerprint_wird_uebernommen(api, session):
+    from app.models import Suggestion
+
+    api.series()
+    api.refresh()
+    (s,) = api.suggestions("fixed_cost_new")
+    api.req("POST", f"/suggestions/{s['id']}/reject")
+    obj = session.get(Suggestion, s["id"])
+    obj.fingerprint = obj.fingerprint.rsplit("|~", 1)[0]  # Stand vor der Korrektur
+    session.flush()
+    api.refresh()
+    found = api.suggestions("fixed_cost_new")
+    assert [(x["id"], x["status"]) for x in found] == [(s["id"], "rejected")]
+
+
+# N32 – Namenskonflikt in der Automatik ergibt keinen Serverfehler
+def test_n32_namenskonflikt_in_der_automatik(api):
+    api.series()
+    api.fixed(name="Anbieter", active=False)
+    api.mode("automation.fixed_cost", "auto")
+    r = api.raw("POST", "/suggestions/refresh?detector=fixed_costs")
+    assert r.status_code == 200, r.text
+    assert api.suggestions("fixed_cost_new")[0]["status"] == "open"
+
+
+# N33 – Regel-Rücknahme bemerkt eine manuelle Änderung von case_sensitive
+def test_n33_regel_ruecknahme_beachtet_case_sensitive(api):
+    a, txs = api.series()
+    api.refresh("rules")
+    (s,) = api.suggestions("rule")
+    accepted = api.req("POST", f"/suggestions/{s['id']}/accept", {})
+    api.req("PATCH", f"/mapping-rules/{accepted['result_id']}", {"case_sensitive": True})
+    r = api.raw("POST", f"/suggestions/{s['id']}/revert")
+    assert r.status_code == 409 and r.json()["error"]["code"] == "changed_since"
+    assert len(api.req("GET", "/mapping-rules")) == 1
+
+
+# N34 – Automatik übernimmt keinen inzwischen manuell übernommenen Vorschlag
+def test_n34_automatik_und_manuelle_uebernahme_doppeln_nicht(api, session, user, monkeypatch):
+    from app.models import User
+    from app.services import suggestions as service
+
+    a, txs = api.series()
+    for m in (7, 8):
+        api.tx(a, "-20", f"2026-{m:02d}-02", "Vertrag", counterparty="Anbieter", category_id=txs[0]["category_id"])
+    api.refresh("rules")
+    (s,) = api.suggestions("rule")
+    api.mode("automation.rules", "auto")
+    u = session.get(User, user["id"])
+    original_lock = service._lock
+
+    def manual_first(session_, user_, suggestion_id):
+        # zwischen Auswahl und Sperre übernimmt jemand den Vorschlag von Hand
+        monkeypatch.setattr(service, "_lock", original_lock)
+        service.accept(session_, user_, suggestion_id)
+        return original_lock(session_, user_, suggestion_id)
+
+    monkeypatch.setattr(service, "_lock", manual_first)
+    service._automate(session, u, "rule")
+    session.flush()
+    assert len(api.req("GET", "/mapping-rules")) == 1
+    assert api.suggestions("rule")[0]["status"] == "accepted"
+
+
+# N35 – Importassistent: falsche Dateien und Optionen ergeben 4xx statt 500
+@pytest.mark.parametrize("body", [b"Keine CSV Tabelle", b"1;2;3\n4;5;6\n"])
+def test_n35_entwurf_aus_ungueltiger_datei(client, headers, body):
+    r = client.post("/import-profiles/draft", files={"file": ("a.csv", body, "text/csv")}, headers=headers)
+    assert r.status_code == 422, r.text
+
+
+@pytest.mark.parametrize("options", ["[]", "null", '"text"', "{nicht json"])
+def test_n35_vorschau_mit_ungueltigen_optionen(client, headers, options):
+    csv = b"Datum;Betrag;Verwendungszweck\n02.11.2026;-20,00;Test\n"
+    r = client.post("/import-profiles/preview", files={"file": ("a.csv", csv, "text/csv")},
+                    data={"settings": options}, headers=headers)
+    assert r.status_code == 422, r.text
+
+
+# N36 – KI-Spaltenerkennung bekommt Beispielzeilen
+def test_n36_ki_bekommt_beispielzeilen(client, headers, monkeypatch):
+    from app.services import ai_gateway
+
+    captured = {}
+
+    def fake_ask(task, data, schema, **kw):
+        captured.update(data)
+        return {"zuordnung": []}
+
+    monkeypatch.setattr(ai_gateway, "enabled", lambda: True)
+    monkeypatch.setattr(ai_gateway, "ask", fake_ask)
+    r = client.post("/import-profiles/draft", params={"ai": "true"}, headers=headers,
+                    files={"file": ("x.csv", b"Tag;Wert;Partner;Notiz\n02.11.2026;-20,00;Laden;Einkauf\n", "text/csv")})
+    assert r.status_code == 200, r.text
+    assert captured["beispielzeilen"] == [{"Tag": "02.11.2026", "Wert": "-20,00", "Partner": "Laden",
+                                           "Notiz": "Einkauf"}]
