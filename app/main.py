@@ -7,6 +7,7 @@ from app.middleware import UploadSizeLimit
 from app.network import LocalNetworkOnly
 from app.routers import (
     accounts,
+    assistant,
     budget,
     categories,
     imports,
@@ -47,7 +48,7 @@ def create_app() -> FastAPI:
     )
     register_error_handlers(app)
     routers = (users, institutions, accounts, categories, transactions, loans, imports, rules, reports, budget,
-               suggestions, merchants, outlook)
+               suggestions, merchants, outlook, assistant)
     for module in routers:
         app.include_router(module.router)
 
