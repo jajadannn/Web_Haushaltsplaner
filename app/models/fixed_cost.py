@@ -85,3 +85,33 @@ class FixedCostAmount(SQLModel, table=True):
     valid_from: date
     amount: Decimal = Field(sa_type=Numeric(12, 2))
     created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+
+
+class ExpectedIncome(SQLModel, table=True):
+    """Erwartete regelmäßige Einnahme (Gehalt, Rente …) – nur für Vorschau und Hinweise, nie als Buchung."""
+
+    __tablename__ = "expected_income"
+    __table_args__ = (
+        CheckConstraint("amount > 0", name="amount_positive"),
+        CheckConstraint("due_day BETWEEN 1 AND 31", name="due_day_range"),
+        CheckConstraint("interval_months IN (1, 3, 6, 12)", name="interval_months"),
+        UniqueConstraint("user_id", "name"),
+        ForeignKeyConstraint(["account_id", "user_id"], ["account.id", "account.user_id"]),
+        ForeignKeyConstraint(["category_id", "user_id"], ["category.id", "category.user_id"]),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="app_user.id")
+    name: str = Field(max_length=100)
+    amount: Decimal = Field(sa_type=Numeric(12, 2))
+    amount_min: Decimal | None = Field(default=None, sa_type=Numeric(12, 2))
+    amount_max: Decimal | None = Field(default=None, sa_type=Numeric(12, 2))
+    interval_months: int = 1
+    due_day: int
+    first_due_date: date | None = None
+    account_id: int | None = None
+    category_id: int | None = None
+    match_text: str | None = Field(default=None, max_length=100)
+    active: bool = True
+    created_at: datetime | None = Field(default=None, sa_column=created_at_column())
+    updated_at: datetime | None = Field(default=None, sa_column=updated_at_column())

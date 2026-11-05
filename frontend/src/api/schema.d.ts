@@ -1703,6 +1703,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/expected-incomes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Incomes
+         * @description Erwartete regelmäßige Einnahmen – nur für Vorschau und Hinweise, nie als Buchung.
+         */
+        get: operations["list_incomes_expected_incomes_get"];
+        put?: never;
+        /** Create Income */
+        post: operations["create_income_expected_incomes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/expected-incomes/{income_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Income */
+        delete: operations["delete_income_expected_incomes__income_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Income */
+        patch: operations["update_income_expected_incomes__income_id__patch"];
+        trace?: never;
+    };
+    "/accounts/{account_id}/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Account Forecast
+         * @description Kontostand heute und erwartete Fixkosten, Raten und Einnahmen bis `until` – getrennt gekennzeichnet.
+         */
+        get: operations["account_forecast_accounts__account_id__forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -2168,6 +2227,95 @@ export interface components {
             /** Term End */
             term_end: string | null;
         };
+        /** ExpectedIncomeCreate */
+        ExpectedIncomeCreate: {
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: number | string;
+            /** Amount Min */
+            amount_min?: number | string | null;
+            /** Amount Max */
+            amount_max?: number | string | null;
+            /**
+             * Interval Months
+             * @default 1
+             * @enum {integer}
+             */
+            interval_months: 1 | 3 | 6 | 12;
+            /** Due Day */
+            due_day: number;
+            /** First Due Date */
+            first_due_date?: string | null;
+            /** Account Id */
+            account_id?: number | null;
+            /** Category Id */
+            category_id?: number | null;
+            /** Match Text */
+            match_text?: string | null;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** ExpectedIncomeRead */
+        ExpectedIncomeRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+            /** Amount Min */
+            amount_min: string | null;
+            /** Amount Max */
+            amount_max: string | null;
+            /** Interval Months */
+            interval_months: number;
+            /** Due Day */
+            due_day: number;
+            /** First Due Date */
+            first_due_date: string | null;
+            /** Account Id */
+            account_id: number | null;
+            /** Category Id */
+            category_id: number | null;
+            /** Match Text */
+            match_text: string | null;
+            /** Active */
+            active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ExpectedIncomeUpdate */
+        ExpectedIncomeUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Amount */
+            amount?: number | string | null;
+            /** Amount Min */
+            amount_min?: number | string | null;
+            /** Amount Max */
+            amount_max?: number | string | null;
+            /** Interval Months */
+            interval_months?: (1 | 3 | 6 | 12) | null;
+            /** Due Day */
+            due_day?: number | null;
+            /** First Due Date */
+            first_due_date?: string | null;
+            /** Account Id */
+            account_id?: number | null;
+            /** Category Id */
+            category_id?: number | null;
+            /** Match Text */
+            match_text?: string | null;
+            /** Active */
+            active?: boolean | null;
+        };
         /**
          * FixedCostAmountCreate
          * @description Neuer Betrag ab einem Monat (frühere Monate behalten ihren Betrag).
@@ -2336,6 +2484,66 @@ export interface components {
             cash_in: string;
             /** Cash Out */
             cash_out: string;
+        };
+        /**
+         * Forecast
+         * @description Vorschau: tatsächlicher Kontostand heute plus erwartete (noch nicht gebuchte) Ereignisse.
+         */
+        Forecast: {
+            /** Account Id */
+            account_id: number;
+            /**
+             * As Of
+             * Format: date
+             */
+            as_of: string;
+            /**
+             * Until
+             * Format: date
+             */
+            until: string;
+            /** Start Balance */
+            start_balance: string;
+            /** Events */
+            events: components["schemas"]["ForecastEvent"][];
+            /** End Balance */
+            end_balance: string;
+            lowest: components["schemas"]["ForecastPoint"];
+        };
+        /** ForecastEvent */
+        ForecastEvent: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Name */
+            name: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "fixed_cost" | "expected_income" | "loan_installment";
+            /** Expected */
+            expected: boolean;
+            /** Ref Id */
+            ref_id: number;
+            /** Range */
+            range?: string[] | null;
+            /** Balance After */
+            balance_after: string;
+        };
+        /** ForecastPoint */
+        ForecastPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Balance */
+            balance: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -7918,6 +8126,180 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_incomes_expected_incomes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpectedIncomeRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_income_expected_incomes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpectedIncomeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpectedIncomeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_income_expected_incomes__income_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                income_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_income_expected_incomes__income_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                income_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpectedIncomeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpectedIncomeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    account_forecast_accounts__account_id__forecast_get: {
+        parameters: {
+            query: {
+                until: string;
+            };
+            header?: {
+                /** @description ID des gewählten Profils */
+                "x-user-id"?: number | null;
+            };
+            path: {
+                account_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Forecast"];
+                };
             };
             /** @description Validation Error */
             422: {
