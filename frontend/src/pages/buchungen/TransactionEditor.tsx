@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import { fieldErrors } from '../../api/messages'
-import { MONEY_AREAS, useApiMutation, type Account, type Category, type Transaction } from '../../api/hooks'
+import { MONEY_AREAS, useApiMutation, useProfileQuery, type Merchant, type Account, type Category, type Transaction } from '../../api/hooks'
 import { categoryPath } from '../../lib/categoryTree'
 import { formatEuro } from '../../lib/money'
 import { negate } from '../../lib/moneyInput'
 import { Button, MoneyField, SelectField, TextField } from '../../ui/controls'
 import { Confirm, useToast } from '../../ui/overlay'
 import { Icon } from '../../ui/Icon'
+import { aliasesFromCounterparty } from '../einstellungen/merchants'
 import { editorMode } from './status'
 import { splitProblem, splitRemainder, SPLIT_PROBLEM_TEXT, toApiSplits, type SplitDraft } from './splits'
 
@@ -55,6 +56,17 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
   const [formError, setFormError] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<'delete' | 'exclude' | null>(null)
   const [reason, setReason] = useState('')
+
+  const merchants = useProfileQuery<Merchant[]>('merchants', '/merchants', undefined, { enabled: tx.merchant_id != null })
+  const merchantName = tx.merchant_id != null ? merchants.data?.find((m) => m.id === tx.merchant_id)?.name : undefined
+  const canRemember = tx.merchant_id == null && !!(tx.counterparty ?? '').trim()
+  const remember = useApiMutation(async () => {
+    const created = await api.post<Merchant>('/merchants', { name: (tx.counterparty ?? '').trim(), kind: 'merchant' })
+    for (const a of aliasesFromCounterparty(tx.counterparty, tx.counterparty_iban)) {
+      await api.post(`/merchants/${created.id}/aliases`, a)
+    }
+    return created
+  }, ['merchants', 'transactions', 'suggestions'], (m) => toast.ok(`Anbieter „${m.name}“ gemerkt`))
 
   const signed = (value: string) => (sign === 'out' ? negate(value) : value)
 
@@ -158,6 +170,7 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
         </p>
       )}
       {imported && <p className="tx-editor-note">Mit Bankdaten abgeglichen: Konto, Datum und Betrag kommen von der Bank und sind fest.</p>}
+      {tx.merchant_id != null && <p className="tx-editor-note">Anbieter: {merchantName ?? '…'}</p>}
       {transfer && <p className="tx-editor-note">Umbuchung zwischen eigenen Konten – zählt weder als Einnahme noch als Ausgabe.</p>}
 
       <div className="tx-editor-grid">
@@ -216,6 +229,12 @@ export function TransactionEditor({ tx, accounts, categories, onClose }: Props) 
         {!transfer && (
           <Button variant="secondary" icon="split" onClick={() => setSplitting((s) => !s)}>
             {splitting ? 'Nicht aufteilen' : 'Aufteilen'}
+          </Button>
+        )}
+        {canRemember && (
+          <Button variant="secondary" icon="bank" busy={remember.isPending}
+            onClick={() => remember.mutate(undefined, { onError: fail })}>
+            Als Anbieter merken
           </Button>
         )}
         {tx.excluded_at ? (

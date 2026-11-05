@@ -11,6 +11,7 @@ import { Button, MoneyField, SelectField, TextField } from '../../ui/controls'
 import { EmptyState, ErrorBox, Loading } from '../../ui/blocks'
 import { useToast } from '../../ui/overlay'
 import { useFormErrors } from '../../ui/useFormErrors'
+import { parseAiHint } from './merchants'
 import {
   INTERVAL_OPTIONS, intervalLabel, parseEvidence, parseFixedCostPayload, sortSuggestions, statusNote,
   type FixedCostPayload,
@@ -99,6 +100,7 @@ function SuggestionCard({ suggestion: s, busy, onAccept, onEdit, onReject, onRev
   const p = parseFixedCostPayload(s.payload)
   const evidence = parseEvidence(s.evidence)
   const note = statusNote(s.status)
+  const ai = parseAiHint(s.payload)
   return (
     <div className="detected-card">
       <div className="detected-top">
@@ -109,6 +111,12 @@ function SuggestionCard({ suggestion: s, busy, onAccept, onEdit, onReject, onRev
         {intervalLabel(p.intervalMonths)} · am {p.dueDay}.
         {p.firstDueDate && ` · erste Fälligkeit ${fullDate(p.firstDueDate)}`}
       </p>
+      {ai && (
+        <p className="muted" role="note">
+          Vorschlag mit KI benannt{ai.provider && <> · Anbieter: {ai.provider}</>}
+          {ai.obligation === false && <> · KI: eher regelmäßiger Konsum</>}
+        </p>
+      )}
       {note && <p className={`detected-note is-${s.status}`} role="note">{note}</p>}
       {s.reason && <p className="detected-reason">{s.reason}</p>}
       {evidence.transactions.length > 0 && (

@@ -27,6 +27,7 @@ export type ImportProfile = Schemas['ImportProfileRead']
 export type WatchFolder = Schemas['WatchFolderRead']
 export type ScheduleEntry = Schemas['ScheduleEntryRead']
 export type LoanPayment = Schemas['LoanPaymentRead']
+export type Merchant = Schemas['MerchantRead']
 export type Suggestion = Schemas['SuggestionRead']
 export type Change = Schemas['ChangeRead']
 export type FixedCostPayment = Schemas['FixedCostPaymentRead']
@@ -36,7 +37,7 @@ export type MonthReserve = Schemas['MonthReserve']
 export type Area =
   | 'accounts' | 'institutions' | 'categories' | 'transactions' | 'budget' | 'fixed-costs'
   | 'loans' | 'rules' | 'review' | 'imports' | 'import-profiles' | 'watch-folders' | 'reports'
-  | 'suggestions' | 'changes' | 'settings'
+  | 'suggestions' | 'changes' | 'settings' | 'merchants'
 
 /** Buchungen verändern Salden, Spielraum, Prüfliste, Berichte und Kredite. */
 export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans']
