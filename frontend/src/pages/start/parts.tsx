@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { type BudgetMonth, type Category, type Loan, type MonthItem, type Transaction } from '../../api/hooks'
+import { type BudgetMonth, type Category, type Loan, type MonthItem, type MonthReserve, type Transaction } from '../../api/hooks'
 import { loanProgress } from '../../lib/loanProgress'
-import { daysLeftLabel, parseDate, shortDate, shortMonthLabel } from '../../lib/dates'
+import { daysLeftLabel, fullDate, parseDate, shortDate, shortMonthLabel } from '../../lib/dates'
 import { formatEuro, isNegative } from '../../lib/money'
 import { Money, StatusBadge } from '../../ui/blocks'
 import { Icon, type IconName } from '../../ui/Icon'
@@ -55,12 +55,26 @@ export function FixedList({ items, loanCount }: { items: MonthItem[]; loanCount:
           <span className="row-icon"><Icon name={itemIcon(item)} size={26} /></span>
           <span className="row-main">
             <strong>{item.kind === 'loan' ? (loanCount === 1 ? 'Kreditrate' : `Rate ${item.name}`) : item.name}</strong>
-            <span>{parseDate(item.due_date).day}.</span>
+            <span>{parseDate(item.due_date).day}.{item.linked && <span className="linked-mark" title="Zahlung fest zugeordnet"> · zugeordnet</span>}</span>
           </span>
           <span className="row-end">
             <Money value={item.amount} />
             <StatusBadge status={item.status} />
           </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Rücklagen für jährliche/quartalsweise Fixkosten: nur zur Information, nicht im Spielraum abgezogen. */
+export function ReserveHints({ reserves }: { reserves: MonthReserve[] }) {
+  if (reserves.length === 0) return null
+  return (
+    <ul className="reserve-hints" aria-label="Rücklagen">
+      {reserves.map((r) => (
+        <li key={r.fixed_cost_id}>
+          Rücklage {r.name}: {formatEuro(r.monthly_reserve)}/Monat, fällig {fullDate(r.next_due_date)}
         </li>
       ))}
     </ul>

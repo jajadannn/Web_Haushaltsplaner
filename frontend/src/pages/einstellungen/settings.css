@@ -495,3 +495,102 @@
   background: rgb(0 0 0 / 0.45);
   cursor: default;
 }
+
+/* Erkannte Fixkosten */
+.detected {
+  margin-top: 28px;
+}
+
+.detected-row {
+  display: block;
+  padding: 14px 18px;
+}
+
+.detected-card {
+  display: grid;
+  gap: 6px;
+}
+
+.detected-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 20px;
+}
+
+.detected-note {
+  margin: 0;
+  color: var(--focus);
+  font-weight: 600;
+}
+
+.detected-reason {
+  margin: 0;
+}
+
+.detected-evidence ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.detected-evidence li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.detected-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Zahlungen einer Fixkost */
+.fc-payments {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--card-line);
+}
+
+.fc-payments-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fc-payments-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Metriken */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 17px;
+}
+
+.metrics-table th,
+.metrics-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--card-line);
+  text-align: right;
+}
+
+.metrics-table th:first-child {
+  text-align: left;
+}

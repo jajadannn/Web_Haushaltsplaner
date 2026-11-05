@@ -16,6 +16,8 @@ const SECTIONS: { slug: string; label: string; Component: ComponentType }[] = [
   { slug: 'kategorien', label: 'Kategorien', Component: section(() => import('./CategoriesSection'), 'CategoriesSection') },
   { slug: 'fixkosten', label: 'Fixkosten', Component: FixedCostsSection },
   { slug: 'regeln', label: 'Regeln', Component: section(() => import('./RulesSection'), 'RulesSection') },
+  { slug: 'automatik', label: 'Automatik & KI', Component: section(() => import('./AutomationSection'), 'AutomationSection') },
+  { slug: 'verlauf', label: 'Verlauf', Component: section(() => import('./HistorySection'), 'HistorySection') },
   { slug: 'importprofile', label: 'Importprofile', Component: section(() => import('./ImportProfilesSection'), 'ImportProfilesSection') },
 ]
 

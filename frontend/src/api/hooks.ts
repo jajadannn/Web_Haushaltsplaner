@@ -27,11 +27,16 @@ export type ImportProfile = Schemas['ImportProfileRead']
 export type WatchFolder = Schemas['WatchFolderRead']
 export type ScheduleEntry = Schemas['ScheduleEntryRead']
 export type LoanPayment = Schemas['LoanPaymentRead']
+export type Suggestion = Schemas['SuggestionRead']
+export type Change = Schemas['ChangeRead']
+export type FixedCostPayment = Schemas['FixedCostPaymentRead']
+export type MonthReserve = Schemas['MonthReserve']
 
 /** Bereiche des Caches – eine Änderung invalidiert alle Bereiche, die sie berühren kann. */
 export type Area =
   | 'accounts' | 'institutions' | 'categories' | 'transactions' | 'budget' | 'fixed-costs'
   | 'loans' | 'rules' | 'review' | 'imports' | 'import-profiles' | 'watch-folders' | 'reports'
+  | 'suggestions' | 'changes' | 'settings'
 
 /** Buchungen verändern Salden, Spielraum, Prüfliste, Berichte und Kredite. */
 export const MONEY_AREAS: Area[] = ['transactions', 'accounts', 'budget', 'review', 'reports', 'loans']
@@ -127,5 +132,28 @@ export const useAiStatus = () =>
   })
 export const useImportProfiles = () => useProfileQuery<ImportProfile[]>('import-profiles', '/import-profiles')
 export const useWatchFolders = () => useProfileQuery<WatchFolder[]>('watch-folders', '/watch-folders')
+
+// --- Vorschläge, Verlauf, Automatik --------------------------------------------
+
+/** Annehmen/Ablehnen/Rücknahme verändern Fixkosten, Spielraum, Verlauf und die Vorschlagsliste. */
+export const SUGGESTION_AREAS: Area[] = ['suggestions', 'changes', 'fixed-costs', 'budget', 'review', 'rules']
+
+export const useSuggestions = (query: Query) => useProfileQuery<Suggestion[]>('suggestions', '/suggestions', query)
+export const useSuggestionSummary = () =>
+  useProfileQuery<Record<string, number>>('suggestions', '/suggestions/summary')
+export interface SuggestionMetrics {
+  items: { kind: string; generator: string; counts: Record<string, number>; acceptance_rate: number | null; revert_rate: number | null }[]
+  reverted_changes: number
+}
+export const useSuggestionMetrics = () => useProfileQuery<SuggestionMetrics>('suggestions', '/suggestions/metrics')
+export const useChanges = (query: Query) => useProfileQuery<Change[]>('changes', '/changes', query)
+export const useFixedCostPayments = (fixedCostId: number | undefined) =>
+  useProfileQuery<FixedCostPayment[]>('fixed-costs', `/fixed-costs/${fixedCostId}/payments`, undefined, {
+    enabled: fixedCostId !== undefined,
+  })
+export function useProfileSettings() {
+  const { profile } = useProfile()
+  return useProfileQuery<Record<string, unknown>>('settings', `/users/${profile?.id ?? 0}/settings`)
+}
 
 export { useProfileQuery }

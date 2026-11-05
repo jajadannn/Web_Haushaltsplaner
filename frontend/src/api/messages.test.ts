@@ -14,6 +14,11 @@ describe('messageFor', () => {
   it('http_500 ignoriert Servertext', () => {
     expect(messageFor('http_500', 'x')).toBe(GENERIC_500)
   })
+  it('neue Codes haben einen deutschen Ersatztext', () => {
+    for (const code of ['suggestion_not_open', 'suggestion_stale', 'changed_since', 'payment_already_linked', 'due_month_already_paid', 'payment_not_linkable']) {
+      expect(messageFor(code)).not.toBe('Das hat nicht geklappt.')
+    }
+  })
   it('unbekannter Code ohne Text', () => {
     expect(messageFor('whatever')).toBe('Das hat nicht geklappt.')
   })

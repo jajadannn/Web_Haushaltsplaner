@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Schemas } from '../../api/client'
 import {
-  MONEY_AREAS, useAccounts, useAiStatus, useApiMutation, useCategories, useReview, useRules, useTransactions,
+  MONEY_AREAS, useAccounts, useAiStatus, useApiMutation, useCategories, useReview, useRules, useSuggestionSummary, useTransactions,
   type Category, type Transaction,
 } from '../../api/hooks'
 import { fullDate, shortDate } from '../../lib/dates'
@@ -48,6 +48,7 @@ export function ReviewPage() {
   const toast = useToast()
   const [status, setStatus] = useState<Status>('needs_review')
   const ai = useAiStatus()
+  const suggestionCount = useSuggestionSummary().data?.fixed_cost_new ?? 0
   const aiWorking = Boolean(ai.data?.enabled && ai.data.reachable && ai.data.pending > 0)
   // Solange die KI arbeitet, erscheinen ihre Vorschläge ohne Neuladen der Seite
   const review = useReview({ status, limit: PAGE }, { refetchInterval: aiWorking ? 15_000 : false })
@@ -133,6 +134,11 @@ export function ReviewPage() {
           ? total === 1 ? '1 Buchung braucht eine Kategorie' : `${total} Buchungen brauchen eine Kategorie`
           : `${total} automatisch zugeordnete Buchungen zum Bestätigen`}
       </p>
+      {suggestionCount > 0 && (
+        <Notice tone="info" icon="info" action={<Link to="/einstellungen/fixkosten" className="link">Ansehen</Link>}>
+          {suggestionCount === 1 ? '1 Vorschlag' : `${suggestionCount} Vorschläge`} für neue Fixkosten
+        </Notice>
+      )}
       <AiNotice status={ai.data} canRetry={status === 'needs_review' && items.some((i) => i.transaction.ai_note)}
         retrying={aiRetry.isPending}
         onRetry={() => aiRetry.mutate(undefined, {

@@ -1,23 +1,18 @@
 import { useState } from 'react'
 import { api } from '../../api/client'
-import { useApiMutation, useCategories, useFixedCosts, useTransactions, type Category, type FixedCost } from '../../api/hooks'
-import { fullDate, shiftMonth, todayISO } from '../../lib/dates'
+import { useAccounts, useApiMutation, useCategories, useFixedCosts, type Account, type Category, type FixedCost } from '../../api/hooks'
+import { fullDate } from '../../lib/dates'
 import { formatEuro } from '../../lib/money'
 import { fromCents, toCents } from '../../lib/moneyInput'
-import { Button, Checkbox, MoneyField, SelectField, TextField } from '../../ui/controls'
-import { EmptyState, ErrorBox, Loading } from '../../ui/blocks'
+import { Checkbox, MoneyField, SelectField, TextField } from '../../ui/controls'
 import { Confirm, useToast } from '../../ui/overlay'
 import { Icon } from '../../ui/Icon'
 import { iconForName } from '../../lib/icons'
 import { useFormErrors } from '../../ui/useFormErrors'
-import { filterCandidates, fixedCostCandidates, type Candidate, type ExistingFixedCost } from './fixedCostCandidates'
+import { DetectedFixedCosts } from './DetectedFixedCosts'
+import { FixedCostPayments } from './FixedCostPayments'
+import { INTERVAL_OPTIONS, intervalLabel } from './suggestions'
 import { FormActions, MasterDetail, Switch } from './MasterDetail'
-
-const INTERVAL_LABEL = {
-  quarterly: { badge: 'vierteljährlich', every: 'etwa alle drei Monate' },
-  semiannual: { badge: 'halbjährlich', every: 'etwa alle sechs Monate' },
-  yearly: { badge: 'jährlich', every: 'etwa einmal im Jahr' },
-} as const
 
 /**
  * Fixkosten – VORLAGE für alle Einstellungsbereiche:
@@ -29,6 +24,7 @@ const AREAS = ['fixed-costs', 'budget'] as const
 
 function subline(item: FixedCost, categories: Category[]): string {
   const parts = [categories.find((c) => c.id === item.category_id)?.name ?? 'ohne Kategorie']
+  if (item.interval_months > 1) parts.push(intervalLabel(item.interval_months))
   if (item.match_text) parts.push(`erkennt: ${item.match_text}`)
   if (item.end_date) parts.push(`endet ${fullDate(item.end_date)}`)
   else if (item.start_date) parts.push(`ab ${fullDate(item.start_date)}`)
@@ -38,6 +34,7 @@ function subline(item: FixedCost, categories: Category[]): string {
 export function FixedCostsSection() {
   const list = useFixedCosts()
   const categories = useCategories({ type: 'expense' })
+  const accounts = useAccounts()
   const toast = useToast()
   const toggle = useApiMutation(
     (item: FixedCost) => api.patch(`/fixed-costs/${item.id}`, { active: !item.active }),
@@ -45,12 +42,15 @@ export function FixedCostsSection() {
   )
 
   const active = (list.data ?? []).filter((f) => f.active)
-  const total = fromCents(active.reduce((sum, f) => sum + toCents(f.amount), 0n))
+  // Nur monatliche Fixkosten zählen im Spielraum; die übrigen erscheinen als Rücklage
+  const monthly = active.filter((f) => f.interval_months === 1)
+  const total = fromCents(monthly.reduce((sum, f) => sum + toCents(f.amount), 0n))
 
   return (
+    <>
     <MasterDetail<FixedCost>
       title="Fixkosten"
-      hint="Fixkosten werden jeden Monat eingeplant. Kreditraten kommen automatisch dazu."
+      hint="Monatliche Fixkosten werden jeden Monat eingeplant, Kreditraten kommen automatisch dazu. Vierteljährliche, halbjährliche und jährliche Kosten erscheinen als Rücklage."
       createLabel="Fixkost anlegen"
       items={list.data}
       isLoading={list.isLoading}
@@ -66,7 +66,7 @@ export function FixedCostsSection() {
             <span>{subline(item, categories.data ?? [])}</span>
           </span>
           <span className="settings-value money">{formatEuro(item.amount)}</span>
-          <span className="settings-day">am {item.due_day}.</span>
+          <span className="settings-day">{item.interval_months > 1 && item.first_due_date ? fullDate(item.first_due_date) : `am ${item.due_day}.`}</span>
           <span className={`settings-state${item.active ? ' is-on' : ''}`}>{item.active ? 'aktiv' : 'pausiert'}</span>
           <Switch
             checked={item.active}
@@ -76,25 +76,27 @@ export function FixedCostsSection() {
           />
         </>
       )}
-      footer={active.length > 0 && (
+      footer={monthly.length > 0 && (
         <div className="settings-total">
-          <span>Summe pro Monat</span>
+          <span>Summe pro Monat (monatliche)</span>
           <strong className="money">{formatEuro(total)}</strong>
         </div>
       )}
       renderForm={(item, done) => (
         <FixedCostForm key={item?.id ?? 'neu'} item={item} categories={categories.data ?? []} done={done}
-          existing={list.data ?? []} />
+          accounts={accounts.data ?? []} />
       )}
     />
+    <DetectedFixedCosts />
+    </>
   )
 }
 
-function FixedCostForm({ item, categories, done, existing }: {
+function FixedCostForm({ item, categories, accounts, done }: {
   item: FixedCost | null
   categories: Category[]
+  accounts: Account[]
   done: () => void
-  existing: ExistingFixedCost[]
 }) {
   const toast = useToast()
   const form = useFormErrors()
@@ -107,19 +109,9 @@ function FixedCostForm({ item, categories, done, existing }: {
   const [end, setEnd] = useState(item?.end_date ?? '')
   const [active, setActive] = useState(item?.active ?? true)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [picking, setPicking] = useState(false)
-  const [pickedFrom, setPickedFrom] = useState<Candidate | null>(null)
-
-  function pick(c: Candidate) {
-    setName(c.name)
-    // Fixkosten sind monatlich: bei Quartals-/Jahreszahlungen den Monatsanteil eintragen
-    setAmount(c.monthlyAmount)
-    setDueDay(String(c.dueDay))
-    setCategoryId(c.latest.category_id && categories.some((k) => k.id === c.latest.category_id) ? String(c.latest.category_id) : '')
-    setMatchText(c.matchText)
-    setPickedFrom(c)
-    setPicking(false)
-  }
+  const [interval, setIntervalValue] = useState(String(item?.interval_months ?? 1))
+  const [firstDue, setFirstDue] = useState(item?.first_due_date ?? '')
+  const [accountId, setAccountId] = useState(item?.account_id ? String(item.account_id) : '')
 
   const body = () => ({
     name: name.trim(),
@@ -130,6 +122,9 @@ function FixedCostForm({ item, categories, done, existing }: {
     start_date: start || null,
     end_date: end || null,
     active,
+    interval_months: Number(interval),
+    first_due_date: interval === '1' ? null : firstDue || null,
+    account_id: accountId ? Number(accountId) : null,
   })
   const save = useApiMutation(
     () => (item ? api.patch(`/fixed-costs/${item.id}`, body()) : api.post('/fixed-costs', body())),
@@ -141,6 +136,7 @@ function FixedCostForm({ item, categories, done, existing }: {
     const ok = form.check({
       name: !name.trim() && 'Bitte einen Namen eingeben',
       amount: !amount && 'Bitte einen Betrag eingeben',
+      first_due_date: interval !== '1' && !firstDue && 'Bitte die erste Fälligkeit angeben',
       match_text: matchText.trim().length === 1 && 'Mindestens 2 Zeichen',
       end_date: start && end && end < start && 'Ende liegt vor dem Beginn',
     })
@@ -156,38 +152,27 @@ function FixedCostForm({ item, categories, done, existing }: {
 
   return (
     <form className="settings-form-body" onSubmit={(e) => { e.preventDefault(); submit() }}>
-      {!item && (
-        picking ? (
-          <TransactionPicker existing={existing} categories={categories} onPick={pick} onClose={() => setPicking(false)} />
-        ) : (
-          <div className="pick-from">
-            <Button icon="list" onClick={() => setPicking(true)}>Aus Buchung übernehmen</Button>
-            {pickedFrom && <span className="muted">übernommen aus der Buchung vom {fullDate(pickedFrom.latest.booking_date)}</span>}
-            {pickedFrom && pickedFrom.interval !== 'monthly' && pickedFrom.interval !== 'irregular' && (
-              <span className="muted" role="note">
-                Die Zahlung ({formatEuro(pickedFrom.amount)}) kommt {INTERVAL_LABEL[pickedFrom.interval].every}.
-                Eingetragen ist der Monatsanteil {formatEuro(pickedFrom.monthlyAmount)} – bitte prüfen.
-              </span>
-            )}
-            {pickedFrom && pickedFrom.interval === 'irregular' && (
-              <span className="muted" role="note">
-                Der Rhythmus dieser Zahlung ist unklar. Bitte den Betrag als Monatsbetrag prüfen.
-              </span>
-            )}
-          </div>
-        )
-      )}
-      <TextField label="Name" value={name} onChange={setName} error={form.errors.name} maxLength={100} autoFocus={!item && !picking} />
+      <TextField label="Name" value={name} onChange={setName} error={form.errors.name} maxLength={100} autoFocus={!item} />
       <div className="form-grid">
-        <MoneyField label="Betrag" value={amount} onChange={setAmount} error={form.errors.amount} />
+        <MoneyField label={interval === '1' ? 'Betrag' : 'Betrag pro Zahlung'} value={amount} onChange={setAmount} error={form.errors.amount} />
         <SelectField label="Fälligkeitstag" value={dueDay} onChange={setDueDay} error={form.errors.due_day}
           options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `am ${i + 1}.` }))}
           hint={Number(dueDay) > 28 ? 'In kürzeren Monaten am letzten Tag' : undefined} />
+      </div>
+      <div className="form-grid">
+        <SelectField label="Rhythmus" value={interval} onChange={setIntervalValue} options={INTERVAL_OPTIONS} error={form.errors.interval_months} />
+        {interval !== '1' && (
+          <TextField label="Erste Fälligkeit" type="date" value={firstDue} onChange={setFirstDue} error={form.errors.first_due_date}
+            hint="Danach alle paar Monate am selben Tag." />
+        )}
       </div>
       <SelectField label="Kategorie" value={categoryId} onChange={setCategoryId} placeholder="ohne Kategorie"
         options={categories.filter((c) => c.active || String(c.id) === categoryId).map((c) => ({ value: String(c.id), label: c.name }))}
         error={form.errors.category_id}
         hint="Zahlungen in dieser Kategorie gelten als bezahlt." />
+      <SelectField label="Zahlkonto (optional)" value={accountId} onChange={setAccountId} placeholder="egal"
+        options={accounts.filter((a) => a.type !== 'loan' || String(a.id) === accountId).map((a) => ({ value: String(a.id), label: a.name }))}
+        error={form.errors.account_id} hint="Nur Zahlungen von diesem Konto gelten als bezahlt." />
       <TextField label="Erkennen an (Text in der Buchung)" value={matchText} onChange={setMatchText}
         placeholder="z. B. Stadtwerke" maxLength={100} error={form.errors.match_text}
         hint="Steht dieser Text im Empfänger oder Verwendungszweck, ist die Fixkost bezahlt." />
@@ -198,6 +183,7 @@ function FixedCostForm({ item, categories, done, existing }: {
       <Checkbox label="aktiv" checked={active} onChange={setActive} hint="Pausierte Fixkosten zählen nicht im Spielraum." />
       {form.formError && <p className="field-error" role="alert">{form.formError}</p>}
       <FormActions busy={save.isPending} onDelete={item ? () => setConfirmDelete(true) : undefined} saveLabel={item ? 'Speichern' : 'Anlegen'} />
+      {item && <FixedCostPayments fixedCostId={item.id} />}
       {item && (
         <Confirm
           open={confirmDelete}
@@ -213,57 +199,5 @@ function FixedCostForm({ item, categories, done, existing }: {
         />
       )}
     </form>
-  )
-}
-
-/** Auswahl aus den Ausgaben der letzten Monate – wiederkehrende Empfänger zuerst. */
-function TransactionPicker({ existing, categories, onPick, onClose }: {
-  existing: ExistingFixedCost[]
-  categories: Category[]
-  onPick: (c: Candidate) => void
-  onClose: () => void
-}) {
-  const [search, setSearch] = useState('')
-  const txs = useTransactions({ kind: 'regular', amount_max: '-0.01', date_from: shiftMonth(todayISO(), -4), limit: 200 })
-  const all = fixedCostCandidates(txs.data?.items ?? [], existing)
-  const shown = filterCandidates(all, search).slice(0, 40)
-  const categoryName = (id: number | null) => categories.find((c) => c.id === id)?.name
-
-  return (
-    <div className="tx-picker" role="group" aria-label="Fixkost aus Buchung übernehmen">
-      <div className="tx-picker-head">
-        <TextField label="Buchung suchen" value={search} onChange={setSearch} placeholder="z. B. Stadtwerke, Netflix" autoFocus />
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Auswahl schließen"><Icon name="close" /></button>
-      </div>
-      {txs.isLoading && <Loading />}
-      {txs.isError && <ErrorBox error={txs.error} onRetry={() => txs.refetch()} />}
-      {txs.isSuccess && shown.length === 0 && (
-        <EmptyState icon="search" title="Keine passende Buchung">
-          {search ? 'Anderen Suchbegriff versuchen.' : 'In den letzten vier Monaten gibt es keine Ausgaben, die nicht schon als Fixkost erfasst sind.'}
-        </EmptyState>
-      )}
-      {shown.length > 0 && (
-        <ul className="tx-picker-list">
-          {shown.map((c) => (
-            <li key={c.key}>
-              <button type="button" className="tx-picker-row" onClick={() => onPick(c)}>
-                <span className="tx-picker-top">
-                  <strong>{c.name}</strong>
-                  <span className="money">{formatEuro(c.amount)}</span>
-                </span>
-                <span className="tx-picker-sub">
-                  {c.monthly && <span className="tx-picker-monthly">monatlich</span>}
-                  {c.interval !== 'monthly' && c.interval !== 'irregular' && (
-                    <span className="tx-picker-monthly">{INTERVAL_LABEL[c.interval].badge} · {formatEuro(c.monthlyAmount)} / Monat</span>
-                  )}
-                  am {c.dueDay}. · {categoryName(c.latest.category_id) ?? 'ohne Kategorie'}
-                  {c.months >= 2 ? ` · in ${c.months} Monaten` : ` · zuletzt ${fullDate(c.latest.booking_date)}`}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   )
 }
